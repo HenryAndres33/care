@@ -309,10 +309,14 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
         """
         # TODO : Create a periodic task to reset the system availability
         # This will ensure that all edge cases are handled ( Every 12 hours )
-        active_location_encounter = FacilityLocationEncounter.objects.filter(
-            location=location,
-            status=LocationEncounterAvailabilityStatusChoices.active.value,
-        ).first()
+        active_location_encounter = (
+            FacilityLocationEncounter.objects.filter(
+                location=location,
+                status=LocationEncounterAvailabilityStatusChoices.active.value,
+            )
+            .exclude(encounter__status__in=COMPLETED_CHOICES)
+            .first()
+        )
         all_encounters = Encounter.objects.filter(current_location=location)
         if active_location_encounter:
             active_location_encounter.encounter.current_location = location
@@ -361,28 +365,71 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
             raise PermissionDenied("You do not have permission to update encounter")
 
     def perform_create(self, instance):
-        location = self.get_location_obj()
-        with transaction.atomic(), Lock(f"facility_location:{location.id}"):
-            instance.location = location
-            self._validate_data(instance)
-            super().perform_create(instance)
-            self.reset_encounter_location_association(location)
+        location_reference = self.get_location_obj()
+        with transaction.atomic():
+            encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
+                of=("self",)
+            ).get(pk=instance.encounter_id)
+            if encounter.status in COMPLETED_CHOICES:
+                raise ValidationError(
+                    "Cannot associate a location to a terminal encounter"
+                )
+            instance.encounter = encounter
+            self.authorize_create(instance)
+            with Lock(f"facility_location:{location_reference.id}"):
+                location = FacilityLocation._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                ).get(pk=location_reference.pk)
+                instance.location = location
+                self._validate_data(instance)
+                super().perform_create(instance)
+                self.reset_encounter_location_association(location)
 
     def perform_update(self, instance):
-        location = instance.location
-        with transaction.atomic(), Lock(f"facility_location:{location.id}"):
-            # Keep in mind that instance here is an ORM instance and not pydantic
-            self._validate_data(instance, self.get_object())
-            super().perform_update(instance)
-            self.reset_encounter_location_association(location)
+        location_reference = instance.location
+        with transaction.atomic():
+            encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
+                of=("self",)
+            ).get(pk=instance.encounter_id)
+            if encounter.status in COMPLETED_CHOICES:
+                raise ValidationError(
+                    "Cannot associate a location to a terminal encounter"
+                )
+            instance.encounter = encounter
+            self.authorize_update({}, instance)
+            with Lock(f"facility_location:{location_reference.id}"):
+                location = FacilityLocation._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                ).get(pk=location_reference.pk)
+                instance.location = location
+                # Keep in mind that instance here is an ORM instance and not pydantic
+                self._validate_data(instance, self.get_object())
+                super().perform_update(instance)
+                self.reset_encounter_location_association(location)
 
     def perform_destroy(self, instance):
-        location = instance.location
-        with transaction.atomic(), Lock(f"facility_location:{location.id}"):
-            instance.deleted = True
-            instance.updated_by = self.request.user
-            instance.save(update_fields=["deleted", "updated_by", "modified_date"])
-            self.reset_encounter_location_association(instance.location)
+        location_reference = instance.location
+        with transaction.atomic():
+            encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
+                of=("self",)
+            ).get(pk=instance.encounter_id)
+            instance.encounter = encounter
+            self.authorize_destroy(instance)
+            with Lock(f"facility_location:{location_reference.id}"):
+                location = FacilityLocation._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                ).get(pk=location_reference.pk)
+                authoritative = (
+                    FacilityLocationEncounter._base_manager.select_for_update(  # noqa: SLF001
+                        of=("self",)
+                    ).get(pk=instance.pk)
+                )
+                authoritative.deleted = True
+                authoritative.updated_by = self.request.user
+                authoritative.save(
+                    update_fields=["deleted", "updated_by", "modified_date"]
+                )
+                self.reset_encounter_location_association(location)
 
     def _validate_data(self, instance, model_obj=None):  # noqa PLR0912
         """
@@ -400,6 +447,8 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
             encounter = instance.encounter
             if not isinstance(instance.encounter, Encounter):
                 encounter = get_object_or_404(Encounter, external_id=encounter)
+        if encounter.status in COMPLETED_CHOICES:
+            raise ValidationError("Cannot associate a location to a terminal encounter")
         if model_obj:
             # Validate if the current dates are not in conflict with other dates
             base_qs = base_qs.exclude(id=model_obj.id)

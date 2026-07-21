@@ -36,19 +36,45 @@ if READ_DOT_ENV_FILE := env.bool("DJANGO_READ_DOT_ENV_FILE", default=False):
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
+INSECURE_DEFAULT_SECRET_KEY = (
+    "eXZQzOzx8gV38rDG0Z0fFZWweUGl3LwMZ9aTKqJiXQTI0nKMh0Z7sbHfqT8KFEnd"
+)
 SECRET_KEY = env(
     "DJANGO_SECRET_KEY",
-    default="eXZQzOzx8gV38rDG0Z0fFZWweUGl3LwMZ9aTKqJiXQTI0nKMh0Z7sbHfqT8KFEnd",
+    default=INSECURE_DEFAULT_SECRET_KEY,
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = env.json("DJANGO_ALLOWED_HOSTS", default=["*"])
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
+
+# External correspondence transport remains fail-closed until a production adapter
+# is explicitly implemented, reviewed, and enabled by a deployment.
+CORRESPONDENCE_SYNTHETIC_DELIVERY_ENABLED = False
+CORRESPONDENCE_DISPATCH_STALE_SECONDS = 300
+# Irreversible real-life workflow mutations are enabled per facility only.
+# Production deployments must provide explicit facility UUIDs; local/test may use
+# the wildcard for deterministic development fixtures.
+CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES = env.json(
+    "CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES",
+    default=[],
+)
+CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = env.json(
+    "CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES",
+    default=[],
+)
+# Department keys may be stable external UUIDs or normalized department names.
+# Each configured close workflow currently binds exactly one required questionnaire
+# series; deployments can replace this map without diagnosis-specific backend code.
+CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = env.json(
+    "CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT",
+    default={"urology": ["urology-medisch-dossier"]},
+)
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
 # In Windows, this must be set to your system time zone.
-TIME_ZONE = "Asia/Kolkata"
+TIME_ZONE = env("DJANGO_TIME_ZONE", default="America/Paramaribo")
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
 LANGUAGE_CODE = "en-us"
 # https://docs.djangoproject.com/en/dev/ref/settings/#site-id
@@ -416,7 +442,7 @@ SIMPLE_JWT = {
 # https://docs.celeryq.dev/en/latest/userguide/configuration.html#std:setting-timezone
 if USE_TZ:
     # https://docs.celeryq.dev/en/latest/userguide/configuration.html#std:setting-timezone
-    CELERY_TIMEZONE = TIME_ZONE
+    CELERY_TIMEZONE = "UTC"
 # https://docs.celeryq.dev/en/latest/userguide/configuration.html#std:setting-broker_url
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL)
 # https://docs.celeryq.dev/en/latest/userguide/configuration.html#std:setting-result_backend
@@ -469,6 +495,20 @@ HEALTHY_DJANGO = [
 # Audit logs
 # ------------------------------------------------------------------------------
 AUDIT_LOG_ENABLED = env.bool("AUDIT_LOG_ENABLED", default=False)
+# These models already have immutable, queryable domain command/event ledgers.
+# Excluding them from the generic value-diff logger prevents clinical values from
+# being copied to console/Sentry when generic audit logging is enabled.
+AUDIT_LOG_DOMAIN_LEDGER_MODELS = [
+    "emr.FormSubmission",
+    "emr.FormSubmissionCommand",
+    "emr.FormSubmissionArtifactCommand",
+    "emr.QuestionnaireResponse",
+    "emr.MedicationRequest",
+    "emr.ReportUpload",
+    "glob:emr.Correspondence*",
+    "glob:emr.ConsultClosure*",
+]
+AUDIT_LOG_DOMAIN_LEDGER_MODE = True
 AUDIT_LOG = {
     "globals": {
         "exclude": {

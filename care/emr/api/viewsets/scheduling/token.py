@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import OrderingFilter
+from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRModelViewSet
 from care.emr.models.scheduling.token import Token, TokenQueue, TokenSubQueue
@@ -21,6 +22,12 @@ from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.filters.null_filter import NullFilter
 from care.utils.lock import Lock
 from care.utils.shortcuts import get_object_or_404
+
+TERMINAL_TOKEN_STATUSES = {
+    TokenStatusOptions.FULFILLED.value,
+    TokenStatusOptions.CANCELLED.value,
+    TokenStatusOptions.ENTERED_IN_ERROR.value,
+}
 
 
 class SetCurrentTokenRequest(BaseModel):
@@ -78,6 +85,12 @@ class TokenViewSet(EMRModelViewSet):
             super().perform_create(instance)
 
     def validate_data(self, instance, model_obj=None):
+        if model_obj is not None and model_obj.status in TERMINAL_TOKEN_STATUSES:
+            raise ValidationError("Terminal tokens are immutable")
+        if model_obj is not None and instance.status in TERMINAL_TOKEN_STATUSES:
+            raise ValidationError(
+                "Terminal token transitions require an orchestrated workflow"
+            )
         if (
             model_obj
             and instance.sub_queue
@@ -91,6 +104,17 @@ class TokenViewSet(EMRModelViewSet):
                 raise ValidationError("Sub Queue already has a current token")
 
         return super().validate_data(instance, model_obj)
+
+    def update(self, request, *args, **kwargs):
+        """Lock the authoritative token before validating an ordinary update."""
+        with transaction.atomic():
+            instance = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                external_id=self.kwargs["external_id"],
+            )
+            if instance.status in TERMINAL_TOKEN_STATUSES:
+                raise ValidationError("Terminal tokens are immutable")
+            return Response(self.handle_update(instance, request.data))
 
     def perform_update(self, instance):
         if instance.sub_queue and instance.sub_queue.facility != instance.facility:
@@ -112,12 +136,20 @@ class TokenViewSet(EMRModelViewSet):
             super().perform_update(instance)
 
     def perform_destroy(self, instance):
-        instance.status = TokenStatusOptions.ENTERED_IN_ERROR.value
-        instance.deleted = True
-        instance.updated_by = self.request.user
-        instance.save(
-            update_fields=["status", "deleted", "updated_by", "modified_date"]
-        )
+        with transaction.atomic():
+            instance = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                pk=instance.pk,
+            )
+            self.authorize_update({}, instance)
+            if instance.status in TERMINAL_TOKEN_STATUSES:
+                raise ValidationError("Terminal tokens are immutable")
+            instance.status = TokenStatusOptions.ENTERED_IN_ERROR.value
+            instance.deleted = True
+            instance.updated_by = self.request.user
+            instance.save(
+                update_fields=["status", "deleted", "updated_by", "modified_date"]
+            )
 
     def authorize_create(self, instance):
         _, queue = self.get_queue_obj()
@@ -133,7 +165,7 @@ class TokenViewSet(EMRModelViewSet):
         self.authorize_create(model_instance)
 
     def authorize_destroy(self, instance):
-        self.authorize_destroy(instance)
+        self.authorize_update({}, instance)
 
     def authorize_retrieve(self, model_instance):
         _, queue = self.get_queue_obj()
@@ -167,13 +199,18 @@ class TokenViewSet(EMRModelViewSet):
 
     @action(detail=True, methods=["POST"])
     def set_next(self, request, *args, **kwargs):
-        obj = self.get_object()
         request_obj = SetCurrentTokenRequest(**request.data)
-        queue = obj.queue
-        self.authorize_update(None, None)
         with transaction.atomic():
+            obj = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                external_id=self.kwargs["external_id"],
+            )
+            self.authorize_update({}, obj)
+            if obj.status in TERMINAL_TOKEN_STATUSES:
+                raise ValidationError("Terminal tokens are immutable")
+            queue = obj.queue
             sub_queue = get_object_or_404(
-                TokenSubQueue,
+                TokenSubQueue.objects.select_for_update(of=("self",)),
                 external_id=request_obj.sub_queue,
                 resource=queue.resource,
             )

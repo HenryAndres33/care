@@ -207,6 +207,29 @@ class CreatePrescription(BaseModel):
     alternate_identifier: str
 
 
+def resolve_created_prescription(create_prescription, medication_request):
+    prescription_obj = MedicationRequestPrescription.objects.filter(
+        alternate_identifier=create_prescription.alternate_identifier,
+        encounter=medication_request.encounter,
+    ).first()
+    if (
+        prescription_obj
+        and prescription_obj.status != MedicationRequestPrescriptionStatus.active
+    ):
+        raise ValidationError("Prescription is not active")
+    if not prescription_obj:
+        prescription_obj = MedicationRequestPrescription.objects.create(
+            status=MedicationRequestPrescriptionStatus.active,
+            alternate_identifier=create_prescription.alternate_identifier,
+            encounter=medication_request.encounter,
+            patient=medication_request.patient,
+            name=create_prescription.name,
+            note=create_prescription.note,
+            prescribed_by=medication_request.requester,
+        )
+    return prescription_obj
+
+
 class MedicationRequestSpec(BaseMedicationRequestSpec):
     requester: UUID4 | None = None
     requested_product: UUID4 | None = None
@@ -261,27 +284,9 @@ class MedicationRequestSpec(BaseMedicationRequestSpec):
                 encounter=obj.encounter,
             )
         if self.create_prescription:
-            prescription_obj = MedicationRequestPrescription.objects.filter(
-                alternate_identifier=self.create_prescription.alternate_identifier,
-                encounter=obj.encounter,
-            ).first()
-            if (
-                prescription_obj
-                and prescription_obj.status
-                != MedicationRequestPrescriptionStatus.active
-            ):
-                raise ValidationError("Prescription is not active")
-            if not prescription_obj:
-                prescription_obj = MedicationRequestPrescription.objects.create(
-                    status=MedicationRequestPrescriptionStatus.active,
-                    alternate_identifier=self.create_prescription.alternate_identifier,
-                    encounter=obj.encounter,
-                    patient=obj.patient,
-                    name=self.create_prescription.name,
-                    note=self.create_prescription.note,
-                    prescribed_by=obj.requester,
-                )
-            obj.prescription = prescription_obj
+            obj.prescription = resolve_created_prescription(
+                self.create_prescription, obj
+            )
 
 
 class MedicationRequestUpdateSpec(MedicationRequestResource):

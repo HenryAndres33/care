@@ -5,6 +5,8 @@ from django.utils import timezone
 
 from care.emr.models.base import EMRBaseModel
 
+MEDICATION_REQUEST_IDEMPOTENCY_CONSTRAINT = "medreq_client_request_id_uniq"
+
 
 class MedicationRequestPrescription(EMRBaseModel):
     encounter = models.ForeignKey("emr.Encounter", on_delete=models.CASCADE)
@@ -29,6 +31,8 @@ class MedicationRequestPrescription(EMRBaseModel):
 
 
 class MedicationRequest(EMRBaseModel):
+    IDEMPOTENCY_CONSTRAINT_NAME = MEDICATION_REQUEST_IDEMPOTENCY_CONSTRAINT
+
     status = models.CharField(max_length=100, null=True, blank=True)
     status_reason = models.CharField(max_length=100, null=True, blank=True)
     intent = models.CharField(max_length=100, null=True, blank=True)
@@ -62,3 +66,26 @@ class MedicationRequest(EMRBaseModel):
         blank=True,
         default=None,
     )
+    client_request_id = models.UUIDField(null=True, blank=True)
+    client_request_payload_hash = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["client_request_id"],
+                name=MEDICATION_REQUEST_IDEMPOTENCY_CONSTRAINT,
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        client_request_id__isnull=True,
+                        client_request_payload_hash__isnull=True,
+                    )
+                    | models.Q(
+                        client_request_id__isnull=False,
+                        client_request_payload_hash__isnull=False,
+                    )
+                ),
+                name="medreq_client_id_hash_pair_ck",
+            ),
+        ]

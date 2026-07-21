@@ -3,6 +3,8 @@ printf "celery" > /tmp/container-role
 
 set -euo pipefail
 
+export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.local}"
+
 ./scripts/wait_for_db.sh
 ./scripts/wait_for_redis.sh
 

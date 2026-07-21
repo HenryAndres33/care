@@ -36,6 +36,7 @@ from care.emr.resources.charge_item.spec import ChargeItemStatusOptions
 from care.emr.resources.scheduling.schedule.spec import SchedulableResourceTypeOptions
 from care.emr.resources.scheduling.slot.spec import (
     CANCELLED_STATUS_CHOICES,
+    COMPLETED_STATUS_CHOICES,
     BookingStatusChoices,
     TokenBookingReadSpec,
     TokenBookingRetrieveSpec,
@@ -110,6 +111,26 @@ class TokenBookingViewSet(
 
     resource_type = TagResource.token_booking
 
+    def update(self, request, *args, **kwargs):
+        """Lock the authoritative booking before validating an ordinary update."""
+        with transaction.atomic():
+            instance = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                external_id=self.kwargs["external_id"],
+            )
+            if instance.status in COMPLETED_STATUS_CHOICES:
+                raise ValidationError("Terminal bookings are immutable")
+            return Response(self.handle_update(instance, request.data))
+
+    def validate_data(self, instance, model_obj=None):
+        if model_obj is not None and model_obj.status in COMPLETED_STATUS_CHOICES:
+            raise ValidationError("Terminal bookings are immutable")
+        if model_obj is not None and instance.status in COMPLETED_STATUS_CHOICES:
+            raise ValidationError(
+                "Terminal booking transitions require an orchestrated workflow"
+            )
+        return super().validate_data(instance, model_obj)
+
     def get_facility_obj(self):
         return get_object_or_404(
             Facility, external_id=self.kwargs["facility_external_id"]
@@ -179,9 +200,28 @@ class TokenBookingViewSet(
     @classmethod
     def cancel_appointment_handler(cls, instance, request_data, user):
         request_data = CancelBookingSpec(**request_data)
-        if instance.status == BookingStatusChoices.in_consultation:
-            raise ValidationError("You cannot cancel an appointment In-Consultation")
         with transaction.atomic():
+            instance = (
+                TokenBooking.objects.select_for_update(of=("self",))
+                .select_related("token_slot__resource", "charge_item")
+                .get(pk=instance.pk)
+            )
+            if not AuthorizationController.call(
+                "can_write_booking",
+                instance.token_slot.resource,
+                user,
+            ):
+                raise PermissionDenied("You do not have permission to update bookings")
+            if instance.status in COMPLETED_STATUS_CHOICES:
+                raise ValidationError("Terminal bookings are immutable")
+            if instance.status == BookingStatusChoices.in_consultation:
+                raise ValidationError(
+                    "You cannot cancel an appointment In-Consultation"
+                )
+            slot = TokenSlot.objects.select_for_update(of=("self",)).get(
+                pk=instance.token_slot_id
+            )
+            instance.token_slot = slot
             if instance.status not in CANCELLED_STATUS_CHOICES:
                 # Free up the slot if it is not cancelled already
                 instance.token_slot.allocated -= 1
@@ -288,58 +328,67 @@ class TokenBookingViewSet(
     )
     @action(detail=True, methods=["POST"])
     def generate_token(self, request, *args, **kwargs):
-        booking = self.get_object()
-        self.authorize_update({}, booking)
         request_data = TokenGenerationSpec(**request.data)
-        if booking.token:
-            raise ValidationError("Token already generated")
-        # slot may start at 1:00 IST (19:30 UTC of previous date), hence
-        # making it tz naive and adding 1 second to ensure correct date extraction
-        token_date = timezone.make_naive(
-            booking.token_slot.start_datetime + timedelta(seconds=1)
-        ).date()
-        filters = {
-            "facility": booking.token_slot.resource.facility,
-            "resource": booking.token_slot.resource,
-            "date": token_date,
-        }
-        if request_data.queue:
-            queue = TokenQueue.objects.filter(
-                external_id=request_data.queue, **filters
-            ).first()
-            if not queue:
-                raise ValidationError("Queue not found")
-        else:
-            queue_exists = TokenQueue.objects.filter(**filters).exists()
-            filters["system_generated"] = True
-            queue = TokenQueue.objects.filter(**filters).first()
-            if not queue:
-                filters["name"] = "System Generated"
-                if not queue_exists:
-                    filters["is_primary"] = True
-                queue = TokenQueue.objects.create(**filters)
-        category = TokenCategory.objects.filter(
-            facility=booking.token_slot.resource.facility,
-            resource_type=booking.token_slot.resource.resource_type,
-            external_id=request_data.category,
-        ).first()
-        if not category:
-            raise ValidationError("Category not found")
-        note = request_data.note
-        with Lock(f"booking:token:{queue.id}"), transaction.atomic():
-            number = Token.objects.filter(queue=queue, category=category).count() + 1
-            token = Token.objects.create(
-                facility=booking.token_slot.resource.facility,
-                queue=queue,
-                category=category,
-                number=number,
-                status=TokenStatusOptions.CREATED.value,
-                note=note,
-                booking=booking,
-                patient=booking.patient,
+        reference = self.get_object()
+        with Lock(f"booking:token:booking:{reference.id}"), transaction.atomic():
+            booking = (
+                self.get_queryset()
+                .select_for_update(of=("self",))
+                .select_related("token_slot__resource__facility", "patient")
+                .get(pk=reference.pk)
             )
-            booking.token = token
-            booking.save(update_fields=["token", "modified_date"])
+            self.authorize_update({}, booking)
+            if booking.status in COMPLETED_STATUS_CHOICES:
+                raise ValidationError("Terminal bookings are immutable")
+            if booking.token:
+                raise ValidationError("Token already generated")
+            # A slot may start at 01:00 local time (UTC on the prior date).
+            token_date = timezone.make_naive(
+                booking.token_slot.start_datetime + timedelta(seconds=1)
+            ).date()
+            filters = {
+                "facility": booking.token_slot.resource.facility,
+                "resource": booking.token_slot.resource,
+                "date": token_date,
+            }
+            if request_data.queue:
+                queue = TokenQueue.objects.filter(
+                    external_id=request_data.queue, **filters
+                ).first()
+                if not queue:
+                    raise ValidationError("Queue not found")
+            else:
+                queue_exists = TokenQueue.objects.filter(**filters).exists()
+                filters["system_generated"] = True
+                queue = TokenQueue.objects.filter(**filters).first()
+                if not queue:
+                    filters["name"] = "System Generated"
+                    if not queue_exists:
+                        filters["is_primary"] = True
+                    queue = TokenQueue.objects.create(**filters)
+            category = TokenCategory.objects.filter(
+                facility=booking.token_slot.resource.facility,
+                resource_type=booking.token_slot.resource.resource_type,
+                external_id=request_data.category,
+            ).first()
+            if not category:
+                raise ValidationError("Category not found")
+            with Lock(f"booking:token:{queue.id}"):
+                number = (
+                    Token.objects.filter(queue=queue, category=category).count() + 1
+                )
+                token = Token.objects.create(
+                    facility=booking.token_slot.resource.facility,
+                    queue=queue,
+                    category=category,
+                    number=number,
+                    status=TokenStatusOptions.CREATED.value,
+                    note=request_data.note,
+                    booking=booking,
+                    patient=booking.patient,
+                )
+                booking.token = token
+                booking.save(update_fields=["token", "modified_date"])
         return Response(TokenReadSpec.serialize(token).to_json())
 
 

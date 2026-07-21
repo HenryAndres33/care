@@ -329,6 +329,130 @@ class TestPatientViewSet(CareAPITestBase):
         partial_ids = [r["partial_id"] for r in results]
         self.assertIn(str(patient_data["id"])[:5], partial_ids)
 
+    def test_list_filter_by_name_and_date_of_birth(self):
+        superuser = self.create_super_user()
+        self.client.force_authenticate(user=superuser)
+        geo_organization = self.create_organization(org_type="govt")
+        date_of_birth = datetime.date(1984, 6, 12)
+        patient_data = self.generate_patient_data(
+            geo_organization=geo_organization.external_id,
+            name="Rafaelina Appointment Test",
+            date_of_birth=date_of_birth,
+        )
+        PatientCreateLock().release()
+        create_response = self.client.post(
+            self.base_url,
+            patient_data,
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_200_OK)
+
+        secretary = self.create_user()
+        secretary_role = self.create_role_with_permissions(
+            permissions=[PatientPermissions.can_list_patients.name]
+        )
+        self.attach_role_organization_user(
+            geo_organization,
+            secretary,
+            secretary_role,
+        )
+        self.client.force_authenticate(user=secretary)
+
+        response = self.client.get(
+            self.base_url,
+            {
+                "name": "rafaelina",
+                "date_of_birth": date_of_birth.isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        result_ids = [result["id"] for result in response.data["results"]]
+        self.assertIn(create_response.data["id"], result_ids)
+
+    def test_directory_search_for_facility_secretary(self):
+        creator = self.create_user()
+        facility = self.create_facility(creator)
+        facility_organization = self.create_facility_organization(
+            facility,
+            org_type="root",
+        )
+        secretary = self.create_user()
+        secretary_role = self.create_role_with_permissions(
+            permissions=[PatientPermissions.can_list_patients.name]
+        )
+        self.attach_role_facility_organization_user(
+            facility_organization,
+            secretary,
+            secretary_role,
+        )
+        matching_patient = self.create_patient(
+            name="Henry Directory Test",
+            date_of_birth=datetime.date(1992, 1, 9),
+        )
+        self.create_patient(name="Unrelated Patient")
+        self.client.force_authenticate(user=secretary)
+
+        response = self.client.get(
+            reverse("patient-directory"),
+            {
+                "facility": str(facility.external_id),
+                "name": "henry",
+                "date_of_birth": "1992-01-09",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(
+            response.data["results"][0]["id"],
+            str(matching_patient.external_id),
+        )
+        self.assertEqual(
+            set(response.data["results"][0]),
+            {
+                "id",
+                "name",
+                "gender",
+                "phone_number",
+                "date_of_birth",
+                "year_of_birth",
+            },
+        )
+
+    def test_directory_search_rejects_user_outside_facility(self):
+        creator = self.create_user()
+        facility = self.create_facility(creator)
+        unrelated_user = self.create_user()
+        self.client.force_authenticate(user=unrelated_user)
+
+        response = self.client.get(
+            reverse("patient-directory"),
+            {
+                "facility": str(facility.external_id),
+                "name": "patient",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_directory_search_requires_meaningful_criteria(self):
+        superuser = self.create_super_user()
+        facility = self.create_facility(superuser)
+        self.client.force_authenticate(user=superuser)
+
+        empty_response = self.client.get(
+            reverse("patient-directory"),
+            {"facility": str(facility.external_id)},
+        )
+        short_name_response = self.client.get(
+            reverse("patient-directory"),
+            {"facility": str(facility.external_id), "name": "h"},
+        )
+
+        self.assertEqual(empty_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(short_name_response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_search_without_phone_or_config(self):
         user = self.create_user()
         self.client.force_authenticate(user=user)

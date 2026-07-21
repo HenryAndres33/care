@@ -1,6 +1,7 @@
 import uuid
 
 from django.urls import reverse
+from django.utils import timezone
 from model_bakery import baker
 
 from care.emr.models.questionnaire import FormSubmission, Questionnaire
@@ -47,6 +48,10 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         if encounter:
             data["encounter"] = encounter
         data.update(kwargs)
+        if data["status"] == FormSubmissionStatusChoices.submitted.value:
+            data.setdefault("workflow_finalized_at", timezone.now())
+            data.setdefault("workflow_finalized_by", self.user)
+            data.setdefault("finalized_snapshot_hash", "a" * 64)
         return baker.make(FormSubmission, **data)
 
     def _generate_create_data(self, encounter=None, patient=None, **kwargs):
@@ -133,6 +138,7 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         results = response.json()["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["id"], str(submission.external_id))
+        self.assertEqual(results[0]["resource_version"], 1)
 
     def test_list_filtered_by_encounter_returns_only_matching(self):
         self._grant_encounter_submit_permission()
@@ -206,12 +212,27 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         self.assertEqual(
             response.json()["status"], FormSubmissionStatusChoices.draft.value
         )
+        self.assertEqual(response.json()["resource_version"], 1)
 
     def test_create_with_encounter_permissions(self):
         self._grant_encounter_submit_permission()
         data = self._generate_create_data(encounter=self.encounter)
         response = self.client.post(self.base_url, data, format="json")
         self.assertEqual(response.status_code, 200)
+
+    def test_create_honors_client_owned_form_instance_id(self):
+        self._grant_encounter_submit_permission()
+        form_instance_id = uuid.uuid4()
+        data = self._generate_create_data(
+            encounter=self.encounter,
+            id=str(form_instance_id),
+        )
+        response = self.client.post(self.base_url, data, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["id"], str(form_instance_id))
+        self.assertTrue(
+            FormSubmission.objects.filter(external_id=form_instance_id).exists()
+        )
 
     def test_create_without_permissions(self):
         data = self._generate_create_data()
@@ -224,16 +245,14 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         response = self.client.post(self.base_url, data, format="json")
         self.assertEqual(response.status_code, 403)
 
-    def test_create_with_encounter_sets_patient_from_encounter(self):
+    def test_create_with_encounter_rejects_mismatched_patient(self):
         self._grant_encounter_submit_permission()
         other_patient = self.create_patient()
         data = self._generate_create_data(
             encounter=self.encounter, patient=other_patient
         )
         response = self.client.post(self.base_url, data, format="json")
-        self.assertEqual(response.status_code, 200)
-        submission = FormSubmission.objects.order_by("-id").first()
-        self.assertEqual(submission.patient, self.encounter.patient)
+        self.assertEqual(response.status_code, 404)
 
     def test_create_with_completed_encounter(self):
         self._grant_encounter_submit_permission()
@@ -276,6 +295,14 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["response_dump"], response_dump)
 
+    def test_legacy_create_cannot_create_submitted_form(self):
+        self._grant_patient_submit_permission()
+        data = self._generate_create_data(
+            status=FormSubmissionStatusChoices.submitted.value
+        )
+        response = self.client.post(self.base_url, data, format="json")
+        self.assertEqual(response.status_code, 400)
+
     # ── RETRIEVE ─────────────────────────────────────────────────────────
 
     def test_retrieve_with_encounter_permissions(self):
@@ -312,23 +339,26 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         submission = self._create_form_submission(encounter=self.encounter)
         url = self._get_detail_url(submission.external_id)
         update_data = {
-            "status": FormSubmissionStatusChoices.submitted.value,
+            "status": FormSubmissionStatusChoices.draft.value,
             "response_dump": {"updated": True},
+            "expected_version": 1,
         }
         response = self.client.put(url, update_data, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.json()["status"], FormSubmissionStatusChoices.submitted.value
+            response.json()["status"], FormSubmissionStatusChoices.draft.value
         )
         self.assertEqual(response.json()["response_dump"], {"updated": True})
+        self.assertEqual(response.json()["resource_version"], 2)
 
     def test_update_with_patient_permissions(self):
         self._grant_patient_submit_permission()
         submission = self._create_form_submission()
         url = self._get_detail_url(submission.external_id)
         update_data = {
-            "status": FormSubmissionStatusChoices.submitted.value,
+            "status": FormSubmissionStatusChoices.draft.value,
             "response_dump": {"updated": True},
+            "expected_version": 1,
         }
         response = self.client.put(url, update_data, format="json")
         self.assertEqual(response.status_code, 200)
@@ -337,8 +367,9 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         submission = self._create_form_submission(encounter=self.encounter)
         url = self._get_detail_url(submission.external_id)
         update_data = {
-            "status": FormSubmissionStatusChoices.submitted.value,
+            "status": FormSubmissionStatusChoices.draft.value,
             "response_dump": {},
+            "expected_version": 1,
         }
         response = self.client.put(url, update_data, format="json")
         self.assertEqual(response.status_code, 403)
@@ -354,19 +385,21 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         submission = self._create_form_submission(encounter=completed_encounter)
         url = self._get_detail_url(submission.external_id)
         update_data = {
-            "status": FormSubmissionStatusChoices.submitted.value,
+            "status": FormSubmissionStatusChoices.draft.value,
             "response_dump": {},
+            "expected_version": 1,
         }
         response = self.client.put(url, update_data, format="json")
         self.assertEqual(response.status_code, 403)
 
-    def test_update_to_entered_in_error(self):
+    def test_legacy_update_can_discard_active_draft_with_expected_version(self):
         self._grant_encounter_submit_permission()
         submission = self._create_form_submission(encounter=self.encounter)
         url = self._get_detail_url(submission.external_id)
         update_data = {
             "status": FormSubmissionStatusChoices.entered_in_error.value,
-            "response_dump": {},
+            "response_dump": {"client": "copy"},
+            "expected_version": 1,
         }
         response = self.client.put(url, update_data, format="json")
         self.assertEqual(response.status_code, 200)
@@ -374,6 +407,8 @@ class TestFormSubmissionViewSet(CareAPITestBase):
             response.json()["status"],
             FormSubmissionStatusChoices.entered_in_error.value,
         )
+        self.assertEqual(response.json()["resource_version"], 2)
+        self.assertEqual(response.json()["response_dump"], {"key": "value"})
 
     # ── DELETE (unsupported) ─────────────────────────────────────────────
 

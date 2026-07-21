@@ -38,6 +38,8 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 # ------------------------------------------------------------------------------
 
 DATABASES = {"default": env.db("DATABASE_URL", default="postgres:///care-test")}
+if TEST_DATABASE_NAME := env("DJANGO_TEST_DATABASE_NAME", default=""):
+    DATABASES["default"]["TEST"] = {"NAME": TEST_DATABASE_NAME}
 
 # test in peace
 CACHES = {
@@ -106,6 +108,15 @@ JWKS = JsonWebKey.import_key_set(
 )
 
 DISABLE_RATELIMIT = True
+
+# Test-only, deterministic and no-network correspondence delivery simulator.
+CORRESPONDENCE_SYNTHETIC_DELIVERY_ENABLED = True
+CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES = ["*"]
+CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = ["*"]
+CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = {
+    "urology": ["urology-medisch-dossier"],
+    "19d9ec24-cf5e-4944-93a9-a4900e1f4feb": ["urology-medisch-dossier"],
+}
 
 SMS_BACKEND = "care.utils.sms.backend.console.ConsoleBackend"
 

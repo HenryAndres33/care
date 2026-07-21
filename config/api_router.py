@@ -12,8 +12,28 @@ from care.emr.api.viewsets.allergy_intolerance import AllergyIntoleranceViewSet
 from care.emr.api.viewsets.batch_request import BatchRequestView
 from care.emr.api.viewsets.charge_item import ChargeItemViewSet
 from care.emr.api.viewsets.charge_item_definition import ChargeItemDefinitionViewSet
+from care.emr.api.viewsets.clinical_text import ClinicalTextResourceViewSet
+from care.emr.api.viewsets.clinical_term_translation import (
+    ClinicalTermTranslationViewSet,
+)
 from care.emr.api.viewsets.condition import DiagnosisViewSet, SymptomViewSet
 from care.emr.api.viewsets.consent import ConsentViewSet
+from care.emr.api.viewsets.consult_closure import ConsultClosureViewSet
+from care.emr.api.viewsets.correspondence import CorrespondenceCompilationViewSet
+from care.emr.api.viewsets.correspondence_continuity import (
+    CorrespondenceContinuityViewSet,
+)
+from care.emr.api.viewsets.correspondence_correction_case import (
+    CorrespondenceCorrectionCaseViewSet,
+)
+from care.emr.api.viewsets.correspondence_delivery import (
+    CorrespondenceDeliveryViewSet,
+)
+from care.emr.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
+from care.emr.api.viewsets.correspondence_review import (
+    CorrespondenceRecipientViewSet,
+    CorrespondenceReviewViewSet,
+)
 from care.emr.api.viewsets.device import (
     DeviceEncounterHistoryViewSet,
     DeviceLocationHistoryViewSet,
@@ -107,6 +127,7 @@ from care.emr.api.viewsets.tag_config import TagConfigViewSet
 from care.emr.api.viewsets.totp import TOTPViewSet
 from care.emr.api.viewsets.user import UserViewSet
 from care.emr.api.viewsets.valueset import ValueSetViewSet
+from care.emr.api.viewsets.workflow_capability import WorkflowCapabilityViewSet
 from care.security.api.viewsets.permissions import PermissionViewSet
 from care.security.api.viewsets.roles import RoleViewSet
 from care.users.api.viewsets.plug_config import PlugConfigViewset
@@ -141,6 +162,16 @@ questionnaire_nested_router = NestedSimpleRouter(
 )
 
 router.register("form_submission", FormSubmissionViewSet, basename="form_submission")
+router.register(
+    "clinical_text_resource",
+    ClinicalTextResourceViewSet,
+    basename="clinical_text_resource",
+)
+router.register(
+    "clinical_term_translation",
+    ClinicalTermTranslationViewSet,
+    basename="clinical_term_translation",
+)
 router.register(
     "questionnaire_tag", QuestionnaireTagsViewSet, basename="questionnaire_tags"
 )
@@ -497,6 +528,51 @@ thread_nested_router.register(
 
 router.register("template", TemplateViewSet, basename="template")
 router.register("template_reports", ReportUploadViewSet, basename="template-reports")
+router.register(
+    "correspondence_compilation",
+    CorrespondenceCompilationViewSet,
+    basename="correspondence-compilation",
+)
+router.register(
+    "correspondence_recipient",
+    CorrespondenceRecipientViewSet,
+    basename="correspondence-recipient",
+)
+router.register(
+    "correspondence_review",
+    CorrespondenceReviewViewSet,
+    basename="correspondence-review",
+)
+router.register(
+    "correspondence_letter",
+    CorrespondenceLetterViewSet,
+    basename="correspondence-letter",
+)
+router.register(
+    "correspondence_delivery",
+    CorrespondenceDeliveryViewSet,
+    basename="correspondence-delivery",
+)
+router.register(
+    "correspondence_continuity",
+    CorrespondenceContinuityViewSet,
+    basename="correspondence-continuity",
+)
+router.register(
+    "correspondence_correction_cases",
+    CorrespondenceCorrectionCaseViewSet,
+    basename="correspondence-correction-case",
+)
+router.register(
+    "consult_closures",
+    ConsultClosureViewSet,
+    basename="consult-closure",
+)
+router.register(
+    "workflow_capabilities",
+    WorkflowCapabilityViewSet,
+    basename="workflow-capability",
+)
 
 router.register("extensions", ExtensionsViewSet, basename="extensions")
 app_name = "api"

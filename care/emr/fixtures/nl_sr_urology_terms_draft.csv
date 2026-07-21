@@ -1,0 +1,6 @@
+system,code,language,concept_kind,source_display,preferred_display,synonyms,status,source_name,source_version,is_active
+http://snomed.info/sct,266569009,nl-SR,condition,Benign prostatic hyperplasia,Benigne prostaathyperplasie,BPH|goedaardige prostaatvergroting,draft,CARE Suriname urology review seed,2026-07-20,true
+http://snomed.info/sct,34436003,nl-SR,condition,Hematuria,Hematurie,bloed in de urine,draft,CARE Suriname urology review seed,2026-07-20,true
+http://snomed.info/sct,95570007,nl-SR,condition,Kidney stone,Niersteen,nierstenen|nefrolithiasis,draft,CARE Suriname urology review seed,2026-07-20,true
+http://snomed.info/sct,68566005,nl-SR,condition,Urinary tract infection,Urineweginfectie,UWI,draft,CARE Suriname urology review seed,2026-07-20,true
+http://snomed.info/sct,399068003,nl-SR,condition,Malignant tumor of prostate,Prostaatcarcinoom,prostaatkanker,draft,CARE Suriname urology review seed,2026-07-20,true

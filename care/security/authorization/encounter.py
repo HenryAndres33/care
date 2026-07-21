@@ -84,6 +84,14 @@ class EncounterAccess(AuthorizationHandler):
             orgs=orgs,
         )
 
+    def can_mark_encounter_questionnaire_entered_in_error(self, user, encounter):
+        """Authorize a correction without reopening a completed encounter."""
+        return self.check_permission_in_encounter(
+            user,
+            encounter,
+            EncounterPermissions.can_submit_encounter_questionnaire.name,
+        )
+
     def check_permission_in_encounter(self, user, encounter, permission):
         orgs = [*encounter.facility_organization_cache]
         if encounter.current_location:

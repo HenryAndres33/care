@@ -12,6 +12,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet, EMRListMixin, EMRRetrieveMixin
+from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.models.report.template import Template
 from care.emr.reports import report_utils
@@ -55,7 +56,9 @@ class GenerateReportRequest(BaseModel):
         return v
 
 
-class ReportUploadViewSet(EMRRetrieveMixin, EMRListMixin, EMRBaseViewSet):
+class ReportUploadViewSet(
+    ClinicalNoStoreResponseMixin, EMRRetrieveMixin, EMRListMixin, EMRBaseViewSet
+):
     database_model = ReportUpload
     pydantic_read_model = ReportUploadListSpec
     pydantic_retrieve_model = ReportUploadRetrieveSpec
@@ -65,7 +68,20 @@ class ReportUploadViewSet(EMRRetrieveMixin, EMRListMixin, EMRBaseViewSet):
     ordering_fields = ["created_date", "name"]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related(
+                "template",
+                "patient",
+                "encounter",
+                "form_submission",
+                "correspondence_revision",
+                "generated_by",
+                "created_by",
+                "updated_by",
+            )
+        )
         if self.action == "list":
             if (
                 "report_type" not in self.request.GET
@@ -163,6 +179,18 @@ class ReportUploadViewSet(EMRRetrieveMixin, EMRListMixin, EMRBaseViewSet):
     @action(detail=True, methods=["POST"])
     def archive(self, request, *args, **kwargs):
         obj = self.get_object()
+        if obj.form_submission_id or obj.correspondence_revision_id:
+            return Response(
+                {
+                    "errors": [
+                        {
+                            "type": "immutable_clinical_artifact",
+                            "msg": "Generated clinical artifacts are immutable",
+                        }
+                    ]
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         request_data = self.ArchiveRequestSpec(**request.data)
         report_authorizer(request.user, obj.report_type, obj.associating_id, "write")
         obj.is_archived = True

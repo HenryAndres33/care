@@ -177,30 +177,41 @@ class DeviceViewSet(EMRModelViewSet):
     @action(detail=True, methods=["POST"])
     def associate_encounter(self, request, *args, **kwargs):
         request_data = self.DeviceEncounterAssociationRequest(**request.data)
-        encounter = None
-        if request_data.encounter:
-            encounter = get_object_or_404(Encounter, external_id=request_data.encounter)
-        device = self.get_object()
         facility = self.get_facility_obj()
-
-        if encounter and device.current_encounter_id == encounter.id:
-            raise ValidationError("Encounter already associated")
-        if encounter and encounter.facility_id != facility.id:
-            raise ValidationError("Encounter is not part of given facility")
-
-        if not AuthorizationController.call(
-            "can_manage_device_associations_to_encounters", self.request.user, device
-        ):
-            raise PermissionDenied("You do not have permission to associate device")
-
-        if encounter and not AuthorizationController.call(
-            "can_update_encounter_obj", self.request.user, encounter
-        ):
-            raise PermissionDenied(
-                "You do not have permission to associate encounter to this device"
-            )
-
+        device_reference = self.get_object()
         with transaction.atomic():
+            encounter = None
+            if request_data.encounter:
+                encounter = get_object_or_404(
+                    Encounter._base_manager.select_for_update(  # noqa: SLF001
+                        of=("self",)
+                    ),
+                    external_id=request_data.encounter,
+                )
+                if encounter.status in COMPLETED_CHOICES:
+                    raise ValidationError(
+                        "Cannot associate a device to a terminal encounter"
+                    )
+                if encounter.facility_id != facility.id:
+                    raise ValidationError("Encounter is not part of given facility")
+                if not AuthorizationController.call(
+                    "can_update_encounter_obj", self.request.user, encounter
+                ):
+                    raise PermissionDenied(
+                        "You do not have permission to associate encounter to this device"
+                    )
+            device = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                pk=device_reference.pk,
+            )
+            if not AuthorizationController.call(
+                "can_manage_device_associations_to_encounters",
+                self.request.user,
+                device,
+            ):
+                raise PermissionDenied("You do not have permission to associate device")
+            if encounter and device.current_encounter_id == encounter.id:
+                raise ValidationError("Encounter already associated")
             if device.current_encounter:
                 old_obj = DeviceEncounterHistory.objects.filter(
                     device=device, encounter=device.current_encounter, end__isnull=True

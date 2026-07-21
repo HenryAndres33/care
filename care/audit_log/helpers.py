@@ -84,6 +84,12 @@ def candidate_in_scope(
 
 @lru_cache
 def exclude_model(model_name):
+    if getattr(settings, "AUDIT_LOG_DOMAIN_LEDGER_MODE", False) and candidate_in_scope(
+        model_name,
+        getattr(settings, "AUDIT_LOG_DOMAIN_LEDGER_MODELS", []),
+    ):
+        return True
+
     if candidate_in_scope(
         model_name,
         settings.AUDIT_LOG["globals"]["exclude"]["applications"],

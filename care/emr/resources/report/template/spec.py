@@ -99,6 +99,8 @@ class TemplateReadSpec(TemplateBaseSpec):
     slug: str
     template_type: str
     context: str
+    resource_version: int
+    content_hash: str
 
     @classmethod
     def perform_extra_serialization(cls, mapping, obj):

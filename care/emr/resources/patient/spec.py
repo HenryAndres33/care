@@ -232,6 +232,23 @@ class PatientListSpec(ExtensionListRenderer, PatientBaseSpec):
         super().perform_extra_serialization(mapping, obj, *args, **kwargs)
 
 
+class PatientDirectorySpec(EMRResource):
+    """Minimal patient identity returned to an authorized facility directory."""
+
+    __model__ = Patient
+
+    id: UUID4
+    name: str
+    gender: GenderChoices
+    phone_number: str
+    date_of_birth: datetime.date | None = None
+    year_of_birth: int | None = None
+
+    @classmethod
+    def perform_extra_serialization(cls, mapping, obj, *args, **kwargs):
+        mapping["id"] = obj.external_id
+
+
 class PatientPartialSpec(EMRResource):
     __model__ = Patient
 

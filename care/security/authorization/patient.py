@@ -91,6 +91,15 @@ class PatientAccess(AuthorizationHandler):
             [PatientPermissions.can_create_patient.name], user
         )
 
+    def can_search_patient_directory(self, user, facility):
+        """Allow identity-only lookup for staff appointed in this facility."""
+
+        return self.check_permission_in_facility_organization(
+            [PatientPermissions.can_list_patients.name],
+            user,
+            facility=facility,
+        )
+
     def can_view_clinical_data(self, user, patient):
         if user.is_superuser:
             return True

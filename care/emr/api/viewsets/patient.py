@@ -1,11 +1,13 @@
+import datetime
+
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from django_filters import CharFilter, FilterSet
+from django_filters import CharFilter, DateFilter, FilterSet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, Field
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import OrderingFilter
@@ -18,6 +20,7 @@ from care.emr.models.patient import Patient, PatientIdentifier, PatientIdentifie
 from care.emr.models.scheduling.token import Token
 from care.emr.resources.patient.spec import (
     PatientCreateSpec,
+    PatientDirectorySpec,
     PatientIdentifierConfigRequest,
     PatientListSpec,
     PatientPartialSpec,
@@ -40,10 +43,13 @@ from care.users.models import User
 from care.utils.lock import ObjectLocked
 from care.utils.shortcuts import get_object_or_404
 
+MINIMUM_PATIENT_DIRECTORY_NAME_LENGTH = 2
+
 
 class PatientFilters(FilterSet):
     name = CharFilter(field_name="name", lookup_expr="icontains")
     phone_number = CharFilter(field_name="phone_number", lookup_expr="iexact")
+    date_of_birth = DateFilter(field_name="date_of_birth", lookup_expr="exact")
 
 
 class PatientViewSet(EMRModelViewSet):
@@ -196,6 +202,42 @@ class PatientViewSet(EMRModelViewSet):
         value: str | None = None
         facility: UUID4 | None = None
         page_size: int = 100
+
+    class DirectoryRequestSpec(BaseModel):
+        facility: UUID4
+        name: str | None = None
+        date_of_birth: datetime.date | None = None
+        page_size: int = Field(default=50, ge=1, le=100)
+
+    @extend_schema(responses={200: PatientDirectorySpec})
+    @action(detail=False, methods=["GET"])
+    def directory(self, request, *args, **kwargs):
+        """Search patient identities for appointment and correspondence workflows."""
+
+        request_data = self.DirectoryRequestSpec(**request.query_params.dict())
+        name = (request_data.name or "").strip()
+        if not name and not request_data.date_of_birth:
+            raise ValidationError("Name or date of birth is required")
+        if name and len(name) < MINIMUM_PATIENT_DIRECTORY_NAME_LENGTH:
+            raise ValidationError("Name must contain at least 2 characters")
+
+        facility = get_object_or_404(Facility, external_id=request_data.facility)
+        if not AuthorizationController.call(
+            "can_search_patient_directory",
+            self.request.user,
+            facility,
+        ):
+            raise PermissionDenied("Cannot search patients in this facility")
+
+        queryset = Patient.objects.all()
+        if name:
+            queryset = queryset.filter(name__icontains=name)
+        if request_data.date_of_birth:
+            queryset = queryset.filter(date_of_birth=request_data.date_of_birth)
+
+        queryset = queryset.order_by("name", "external_id")[: request_data.page_size]
+        data = [PatientDirectorySpec.serialize(obj).to_json() for obj in queryset]
+        return Response({"results": data})
 
     @extend_schema(
         request=SearchRequestSpec,

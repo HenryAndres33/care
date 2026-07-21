@@ -17,7 +17,7 @@ class ReportUploadBaseSpec(EMRResource):
 
 
 class ReportUploadListSpec(ReportUploadBaseSpec):
-    template: dict
+    template: dict | None = None
     report_type: str
     associating_id: str
     archived_by: UserSpec | None = None
@@ -27,8 +27,17 @@ class ReportUploadListSpec(ReportUploadBaseSpec):
     archive_reason: str | None = None
     created_date: datetime.datetime
     extension: str
-    uploaded_by: dict
+    uploaded_by: dict | None = None
     mime_type: str
+    patient: UUID4 | None = None
+    encounter: UUID4 | None = None
+    form_submission: UUID4 | None = None
+    correspondence_revision: UUID4 | None = None
+    source_version: int | None = None
+    source_snapshot_hash: str = ""
+    artifact_sha256: str = ""
+    generated_at: datetime.datetime | None = None
+    generated_by: UserSpec | None = None
 
     @classmethod
     def perform_extra_serialization(cls, mapping, obj):
@@ -37,6 +46,16 @@ class ReportUploadListSpec(ReportUploadBaseSpec):
         mapping["mime_type"] = obj.meta.get("mime_type")
         if obj.template:
             mapping["template"] = TemplateReadSpec.serialize(obj.template).to_json()
+        if obj.patient_id:
+            mapping["patient"] = obj.patient.external_id
+        if obj.encounter_id:
+            mapping["encounter"] = obj.encounter.external_id
+        if obj.form_submission_id:
+            mapping["form_submission"] = obj.form_submission.external_id
+        if obj.correspondence_revision_id:
+            mapping["correspondence_revision"] = obj.correspondence_revision.external_id
+        if obj.generated_by_id:
+            mapping["generated_by"] = UserSpec.serialize(obj.generated_by).to_json()
         cls.serialize_audit_users(mapping, obj)
 
 

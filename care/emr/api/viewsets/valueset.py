@@ -14,6 +14,10 @@ from care.emr.models.valueset import (
     UserValueSetPreference,
     ValueSet,
 )
+from care.emr.resources.clinical_term_translation import (
+    resolve_concepts,
+    search_approved_translation_concepts,
+)
 from care.emr.resources.common.coding import Coding
 from care.emr.resources.valueset.spec import ValueSetReadSpec, ValueSetSpec
 
@@ -36,6 +40,10 @@ class ValueSetViewSet(EMRModelViewSet):
     filterset_class = ValueSetFilter
     filter_backends = [DjangoFilterBackend]
     lookup_field = "slug"
+    LOCAL_TRANSLATION_CONCEPT_KINDS = {
+        "system-condition-code": "condition",
+        "activity-definition-procedure-code": "procedure",
+    }
 
     def permissions_controller(self, request):
         if self.action in [
@@ -71,8 +79,37 @@ class ValueSetViewSet(EMRModelViewSet):
     @action(detail=True, methods=["POST"])
     def expand(self, request, *args, **kwargs):
         request_params = ExpandRequest(**request.data).model_dump()
-        results = self.get_object().search(**request_params)
-        return Response({"results": [result.model_dump() for result in results]})
+        requested_language = request_params["display_language"]
+        use_local_dutch = requested_language.casefold() in {"nl", "nl-sr"}
+        if use_local_dutch:
+            request_params["display_language"] = "en-gb"
+        valueset = self.get_object()
+        results = [result.model_dump() for result in valueset.search(**request_params)]
+        if not use_local_dutch:
+            return Response({"results": results})
+
+        language = "nl-SR"
+        translated_matches = []
+        concept_kind = self.LOCAL_TRANSLATION_CONCEPT_KINDS.get(valueset.slug)
+        if concept_kind:
+            translated_matches = search_approved_translation_concepts(
+                request_params["search"],
+                language,
+                request_params["count"],
+                concept_kind,
+            )
+        resolved_results = resolve_concepts(results, language=language)
+        merged = []
+        seen = set()
+        for item in [*translated_matches, *resolved_results]:
+            key = (item["system"], item["code"])
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+            if len(merged) >= request_params["count"]:
+                break
+        return Response({"results": merged})
 
     @extend_schema(request=ValueSetSpec, responses={200: None}, methods=["POST"])
     @action(detail=False, methods=["POST"])

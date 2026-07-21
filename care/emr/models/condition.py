@@ -18,3 +18,17 @@ class Condition(EMRBaseModel):
     abatement = models.JSONField(default=dict)
     recorded_date = models.DateTimeField(null=True, blank=True)
     note = models.TextField(null=True, blank=True)
+    clinical_domain = models.CharField(max_length=64, default="general")
+    client_request_id = models.UUIDField(null=True, blank=True)
+    client_request_payload_hash = models.CharField(
+        max_length=64, default="", blank=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client_request_id"],
+                condition=models.Q(client_request_id__isnull=False),
+                name="condition_client_request_id_uniq",
+            )
+        ]

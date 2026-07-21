@@ -3,7 +3,15 @@ from .activity_definition import *  # noqa F403
 from .allergy_intolerance import *  # noqa F403
 from .charge_item import *  # noqa F403
 from .charge_item_definition import *  # noqa F403
+from .clinical_text import *  # noqa F403
+from .clinical_term_translation import *  # noqa F403
 from .condition import *  # noqa F403
+from .consult_closure import *  # noqa F403
+from .correspondence import *  # noqa F403
+from .correspondence_correction import *  # noqa F403
+from .correspondence_delivery import *  # noqa F403
+from .correspondence_letter import *  # noqa F403
+from .correspondence_review import *  # noqa F403
 from .device import *  # noqa F403
 from .diagnostic_report import *  # noqa F403
 from .encounter import *  # noqa F403
@@ -22,6 +30,8 @@ from .payment_reconciliation import *  # noqa F403
 from .product import *  # noqa F403
 from .product_knowledge import *  # noqa F403
 from .questionnaire import *  # noqa F403
+from .report.report_upload import *  # noqa F403
+from .report.template import *  # noqa F403
 from .resource_category import *  # noqa F403
 from .scheduling import *  # noqa F403
 from .service_request import *  # noqa F403

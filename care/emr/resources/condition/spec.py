@@ -45,6 +45,11 @@ class SeverityChoices(str, Enum):
     severe = "severe"
 
 
+class ClinicalDomainChoices(str, Enum):
+    general = "general"
+    urology = "urology"
+
+
 class ConditionOnSetSpec(EMRResource):
     onset_datetime: datetime.datetime | None = None
     onset_age: int | None = None
@@ -85,6 +90,7 @@ class ConditionSpec(BaseConditionSpec):
     abatement: ConditionAbatementSpec = {}
     note: str | None = None
     category: CategoryChoices
+    clinical_domain: ClinicalDomainChoices = ClinicalDomainChoices.general
 
     @field_validator("encounter")
     @classmethod
@@ -112,6 +118,7 @@ class ConditionReadSpec(BaseConditionSpec):
     clinical_status: str
     verification_status: str
     category: str
+    clinical_domain: str
     criticality: str
     severity: str
     code: Coding
@@ -140,6 +147,7 @@ class ConditionUpdateSpec(BaseConditionSpec):
     onset: ConditionOnSetSpec = {}
     abatement: ConditionAbatementSpec = {}
     note: str | None = None
+    clinical_domain: ClinicalDomainChoices = ClinicalDomainChoices.general
 
 
 class ChronicConditionUpdateSpec(ConditionUpdateSpec):

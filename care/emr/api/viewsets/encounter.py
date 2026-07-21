@@ -22,10 +22,12 @@ from care.emr.api.viewsets.base import (
 from care.emr.api.viewsets.device import disassociate_device_from_encounter
 from care.emr.api.viewsets.location import close_related_location_from_encounter
 from care.emr.models import (
+    ConsultClosure,
     Encounter,
     EncounterOrganization,
     FacilityOrganization,
     Patient,
+    TokenBooking,
 )
 from care.emr.models.patient import PatientIdentifier, PatientIdentifierConfig
 from care.emr.resources.encounter.constants import COMPLETED_CHOICES, StatusChoices
@@ -41,6 +43,7 @@ from care.emr.resources.patient.spec import validate_identifier_config
 from care.emr.resources.patient_identifier.default_expression_evaluator import (
     evaluate_patient_default_expression,
 )
+from care.emr.resources.scheduling.slot.spec import COMPLETED_STATUS_CHOICES
 from care.emr.resources.tag.config_spec import TagResource
 from care.emr.tagging.filters import SingleFacilityTagFilter
 from care.facility.models import Facility
@@ -128,7 +131,28 @@ class EncounterViewSet(
     ordering_fields = ["created_date", "modified_date"]
     resource_type = TagResource.encounter
 
+    def update(self, request, *args, **kwargs):
+        """Serialize ordinary mutations with terminal close/restart transitions."""
+        with transaction.atomic():
+            instance = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                external_id=self.kwargs["external_id"],
+            )
+            if instance.status in COMPLETED_CHOICES:
+                raise ValidationError(
+                    "Terminal encounters are immutable; use the explicit restart endpoint"
+                )
+            return Response(self.handle_update(instance, request.data))
+
     def validate_data(self, instance, model_obj=None):
+        if model_obj is not None and model_obj.status in COMPLETED_CHOICES:
+            raise ValidationError(
+                "Terminal encounters are immutable; use the explicit restart endpoint"
+            )
+        if model_obj is not None and instance.status in COMPLETED_CHOICES:
+            raise ValidationError(
+                "Terminal encounter transitions require the consult close workflow"
+            )
         if model_obj is None:
             if (
                 self.database_model.objects.filter(
@@ -162,6 +186,19 @@ class EncounterViewSet(
 
     def perform_create(self, instance):
         with transaction.atomic():
+            if instance.appointment_id:
+                appointment = (
+                    TokenBooking._base_manager.select_for_update(  # noqa: SLF001
+                        of=("self",)
+                    )
+                    .select_related("token_slot__resource")
+                    .get(pk=instance.appointment_id)
+                )
+                if appointment.status in COMPLETED_STATUS_CHOICES:
+                    raise ValidationError("Cannot attach a terminal booking")
+                if appointment.associated_encounter_id:
+                    raise ValidationError("Encounter already has an associated booking")
+                instance.appointment = appointment
             organizations = getattr(instance, "_organizations", [])
             super().perform_create(instance)
             for organization in organizations:
@@ -176,8 +213,6 @@ class EncounterViewSet(
             if not organizations:
                 instance.sync_organization_cache()
             if instance.appointment:
-                if instance.appointment.associated_encounter_id:
-                    raise ValidationError("Encounter already has an associated booking")
                 instance.appointment.associated_encounter = instance
                 instance.appointment.updated_by = self.request.user
                 instance.appointment.save(
@@ -258,22 +293,38 @@ class EncounterViewSet(
         """
         Moves the encounter to from a completed state to an in progress state
         """
-        instance = self.get_object()
-        if not AuthorizationController.call(
-            "can_restart_encounter_obj", self.request.user, instance
-        ):
-            raise PermissionDenied("You do not have permission to update encounter")
+        with transaction.atomic():
+            instance = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)),
+                external_id=self.kwargs["external_id"],
+            )
+            if not AuthorizationController.call(
+                "can_restart_encounter_obj", self.request.user, instance
+            ):
+                raise PermissionDenied("You do not have permission to update encounter")
 
-        if instance.status not in COMPLETED_CHOICES:
-            raise ValidationError("Encounter is not in a completed state")
-        if instance.modified_date < care_now() - timedelta(
-            hours=settings.ENCOUNTER_RESTART_TIME_LIMIT_HOURS
-        ):
-            err = f"Encounter cannot be restarted after {settings.ENCOUNTER_RESTART_TIME_LIMIT_HOURS} hours"
-            raise ValidationError(err)
-        instance.updated_by = self.request.user
-        instance.status = StatusChoices.in_progress.value
-        instance.save(update_fields=["status", "updated_by", "modified_date"])
+            if instance.status not in COMPLETED_CHOICES:
+                raise ValidationError("Encounter is not in a completed state")
+            if instance.status != StatusChoices.completed.value:
+                raise ValidationError("Only completed encounters can be restarted")
+            if (
+                ConsultClosure._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                )
+                .filter(encounter=instance, deleted=False)
+                .exists()
+            ):
+                raise ValidationError(
+                    "Consult-closure encounters cannot use the legacy restart endpoint"
+                )
+            if instance.modified_date < care_now() - timedelta(
+                hours=settings.ENCOUNTER_RESTART_TIME_LIMIT_HOURS
+            ):
+                err = f"Encounter cannot be restarted after {settings.ENCOUNTER_RESTART_TIME_LIMIT_HOURS} hours"
+                raise ValidationError(err)
+            instance.updated_by = self.request.user
+            instance.status = StatusChoices.in_progress.value
+            instance.save(update_fields=["status", "updated_by", "modified_date"])
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 

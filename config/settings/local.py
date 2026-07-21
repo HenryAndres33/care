@@ -47,6 +47,17 @@ RUNSERVERPLUS_POLLER_RELOADER_TYPE = "watchdog"
 
 DISABLE_RATELIMIT = True
 
+# Local-only, deterministic and no-network correspondence delivery simulator.
+CORRESPONDENCE_SYNTHETIC_DELIVERY_ENABLED = True
+CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES = ["*"]
+CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = ["*"]
+# Fixed synthetic browser fixture only; production resolves explicit department
+# policy from CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT.
+CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = {
+    "urology": ["urology-medisch-dossier"],
+    "19d9ec24-cf5e-4944-93a9-a4900e1f4feb": ["urology-medisch-dossier"],
+}
+
 # open id connect
 JWKS = JsonWebKey.import_key_set(
     json.loads(
