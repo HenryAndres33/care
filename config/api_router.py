@@ -12,10 +12,10 @@ from care.emr.api.viewsets.allergy_intolerance import AllergyIntoleranceViewSet
 from care.emr.api.viewsets.batch_request import BatchRequestView
 from care.emr.api.viewsets.charge_item import ChargeItemViewSet
 from care.emr.api.viewsets.charge_item_definition import ChargeItemDefinitionViewSet
-from care.emr.api.viewsets.clinical_text import ClinicalTextResourceViewSet
 from care.emr.api.viewsets.clinical_term_translation import (
     ClinicalTermTranslationViewSet,
 )
+from care.emr.api.viewsets.clinical_text import ClinicalTextResourceViewSet
 from care.emr.api.viewsets.condition import DiagnosisViewSet, SymptomViewSet
 from care.emr.api.viewsets.consent import ConsentViewSet
 from care.emr.api.viewsets.consult_closure import ConsultClosureViewSet
@@ -42,6 +42,10 @@ from care.emr.api.viewsets.device import (
 )
 from care.emr.api.viewsets.diagnostic_report import DiagnosticReportViewSet
 from care.emr.api.viewsets.encounter import EncounterViewSet
+from care.emr.api.viewsets.encounter_admission_note import (
+    EncounterAdmissionNoteViewSet,
+)
+from care.emr.api.viewsets.encounter_discharge import EncounterDischargeViewSet
 from care.emr.api.viewsets.extensions import ExtensionsViewSet
 from care.emr.api.viewsets.facility import (
     AllFacilityViewSet,
@@ -577,6 +581,21 @@ router.register(
 router.register("extensions", ExtensionsViewSet, basename="extensions")
 app_name = "api"
 urlpatterns = [
+    path(
+        "encounter/<uuid:external_id>/set-admission-note/",
+        EncounterAdmissionNoteViewSet.as_view({"post": "set_admission_note"}),
+        name="encounter-set-admission-note",
+    ),
+    path(
+        "encounter/<uuid:external_id>/preflight-discharge/",
+        EncounterDischargeViewSet.as_view({"post": "preflight_discharge"}),
+        name="encounter-preflight-discharge",
+    ),
+    path(
+        "encounter/<uuid:external_id>/idempotent-discharge/",
+        EncounterDischargeViewSet.as_view({"post": "idempotent_discharge"}),
+        name="encounter-idempotent-discharge",
+    ),
     path("", include(router.urls)),
     path("", include(user_nested_router.urls)),
     path("", include(facility_nested_router.urls)),

@@ -246,6 +246,7 @@ class FormSubmissionCommand(EMRBaseModel):
             models.CheckConstraint(
                 condition=models.Q(
                     command_type__in=[
+                        "create_draft",
                         "update_draft",
                         "finalize",
                         "amend",

@@ -7,6 +7,7 @@ from care.security.roles.role import (
     DOCTOR_ROLE,
     FACILITY_ADMIN_ROLE,
     NURSE_ROLE,
+    SECRETARY_ROLE,
     STAFF_ROLE,
 )
 
@@ -16,7 +17,14 @@ class SchedulePermissions(enum.Enum):
         "Can Create on Schedule",
         "",
         PermissionContext.FACILITY,
-        [ADMIN_ROLE, STAFF_ROLE, FACILITY_ADMIN_ROLE, DOCTOR_ROLE, NURSE_ROLE],
+        [
+            ADMIN_ROLE,
+            STAFF_ROLE,
+            SECRETARY_ROLE,
+            FACILITY_ADMIN_ROLE,
+            DOCTOR_ROLE,
+            NURSE_ROLE,
+        ],
     )
     can_list_schedule = Permission(
         "Can list schedule on Object",
@@ -25,6 +33,7 @@ class SchedulePermissions(enum.Enum):
         [
             ADMIN_ROLE,
             STAFF_ROLE,
+            SECRETARY_ROLE,
             FACILITY_ADMIN_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
@@ -38,6 +47,7 @@ class SchedulePermissions(enum.Enum):
         [
             ADMIN_ROLE,
             STAFF_ROLE,
+            SECRETARY_ROLE,
             FACILITY_ADMIN_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
@@ -51,6 +61,7 @@ class SchedulePermissions(enum.Enum):
         [
             ADMIN_ROLE,
             STAFF_ROLE,
+            SECRETARY_ROLE,
             FACILITY_ADMIN_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
@@ -63,6 +74,7 @@ class SchedulePermissions(enum.Enum):
         [
             DOCTOR_ROLE,
             STAFF_ROLE,
+            SECRETARY_ROLE,
             NURSE_ROLE,
             ADMINISTRATOR,
             FACILITY_ADMIN_ROLE,

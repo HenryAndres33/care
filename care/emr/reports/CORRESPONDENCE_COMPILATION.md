@@ -79,18 +79,21 @@ The response is:
 ```
 
 The first committed compilation returns `201` and `replayed: false`. An exact
-retry returns the original snapshot with `200` and `replayed: true`. A different
-authorized key naming the identical source set also reuses that snapshot with
-`200`. The response includes an ETag of
+retry with the same `client_request_id` returns the original snapshot with
+`200` and `replayed: true`. A different authorized key starts an independent
+letter attempt, even when it names the same clinical source set. The response includes an ETag of
 `"{compilation_id}:{compiled_hash}"`. Retrieve the stored snapshot at
 `GET /api/v1/correspondence_compilation/{compilation_id}/`.
 
 ## Integrity and authorization
 
 `client_request_id` is reserved by `corrcompile_cmd_request_id_uniq`, including
-soft-deleted rows. `corrcompile_source_fingerprint_uniq` permits one compilation
-for the canonical validated command and source set. The command hash includes
-the authenticated actor and every effective request field except the key.
+soft-deleted rows. It identifies one letter attempt as well as its idempotent
+retry boundary. `corrcompile_source_fingerprint_uniq` permits one compilation
+for the canonical validated command. The v2 command hash includes the
+authenticated actor, the request key, and every effective request field. Exact
+replay of a previously committed v1 command remains supported; that legacy hash
+is never used to create a new compilation.
 
 New compilation locks and revalidates the FormSubmission, Encounter, artifact,
 template, department, reason, and medication rows in one database transaction.
@@ -110,7 +113,10 @@ nor recompute it. The linkage QuestionnaireResponse itself must be non-deleted
 and `completed`; `entered_in_error`, deleted, malformed, missing, omitted, or
 duplicate linkage rows fail closed. The facility, directly linked encounter
 department, active encounter-reason tag, template, author, patient, and
-encounter must match.
+encounter must match. For rendering, `content.values.reasonForVisit` from the
+exact finalized form is the preferred presentation reason when it is present
+and non-empty. The broader encounter tag remains frozen in provenance and is
+used as the fallback.
 
 The patient must have a server-owned name, DOB/year and configured identifier.
 The author must be the current active, non-service, CARE-verified user with a

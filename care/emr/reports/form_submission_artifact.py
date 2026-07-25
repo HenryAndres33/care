@@ -10,6 +10,9 @@ from typing import Any
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from care.emr.reports.clinical_narrative import (
+    normalize_diagnosis_history_layout,
+)
 from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
     WeasyPrintGeneratorOptions,
@@ -253,6 +256,7 @@ def _render_clinical_content(response_dump: dict[str, Any]) -> str:
     if isinstance(content, dict):
         narrative = _first_text(content, _NARRATIVE_KEYS)
         if narrative:
+            narrative = normalize_diagnosis_history_layout(narrative)
             return f'<p class="narrative">{escape(narrative)}</p>'
 
         values = content.get("values")
@@ -268,6 +272,7 @@ def _render_clinical_content(response_dump: dict[str, Any]) -> str:
     }
     parts = []
     if narrative:
+        narrative = normalize_diagnosis_history_layout(narrative)
         parts.append(f'<p class="narrative">{escape(narrative)}</p>')
     if fields:
         parts.append(_render_clinical_fields(fields))

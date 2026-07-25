@@ -1,6 +1,9 @@
 from datetime import UTC
 from html import escape
 
+from care.emr.correspondence.presentation import correspondence_presentation_reason
+from care.emr.reports.correspondence_body import render_correspondence_body
+from care.emr.reports.correspondence_letter_styles import LETTER_CSS
 from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
     WeasyPrintGeneratorOptions,
@@ -21,47 +24,79 @@ def build_correspondence_letter_html(*, artifact_id, revision, generated_at):
         raise CorrespondenceLetterRenderError(
             "Final correspondence revision is missing frozen content or identity"
         )
-    metadata_rows = [
-        ("Artifact reference", artifact_id),
-        ("Letter reference", revision.letter.external_id),
-        ("Letter revision", revision.external_id),
-        ("Letter version", revision.resource_version),
-        ("Revision SHA-256", revision.revision_hash),
-        ("Review binding", review.external_id),
-        ("Review SHA-256", review.review_hash),
-        ("Compilation", review.compilation.external_id),
-        ("Compilation SHA-256", review.compilation_hash),
-        ("Patient", patient.name),
-        ("Patient CARE reference", patient.external_id),
-        ("Patient identifiers", _patient_identifiers(patient, encounter)),
-        ("Date of birth", patient.date_of_birth or patient.year_of_birth),
-        ("Encounter CARE reference", encounter.external_id),
-        ("Encounter date", _encounter_date(encounter.period)),
-        ("Author", author.get("display")),
-        ("Author role", author.get("professional_role")),
-        ("Author qualification", author.get("qualification") or "—"),
-        ("Author registration", author.get("registration") or "—"),
-        ("Recipient", recipient.get("display_name")),
-        ("Recipient role", recipient.get("professional_role")),
-        ("Recipient organization", recipient.get("organization_name")),
-        ("Recipient channel", recipient.get("channel", {}).get("type")),
-        ("Finalized at", _timestamp(revision.finalized_at)),
-        ("Generated at", _timestamp(generated_at)),
-        ("Status", revision.status),
-    ]
-    metadata = "".join(
-        f"<tr><th>{escape(str(label))}</th><td>{escape(str(value))}</td></tr>"
-        for label, value in metadata_rows
+
+    compilation = review.compilation
+    facility_name = getattr(compilation.facility, "name", "Zorginstelling")
+    department_name = getattr(compilation.department, "name", "")
+    recipient_address = "".join(
+        f"<div>{escape(line)}</div>" for line in _postal_address_lines(recipient)
     )
-    body = escape(revision.body)
-    return (
-        '<!doctype html><html><head><meta charset="utf-8"><title>'
-        "Final Clinical Correspondence</title></head><body>"
-        "<h1>Clinical Correspondence</h1>"
-        f'<table class="metadata"><tbody>{metadata}</tbody></table>'
-        f'<h2>Letter</h2><pre class="letter-body">{body}</pre>'
-        "</body></html>"
+    body = render_correspondence_body(revision.body)
+    author_details = " · ".join(
+        value
+        for value in [
+            author.get("professional_role"),
+            author.get("qualification"),
+            author.get("registration"),
+        ]
+        if value
     )
+    signature = _signature_html(
+        body_text=revision.body,
+        author=author,
+        author_details=author_details,
+        facility_name=facility_name,
+        department_name=department_name,
+    )
+    patient_identifier = _patient_identifiers(patient, encounter)
+    subject = _encounter_reason(compilation)
+    presentation_date = _presentation_date(compilation)
+    letterhead_title = _template_option(
+        compilation,
+        "letterhead_title",
+        str(department_name or "Medische correspondentie").upper(),
+    )
+    return f"""<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>Medische brief</title>
+  <style>{LETTER_CSS}</style>
+</head>
+<body>
+  <header class="letterhead">
+    <div class="letterhead-identity">
+      <div class="specialty-name">{escape(letterhead_title)}</div>
+      <div class="facility-name">{escape(str(facility_name))}</div>
+    </div>
+  </header>
+
+  <section class="recipient-block">
+    <strong>{escape(str(recipient.get("display_name") or ""))}</strong>
+    <div>{escape(str(recipient.get("professional_role") or ""))}</div>
+    <div>{escape(str(recipient.get("organization_name") or ""))}</div>
+    {recipient_address}
+  </section>
+
+  <section class="letter-meta">
+    <div><span>Briefdatum</span><strong>{_display_date(generated_at)}</strong></div>
+    <div><span>Presentatiedatum</span><strong>{_display_date(presentation_date)}</strong></div>
+    <div><span>Betreft</span><strong>{escape(patient.name)}</strong></div>
+    <div><span>Geboortedatum</span><strong>{_display_date(patient.date_of_birth or patient.year_of_birth)}</strong></div>
+    <div><span>Patiëntnummer</span><strong>{escape(patient_identifier)}</strong></div>
+  </section>
+
+  <section class="subject"><span>Onderwerp</span>{escape(subject)}</section>
+  <main class="letter-body">{body}</main>
+  {signature}
+
+  <footer>
+    <span>Vertrouwelijk medisch document</span>
+    <span>{escape(str(facility_name))}</span>
+    <span>Versie {revision.resource_version}</span>
+  </footer>
+</body>
+</html>"""
 
 
 def build_controlled_correction_copy_html(
@@ -81,16 +116,15 @@ def build_controlled_correction_copy_html(
     )
     banner = (
         '<section class="controlled-correction-copy">'
-        "<h1>CONTROLLED CORRECTION COPY</h1>"
-        "<p>This replacement supersedes the earlier correspondence delivery "
+        "<h1>GECONTROLEERDE CORRECTIE</h1>"
+        "<p>Deze vervangende brief vervangt de eerdere verzending "
         f"<strong>{escape(str(superseded_delivery_id))}</strong>.</p>"
         "<table><tbody>"
-        f"<tr><th>Correction case</th><td>{escape(str(correction_case_id))}</td></tr>"
-        "<tr><th>Replacement attempt</th>"
+        f"<tr><th>Correctiedossier</th><td>{escape(str(correction_case_id))}</td></tr>"
+        "<tr><th>Vervangingspoging</th>"
         f"<td>{escape(str(replacement_attempt_number))}</td></tr>"
-        f"<tr><th>Clinical source version</th><td>{escape(str(source_version))}</td></tr>"
-        f"<tr><th>Replacement revision</th><td>{escape(str(revision.external_id))}</td></tr>"
-        f"<tr><th>Replacement revision hash</th><td>{escape(revision.revision_hash)}</td></tr>"
+        f"<tr><th>Bronversie</th><td>{escape(str(source_version))}</td></tr>"
+        f"<tr><th>Briefversie</th><td>{escape(str(revision.external_id))}</td></tr>"
         "</tbody></table></section>"
     )
     return base.replace("<body>", f"<body>{banner}", 1)
@@ -99,8 +133,34 @@ def build_controlled_correction_copy_html(
 def render_correspondence_letter_pdf(html):
     return WeasyPrintGenerator().generate(
         html,
-        WeasyPrintGeneratorOptions(page_size="A4", margin="1.5cm"),
+        WeasyPrintGeneratorOptions(page_size="A4", margin="1.8cm"),
     )
+
+
+def _postal_address_lines(recipient):
+    address = recipient.get("postal_address")
+    if not isinstance(address, dict):
+        return []
+    preferred_keys = (
+        "lines",
+        "line",
+        "address_line",
+        "street_address",
+        "postal_code",
+        "city",
+        "state",
+        "country",
+    )
+    values = []
+    for key in preferred_keys:
+        value = address.get(key)
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+        elif isinstance(value, list):
+            values.extend(
+                item.strip() for item in value if isinstance(item, str) and item.strip()
+            )
+    return list(dict.fromkeys(values))
 
 
 def _patient_identifiers(patient, encounter):
@@ -111,22 +171,88 @@ def _patient_identifiers(patient, encounter):
         or facility_identifiers.get(encounter.facility_id, [])
     )
     readable = [
-        f"{item.get('config', 'identifier')}: {item.get('value', '')}"
+        str(item.get("value", ""))
         for item in identifiers
         if isinstance(item, dict) and item.get("value")
     ]
-    return "; ".join(readable) or "No configured identifier"
+    return readable[0] if readable else "Niet vastgelegd"
 
 
-def _encounter_date(period):
-    if not isinstance(period, dict):
-        return "—"
-    return str(period.get("start") or period.get("end") or "—")
+def _encounter_reason(compilation):
+    fallback = str(
+        getattr(compilation.encounter_reason, "display", "")
+        or "Medische correspondentie"
+    )
+    provenance = getattr(compilation, "source_provenance", {}) or {}
+    form = provenance.get("form") if isinstance(provenance, dict) else None
+    if isinstance(form, dict):
+        frozen_reason = form.get("presentation_reason")
+        if isinstance(frozen_reason, str) and frozen_reason.strip():
+            return frozen_reason.strip()
+    source = getattr(compilation, "form_submission", None)
+    return correspondence_presentation_reason(
+        getattr(source, "response_dump", None),
+        fallback=fallback,
+    )
 
 
-def _timestamp(value):
+def _presentation_date(compilation):
+    provenance = getattr(compilation, "source_provenance", {}) or {}
+    encounter = provenance.get("encounter") if isinstance(provenance, dict) else None
+    if isinstance(encounter, dict) and encounter.get("date"):
+        return encounter["date"]
+    return getattr(compilation.encounter, "start_date", None)
+
+
+def _template_option(compilation, key, default):
+    options = getattr(compilation.template, "options", {}) or {}
+    value = options.get(key) if isinstance(options, dict) else None
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return default
+
+
+def _signature_html(
+    *, body_text, author, author_details, facility_name, department_name
+):
+    author_display = str(author.get("display") or "").strip()
+    normalized_body = body_text.casefold()
+    closing_markers = (
+        "met vriendelijke groet",
+        "hoogachtend",
+        "with kind regards",
+        "kind regards",
+        "sincerely",
+    )
+    if (
+        author_display
+        and author_display.casefold() in normalized_body
+        and any(marker in normalized_body for marker in closing_markers)
+    ):
+        return ""
+    facility_line = escape(str(facility_name))
+    if department_name:
+        facility_line += f" · {escape(str(department_name))}"
+    return (
+        '<section class="signature">'
+        "<div>Met vriendelijke groet,</div>"
+        f"<strong>{escape(author_display)}</strong>"
+        f"<div>{escape(author_details)}</div>"
+        f"<div>{facility_line}</div>"
+        "</section>"
+    )
+
+
+def _display_date(value):
     if not value:
-        return "—"
-    if value.tzinfo is None:
-        return value.isoformat()
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+        return "Niet vastgelegd"
+    if hasattr(value, "astimezone"):
+        if value.tzinfo is not None:
+            value = value.astimezone(UTC)
+        return value.strftime("%d-%m-%Y")
+    text = str(value)
+    try:
+        year, month, day = text[:10].split("-")
+        return f"{day}-{month}-{year}"
+    except ValueError:
+        return text

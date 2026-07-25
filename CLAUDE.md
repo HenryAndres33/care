@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Binding CARE Suriname rules
+
+Read and follow `../care_fe/CODING_RULES.md` before changing this repository.
+It is the workspace-wide architecture, clinical-safety,
+controlled-core-change, and verification standard; the repository guidance
+below remains additionally applicable.
+
 ## What is CARE?
 
 CARE is a Digital Public Good building an open source EMR + Hospital Management system. This is the Django backend (Django 6.0 + Python 3.13 + PostgreSQL + Redis).
@@ -13,6 +20,7 @@ CARE is a Digital Public Good building an open source EMR + Hospital Management 
 The local setup uses a Python 3.13 venv with PostgreSQL 16 and Redis running natively.
 
 **Start services:**
+
 ```bash
 # Ensure PostgreSQL 16 and Redis are running on your system
 # Start Django backend on port 9000
@@ -20,6 +28,7 @@ DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=true .venv
 ```
 
 **Database:**
+
 - PostgreSQL on localhost:5432, database `care`, user `postgres`, password `postgres`
 - Config in `.env` (gitignored)
 
@@ -36,6 +45,7 @@ make down             # Stop services
 ## Build/Test Commands
 
 ### With Docker (Makefile)
+
 - `make up` — Start all services
 - `make build` — Build Docker images
 - `make migrate` — Run database migrations
@@ -46,6 +56,7 @@ make down             # Stop services
 - `make ruff-fix-all` — Auto-fix linting issues
 
 ### Without Docker (venv)
+
 ```bash
 pipenv run python manage.py migrate
 pipenv run python manage.py load_fixtures
@@ -63,6 +74,7 @@ pipenv run ruff format .
 ## Architecture
 
 ### Project Structure
+
 ```
 care/                    # Main Django app
 ├── audit_log/          # Audit logging
@@ -80,14 +92,17 @@ plug_config.py          # Plugin system configuration
 ```
 
 ### Plugin System
+
 CARE supports a plugin architecture via `plug_config.py` and the `plugs` package. Plugins extend core functionality without modifying the main codebase. Be aware of plugin interfaces when modifying core models or APIs.
 
 ### Settings
+
 - **Local dev**: `config.settings.local` (DEBUG=True, CORS open, email to console)
 - **Tests**: `config.settings.test`
 - **Production**: `config.settings.deployment`
 
 ### API
+
 - Django REST Framework with `drf-nested-routers`
 - JWT auth via `djangorestframework-simplejwt`
 - API docs via `drf-spectacular` (OpenAPI/Swagger)

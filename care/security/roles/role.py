@@ -39,6 +39,11 @@ STAFF_ROLE = Role(
     description="Staff at some facility",
     contexts=[RoleContext.FACILITY, RoleContext.GOVT_ORG],
 )
+SECRETARY_ROLE = Role(
+    name="Secretary",
+    description="Administrative patient registration and scheduling at a facility",
+    contexts=[RoleContext.FACILITY],
+)
 PHARMACIST_ROLE = Role(
     name="Pharmacist",
     description="Pharmacist at some facility",
@@ -83,6 +88,7 @@ class RoleController:
     internal_roles = [
         DOCTOR_ROLE,
         STAFF_ROLE,
+        SECRETARY_ROLE,
         NURSE_ROLE,
         ADMINISTRATOR,
         FACILITY_ADMIN_ROLE,

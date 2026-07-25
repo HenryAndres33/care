@@ -52,6 +52,69 @@ class UserviewTestCase(CareAPITestBase):
     def get_user_detail_url(self, username):
         return reverse("users-detail", kwargs={"username": username})
 
+    def test_sets_valid_urology_recent_patient_preference(self):
+        self.client.force_authenticate(user=self.user)
+        preference = {
+            "version": 1,
+            "facilities": {
+                "f05bd25f-eda3-4094-b17e-4ffc2816f54e": [
+                    {
+                        "patientId": "b9fd0899-81bf-476f-9508-76f987132c3d",
+                        "displayName": "Synthetic Patient",
+                        "mrn": "SYN-001",
+                        "lastOpened": "2026-07-24T06:30:00Z",
+                    }
+                ]
+            },
+        }
+
+        response = self.client.post(
+            reverse("users-set-preferences"),
+            {
+                "preference": "urology_recent_patients",
+                "value": preference,
+                "version": "1.0.0",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.user.refresh_from_db()
+        self.assertEqual(
+            self.user.preferences["urology_recent_patients"],
+            preference,
+        )
+
+    def test_rejects_clinical_content_in_urology_recent_patient_preference(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse("users-set-preferences"),
+            {
+                "preference": "urology_recent_patients",
+                "value": {
+                    "version": 1,
+                    "facilities": {
+                        "f05bd25f-eda3-4094-b17e-4ffc2816f54e": [
+                            {
+                                "patientId": ("b9fd0899-81bf-476f-9508-76f987132c3d"),
+                                "displayName": "Synthetic Patient",
+                                "mrn": "SYN-001",
+                                "lastOpened": "2026-07-24T06:30:00Z",
+                                "diagnoses": ["not allowed"],
+                            }
+                        ]
+                    },
+                },
+                "version": "1.0.0",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertNotIn("urology_recent_patients", self.user.preferences)
+
     # Test case for listing users
     def test_list_users_as_super_user(self):
         self.client.force_authenticate(user=self.super_user)

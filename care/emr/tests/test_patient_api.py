@@ -453,6 +453,66 @@ class TestPatientViewSet(CareAPITestBase):
         self.assertEqual(empty_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(short_name_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_directory_search_is_counted_and_offset_paginated(self):
+        creator = self.create_user()
+        facility = self.create_facility(creator)
+        facility_organization = self.create_facility_organization(
+            facility,
+            org_type="root",
+        )
+        secretary = self.create_user()
+        secretary_role = self.create_role_with_permissions(
+            permissions=[PatientPermissions.can_list_patients.name]
+        )
+        self.attach_role_facility_organization_user(
+            facility_organization,
+            secretary,
+            secretary_role,
+        )
+        patients = [
+            self.create_patient(name=f"Pagination Test {index:02d}")
+            for index in range(3)
+        ]
+        self.create_patient(name="Unrelated Patient")
+        self.client.force_authenticate(user=secretary)
+        url = reverse("patient-directory")
+
+        first_page = self.client.get(
+            url,
+            {
+                "facility": str(facility.external_id),
+                "name": "Pagination Test",
+                "limit": 2,
+                "offset": 0,
+                "ordering": "name",
+            },
+        )
+        second_page = self.client.get(
+            url,
+            {
+                "facility": str(facility.external_id),
+                "name": "Pagination Test",
+                "limit": 2,
+                "offset": 2,
+                "ordering": "name",
+            },
+        )
+
+        self.assertEqual(first_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_page.data["count"], 3)
+        self.assertEqual(second_page.data["count"], 3)
+        self.assertEqual(len(first_page.data["results"]), 2)
+        self.assertEqual(len(second_page.data["results"]), 1)
+        returned_ids = {
+            result["id"]
+            for result in first_page.data["results"] + second_page.data["results"]
+        }
+        self.assertEqual(
+            returned_ids,
+            {str(patient.external_id) for patient in patients},
+        )
+
     def test_search_without_phone_or_config(self):
         user = self.create_user()
         self.client.force_authenticate(user=user)

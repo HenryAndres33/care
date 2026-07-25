@@ -671,6 +671,37 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.assertNotIn(str(self.patient.external_id), html)
         self.assertNotIn("source_snapshot_hash", html)
 
+    def test_renderer_normalizes_generated_diagnosis_history_layout(self):
+        self.submission.response_dump = {
+            "content": {
+                "noteText": (
+                    "Algemene voorgeschiedenis:\n"
+                    "- Asthma — 01-01-2000: Allergische Asthma\n"
+                    "Urologische voorgeschiedenis:\n"
+                    "- Uretersteen — 01-07-2026: "
+                    "CT IVP: Distale uretersteen van 10mm"
+                ),
+            },
+        }
+
+        html = build_form_submission_artifact_html(
+            artifact_id=uuid4(),
+            submission=self.submission,
+            generated_at=timezone.now(),
+        )
+
+        self.assertIn(
+            "Algemene voorgeschiedenis:\n- Asthma:\n  01-01-2000: Allergische Asthma",
+            html,
+        )
+        self.assertIn(
+            "Urologische voorgeschiedenis:\n"
+            "- Uretersteen:\n"
+            "  01-07-2026: CT IVP: Distale uretersteen van 10mm",
+            html,
+        )
+        self.assertNotIn("—", html)
+
     def test_renderer_uses_operation_report_title_for_urology_operations(self):
         self.questionnaire.slug = "urology-operaties"
         self.questionnaire.title = "Urologie operatieverslag"

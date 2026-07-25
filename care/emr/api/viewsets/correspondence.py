@@ -21,6 +21,10 @@ from care.emr.correspondence.correction import (
     FormSubmissionSeriesHeadIntegrityError,
     lock_current_finalized_form_series,
 )
+from care.emr.correspondence.presentation import (
+    correspondence_presentation_reason,
+    dutch_correspondence_date,
+)
 from care.emr.correspondence.source import compilation_frozen_integrity_valid
 from care.emr.models.correspondence import (
     CorrespondenceCompilation,
@@ -58,6 +62,7 @@ from care.emr.resources.correspondence import (
     CompileCorrespondenceSpec,
     CorrespondenceCompilationReadSpec,
     canonical_correspondence_command_hash,
+    canonical_correspondence_command_hash_v1,
     canonical_sha256,
 )
 from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
@@ -559,6 +564,7 @@ class CorrespondenceCompilationViewSet(
             },
             "encounter": {
                 "date": locked["encounter_date"],
+                "date_display": dutch_correspondence_date(locked["encounter_date"]),
                 "external_identifier": locked["encounter"].external_identifier,
                 "id": str(locked["encounter"].external_id),
                 "reason": locked["reason"].display,
@@ -573,6 +579,10 @@ class CorrespondenceCompilationViewSet(
                 "artifact_id": str(locked["artifact"].external_id),
                 "hash": source.finalized_snapshot_hash,
                 "id": str(source.external_id),
+                "presentation_reason": correspondence_presentation_reason(
+                    source.response_dump,
+                    fallback=locked["reason"].display,
+                ),
                 "questionnaire": source.questionnaire.slug,
                 "questionnaire_version": source.questionnaire.version,
                 "version": source.resource_version,
@@ -599,6 +609,7 @@ class CorrespondenceCompilationViewSet(
                 **provenance["encounter"],
                 "department": provenance["department"],
                 "facility": provenance["facility"],
+                "reason": provenance["form"]["presentation_reason"],
             },
             "form": {
                 **provenance["form"],
@@ -707,10 +718,17 @@ class CorrespondenceCompilationViewSet(
         if not command:
             return None
         compilation = command.result_compilation
+        accepted_payload_hashes = {
+            payload_hash,
+            canonical_correspondence_command_hash_v1(
+                request_spec,
+                actor_id=self.request.user.external_id,
+            ),
+        }
         matches = all(
             [
                 not command.deleted,
-                command.payload_hash == payload_hash,
+                command.payload_hash in accepted_payload_hashes,
                 command.actor_id == self.request.user.id,
                 command.patient_id == source.patient_id,
                 command.encounter_id == source.encounter_id,

@@ -32,7 +32,11 @@ from care.emr.models.correspondence_correction import (
 )
 from care.emr.models.encounter import Encounter
 from care.emr.models.patient import Patient
-from care.emr.models.questionnaire import FormSubmission, FormSubmissionCommand
+from care.emr.models.questionnaire import (
+    FormSubmission,
+    FormSubmissionCommand,
+    Questionnaire,
+)
 from care.emr.models.report.report_upload import (
     FormSubmissionArtifactCommand,
     ReportUpload,
@@ -47,7 +51,7 @@ from care.emr.reports.form_submission_artifact import (
     render_form_submission_artifact_pdf,
     validate_response_dump,
 )
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES
+from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
 from care.emr.resources.form_submission.artifact import (
     FormSubmissionArtifactCommandResponseSpec,
     GenerateFormSubmissionArtifactSpec,
@@ -56,11 +60,13 @@ from care.emr.resources.form_submission.artifact import (
 )
 from care.emr.resources.form_submission.commands import (
     AmendFormSubmissionSpec,
+    CreateDraftFormSubmissionSpec,
     EnterFormSubmissionInErrorSpec,
     FinalizeFormSubmissionSpec,
     FormSubmissionCommandResponseSpec,
     UpdateDraftFormSubmissionSpec,
     canonical_form_submission_command_hash,
+    canonical_form_submission_create_hash,
     finalized_form_submission_snapshot_hash,
 )
 from care.emr.resources.form_submission.spec import (
@@ -72,6 +78,11 @@ from care.emr.resources.form_submission.spec import (
 from care.emr.resources.form_submission.structured_actions import (
     InvalidStructuredClinicalActionLink,
     clone_structured_clinical_action_links,
+)
+from care.emr.resources.form_submission.urology_operation import (
+    UROLOGY_OPERATIONS_QUESTIONNAIRE,
+    InvalidUrologyOperationResponseError,
+    validate_urology_operation_response_dump,
 )
 from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization.base import AuthorizationController
@@ -113,7 +124,8 @@ class FormSubmissionViewSet(
             )
 
     def authorize_create(self, instance):
-        # TODO : Check if the user is part of questionnaire organization
+        questionnaire = get_object_or_404(Questionnaire, slug=instance.questionnaire)
+        self._authorize_questionnaire_submission(questionnaire)
         if instance.encounter:
             encounter = get_object_or_404(
                 Encounter,
@@ -127,6 +139,7 @@ class FormSubmissionViewSet(
         return super().authorize_create(instance)
 
     def authorize_update(self, request_obj, model_instance):
+        self._authorize_questionnaire_submission(model_instance.questionnaire)
         if model_instance.encounter:
             self._authorize_write(encounter=model_instance.encounter)
         else:
@@ -176,6 +189,12 @@ class FormSubmissionViewSet(
             "can_submit_encounter_questionnaire_obj", self.request.user, encounter
         ):
             raise PermissionDenied("Permission denied for form submission context")
+
+    def _authorize_questionnaire_submission(self, questionnaire):
+        if not AuthorizationController.call(
+            "can_submit_questionnaire_obj", self.request.user, questionnaire
+        ):
+            raise PermissionDenied("Permission denied for questionnaire submission")
 
     def get_queryset(self):
         queryset = (
@@ -244,6 +263,94 @@ class FormSubmissionViewSet(
             submission.updated_by = request.user
             submission.save(update_fields=update_fields)
         return Response(FormSubmissionReadSpec.serialize(submission).to_json())
+
+    @extend_schema(
+        request=CreateDraftFormSubmissionSpec,
+        responses={
+            200: FormSubmissionCommandResponseSpec,
+            201: FormSubmissionCommandResponseSpec,
+        },
+    )
+    @action(detail=False, methods=["POST"], url_path="idempotent-create-draft")
+    def idempotent_create_draft(self, request, *args, **kwargs):
+        request_spec = CreateDraftFormSubmissionSpec.model_validate(request.data)
+        questionnaire, patient, encounter = self._resolve_create_draft_context(
+            request_spec
+        )
+        payload_hash = canonical_form_submission_create_hash(
+            request_spec,
+            actor_id=request.user.external_id,
+        )
+        if response := self._create_draft_replay_response(request_spec, payload_hash):
+            return response
+
+        try:
+            with transaction.atomic():
+                if response := self._create_draft_replay_response(
+                    request_spec, payload_hash
+                ):
+                    return response
+                questionnaire, patient, encounter = self._lock_create_draft_context(
+                    request_spec,
+                    questionnaire=questionnaire,
+                    patient=patient,
+                    encounter=encounter,
+                )
+                response = self._create_draft_replay_response(
+                    request_spec, payload_hash
+                )
+                if (
+                    response is None
+                    and FormSubmission._base_manager.filter(  # noqa: SLF001
+                        external_id=request_spec.form_instance_id
+                    ).exists()
+                ):
+                    response = self._form_instance_conflict()
+                if response:
+                    return response
+
+                submission = FormSubmission(
+                    external_id=request_spec.form_instance_id,
+                    questionnaire=questionnaire,
+                    patient=patient,
+                    encounter=encounter,
+                    status=FormSubmissionStatusChoices.draft.value,
+                    response_dump=request_spec.response_dump,
+                    created_by=request.user,
+                    updated_by=request.user,
+                )
+                submission.save(force_insert=True)
+                FormSubmissionCommand.objects.create(
+                    client_request_id=request_spec.client_request_id,
+                    payload_hash=payload_hash,
+                    command_type="create_draft",
+                    expected_version=1,
+                    actor=request.user,
+                    patient=patient,
+                    encounter=encounter,
+                    questionnaire=questionnaire,
+                    target_submission=submission,
+                    result_submission=submission,
+                    created_by=request.user,
+                    updated_by=request.user,
+                )
+        except IntegrityError:
+            if response := self._create_draft_replay_response(
+                request_spec, payload_hash
+            ):
+                return response
+            if FormSubmission._base_manager.filter(  # noqa: SLF001
+                external_id=request_spec.form_instance_id
+            ).exists():
+                return self._form_instance_conflict()
+            raise
+
+        return self._command_response(
+            request_spec.client_request_id,
+            submission,
+            replayed=False,
+            response_status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         request=UpdateDraftFormSubmissionSpec,
@@ -522,10 +629,24 @@ class FormSubmissionViewSet(
                     )
                 ):
                     return response
+                if command_type == "finalize" and (
+                    response := self._urology_operation_validation_response(
+                        target.response_dump,
+                        questionnaire_slug=target.questionnaire.slug,
+                    )
+                ):
+                    return response
                 if command_type == "amend" and (
                     response := self._response_dump_validation_response(
                         target.response_dump,
                         authoritative_source=True,
+                    )
+                ):
+                    return response
+                if command_type == "amend" and (
+                    response := self._urology_operation_validation_response(
+                        request_spec.response_dump,
+                        questionnaire_slug=target.questionnaire.slug,
                     )
                 ):
                     return response
@@ -607,6 +728,97 @@ class FormSubmissionViewSet(
             ]
         )
         return target
+
+    def _resolve_create_draft_context(self, request_spec):
+        questionnaire = get_object_or_404(
+            Questionnaire, slug=request_spec.questionnaire
+        )
+        patient = get_object_or_404(Patient, external_id=request_spec.patient)
+        encounter = None
+        if request_spec.encounter:
+            encounter = get_object_or_404(
+                Encounter,
+                external_id=request_spec.encounter,
+                patient=patient,
+            )
+        self._authorize_questionnaire_submission(questionnaire)
+        if encounter:
+            self._authorize_write(encounter=encounter)
+        else:
+            self._authorize_write(patient=patient)
+        return questionnaire, patient, encounter
+
+    def _lock_create_draft_context(
+        self,
+        request_spec,
+        *,
+        questionnaire,
+        patient,
+        encounter,
+    ):
+        if encounter:
+            encounter = (
+                Encounter.objects.select_for_update()
+                .select_related("patient")
+                .get(pk=encounter.pk)
+            )
+            if (
+                encounter.patient_id != patient.id
+                or encounter.external_id != request_spec.encounter
+            ):
+                raise Http404("Form submission context not found")
+            self._authorize_write(encounter=encounter)
+        else:
+            patient = Patient.objects.select_for_update().get(pk=patient.pk)
+            self._authorize_write(patient=patient)
+        self._authorize_questionnaire_submission(questionnaire)
+        return questionnaire, patient, encounter
+
+    def _create_draft_replay_response(self, request_spec, payload_hash):
+        command = (
+            FormSubmissionCommand._base_manager.select_related(  # noqa: SLF001
+                "actor",
+                "patient",
+                "encounter",
+                "questionnaire",
+                "result_submission__questionnaire",
+                "result_submission__patient",
+                "result_submission__encounter",
+                "result_submission__created_by",
+                "result_submission__updated_by",
+            )
+            .filter(client_request_id=request_spec.client_request_id)
+            .first()
+        )
+        if not command:
+            return None
+        submission = command.result_submission
+        matches = all(
+            [
+                not command.deleted,
+                not submission.deleted,
+                command.payload_hash == payload_hash,
+                command.command_type == "create_draft",
+                command.expected_version == 1,
+                command.actor_id == self.request.user.id,
+                command.target_submission_id == submission.id,
+                command.patient_id == submission.patient_id,
+                command.encounter_id == submission.encounter_id,
+                command.questionnaire_id == submission.questionnaire_id,
+                submission.external_id == request_spec.form_instance_id,
+                submission.status == FormSubmissionStatusChoices.draft.value,
+                submission.resource_version == 1,
+            ]
+        )
+        if not matches:
+            return self._idempotency_conflict()
+        self._authorize_read(submission)
+        return self._command_response(
+            request_spec.client_request_id,
+            submission,
+            replayed=True,
+            response_status=status.HTTP_200_OK,
+        )
 
     def _get_artifact_source(self):
         return get_object_or_404(
@@ -1118,6 +1330,7 @@ class FormSubmissionViewSet(
             raise Http404("Form submission context not found")
 
     def _lock_and_authorize_write_context(self, target, command_type):
+        self._authorize_questionnaire_submission(target.questionnaire)
         if target.encounter_id:
             encounter = Encounter.objects.select_for_update().get(
                 pk=target.encounter_id
@@ -1125,11 +1338,11 @@ class FormSubmissionViewSet(
             if encounter.patient_id != target.patient_id:
                 raise Http404("Form submission context not found")
             if (
-                encounter.status in COMPLETED_CHOICES
+                encounter.status in CLINICALLY_CLOSED_CHOICES
                 and command_type != "enter_in_error"
             ):
                 raise ValidationError(
-                    "Completed encounter forms require a future reconciliation workflow"
+                    "Clinically closed encounter forms require a reconciliation workflow"
                 )
             target.encounter = encounter
             if command_type == "enter_in_error":
@@ -1189,6 +1402,23 @@ class FormSubmissionViewSet(
                         "msg": (
                             "client_request_id was already used with different "
                             "request data or context"
+                        ),
+                    }
+                ]
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    @staticmethod
+    def _form_instance_conflict():
+        return Response(
+            {
+                "errors": [
+                    {
+                        "type": "form_submission_instance_conflict",
+                        "msg": (
+                            "form_instance_id is already bound to another "
+                            "form submission command"
                         ),
                     }
                 ]
@@ -1289,6 +1519,26 @@ class FormSubmissionViewSet(
                     ]
                 },
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        return None
+
+    @staticmethod
+    def _urology_operation_validation_response(response_dump, *, questionnaire_slug):
+        if questionnaire_slug != UROLOGY_OPERATIONS_QUESTIONNAIRE:
+            return None
+        try:
+            validate_urology_operation_response_dump(response_dump)
+        except InvalidUrologyOperationResponseError as exc:
+            return Response(
+                {
+                    "errors": [
+                        {
+                            "type": "urology_operation_confirmation_required",
+                            "msg": str(exc),
+                        }
+                    ]
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
         return None
 

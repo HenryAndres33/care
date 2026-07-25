@@ -34,6 +34,11 @@ from care.emr.models.tag_config import TagConfig
 from care.emr.reports.correspondence_compiler import (
     CorrespondenceCompilationError,
     compile_correspondence_html,
+    readable_form_html,
+)
+from care.emr.resources.correspondence import (
+    CompileCorrespondenceSpec,
+    canonical_correspondence_command_hash_v1,
 )
 from care.emr.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
@@ -333,11 +338,9 @@ class TestCorrespondenceCompilationAPI(
         self.assertIn("Generic therapy", body["compiled_text"])
         self.assertIn("measurement", body["compiled_text"])
         self.assertIn("45", body["compiled_text"])
-        self.assertIn("Ada Clinician", body["compiled_text"])
-        self.assertIn("1970-01-02", body["compiled_text"])
-        self.assertIn("MRN-CORR-001", body["compiled_text"])
-        self.assertIn("Correspondence Clinician", body["compiled_text"])
-        self.assertIn("REG-001", body["compiled_text"])
+        self.assertNotIn("Source provenance", body["compiled_text"])
+        self.assertNotIn("MRN-CORR-001", body["compiled_text"])
+        self.assertNotIn("REG-001", body["compiled_text"])
         self.assertNotIn("Local clinician", body["compiled_text"])
         self.assertNotIn("<carefully>", body["compiled_html"])
         self.assertIn("&lt;carefully&gt;", body["compiled_html"])
@@ -349,7 +352,21 @@ class TestCorrespondenceCompilationAPI(
             compilation.source_provenance["encounter"]["date"], "2026-07-20T09:30:00Z"
         )
         self.assertEqual(
+            compilation.source_provenance["encounter"]["date_display"],
+            "20 juli 2026",
+        )
+        self.assertEqual(
             compilation.source_provenance["department"]["name"], "Urology Department"
+        )
+        self.assertEqual(
+            compilation.source_provenance["author"]["display"], "Ada Clinician"
+        )
+        self.assertEqual(
+            compilation.source_provenance["author"]["registration"], "REG-001"
+        )
+        self.assertEqual(
+            compilation.source_provenance["patient"]["identifiers"][0]["value"],
+            "MRN-CORR-001",
         )
         self.assertEqual(
             compilation.medication_sources[0]["id"], str(self.medication.external_id)
@@ -421,7 +438,7 @@ class TestCorrespondenceCompilationAPI(
             str(self.medication.external_id),
         )
 
-    def test_exact_retry_and_new_key_reuse_original_compilation(self):
+    def test_exact_retry_replays_but_new_key_starts_independent_letter(self):
         payload = self._payload()
         created = self._compile(payload)
         exact = self._compile(payload)
@@ -429,17 +446,74 @@ class TestCorrespondenceCompilationAPI(
 
         self.assertEqual(created.status_code, HTTPStatus.CREATED)
         self.assertEqual(exact.status_code, HTTPStatus.OK)
-        self.assertEqual(another_key.status_code, HTTPStatus.OK)
+        self.assertEqual(another_key.status_code, HTTPStatus.CREATED)
         self.assertTrue(exact.json()["replayed"])
-        self.assertTrue(another_key.json()["replayed"])
+        self.assertFalse(another_key.json()["replayed"])
         ids = {
             created.json()["compilation"]["id"],
             exact.json()["compilation"]["id"],
             another_key.json()["compilation"]["id"],
         }
-        self.assertEqual(len(ids), 1)
-        self.assertEqual(CorrespondenceCompilation.objects.count(), 1)
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(CorrespondenceCompilation.objects.count(), 2)
         self.assertEqual(CorrespondenceCompileCommand.objects.count(), 2)
+
+    def test_template_reason_comes_from_exact_finalized_note(self):
+        source = self._finalized_submission(
+            response_dump={
+                "content": {
+                    "noteText": (
+                        "Reden van presentatie:\n"
+                        "Macroscopische hematurie\n\n"
+                        "Anamnese:\n"
+                        "Pijnloos bloedverlies."
+                    ),
+                    "values": {"reasonForVisit": "Macroscopische hematurie"},
+                }
+            }
+        )
+        self.submission = source
+        self.artifact = self._artifact(source)
+        self.medication = self._medication(source)
+
+        compiled = self._compile()
+
+        self.assertEqual(compiled.status_code, HTTPStatus.CREATED)
+        body = compiled.json()["compilation"]
+        self.assertIn("Macroscopische hematurie", body["compiled_text"])
+        self.assertNotIn("Visible haematuria", body["compiled_text"])
+        self.assertEqual(
+            body["source_provenance"]["encounter"]["reason"],
+            "Visible haematuria",
+        )
+        self.assertEqual(
+            body["source_provenance"]["form"]["presentation_reason"],
+            "Macroscopische hematurie",
+        )
+
+    def test_pre_v2_command_hash_still_supports_exact_replay(self):
+        payload = self._payload()
+        created = self._compile(payload)
+        legacy_hash = canonical_correspondence_command_hash_v1(
+            CompileCorrespondenceSpec.model_validate(payload),
+            actor_id=self.user.external_id,
+        )
+        command = CorrespondenceCompileCommand.objects.get()
+        CorrespondenceCompileCommand.objects.filter(pk=command.pk).update(
+            payload_hash=legacy_hash
+        )
+        CorrespondenceCompilation.objects.filter(
+            external_id=created.json()["compilation"]["id"]
+        ).update(source_fingerprint=legacy_hash)
+
+        replay = self._compile(payload)
+
+        self.assertEqual(replay.status_code, HTTPStatus.OK)
+        self.assertTrue(replay.json()["replayed"])
+        self.assertEqual(
+            replay.json()["compilation"]["id"],
+            created.json()["compilation"]["id"],
+        )
 
     def test_replay_never_substitutes_current_session_or_updated_template(self):
         payload = self._payload()
@@ -464,9 +538,7 @@ class TestCorrespondenceCompilationAPI(
         created = self._compile(payload)
         amended = self._amend_source()
         exact = self._compile(payload)
-        new_key = self._compile(
-            {**payload, "client_request_id": str(uuid4())}
-        )
+        new_key = self._compile({**payload, "client_request_id": str(uuid4())})
 
         self.assertEqual(created.status_code, HTTPStatus.CREATED)
         self.assertEqual(amended.status_code, HTTPStatus.CREATED, amended.json())
@@ -488,9 +560,7 @@ class TestCorrespondenceCompilationAPI(
         self.reason.save(update_fields=["status", "modified_date"])
 
         exact = self._compile(payload)
-        new_key = self._compile(
-            {**payload, "client_request_id": str(uuid4())}
-        )
+        new_key = self._compile({**payload, "client_request_id": str(uuid4())})
 
         self.assertEqual(exact.status_code, HTTPStatus.OK)
         self.assertTrue(exact.json()["replayed"])
@@ -579,9 +649,7 @@ class TestCorrespondenceCompilationAPI(
             form_source_hash="d" * 64,
             form_artifact=str(draft_artifact.external_id),
         )
-        self.assertEqual(
-            self._compile(draft_payload).status_code, HTTPStatus.CONFLICT
-        )
+        self.assertEqual(self._compile(draft_payload).status_code, HTTPStatus.CONFLICT)
 
         stale = self._compile(self._payload(form_source_version=99))
         self.assertEqual(stale.status_code, HTTPStatus.CONFLICT)
@@ -907,9 +975,7 @@ class TestCorrespondenceCompilationAPI(
                 model._base_manager.filter(pk=pk).update(deleted=True)  # noqa: SLF001
                 replay = self._compile(payload)
                 retrieved = self.client.get(detail_url)
-                new_key = self._compile(
-                    {**payload, "client_request_id": str(uuid4())}
-                )
+                new_key = self._compile({**payload, "client_request_id": str(uuid4())})
                 self.assertEqual(replay.status_code, HTTPStatus.OK)
                 self.assertTrue(replay.json()["replayed"])
                 self.assertEqual(retrieved.status_code, HTTPStatus.OK)
@@ -972,6 +1038,77 @@ class TestCorrespondenceCompilationAPI(
 
         self.assertEqual(first, second)
         self.assertIn("Patient", first[1])
+
+    def test_readable_form_prefers_the_final_clinical_note_without_identifiers(self):
+        rendered = str(
+            readable_form_html(
+                {
+                    "schema": "care.urology.encounter-owned-form-submission",
+                    "identity": {"patientId": "patient-secret-reference"},
+                    "content": {
+                        "narrativePreview": "Korte samenvatting",
+                        "noteText": (
+                            "Reden van verwijzing:\n"
+                            "BPH-evaluatie wegens lower urinary tract symptoms.\n\n"
+                            "Anamnese:\n"
+                            "Mictieklachten sinds drie maanden."
+                        ),
+                        "values": {"internal_field": "technical value"},
+                    },
+                }
+            )
+        )
+
+        self.assertNotIn("Laatste definitieve notitie", rendered)
+        self.assertNotIn("Reden van verwijzing", rendered)
+        self.assertNotIn("BPH-evaluatie wegens lower urinary tract symptoms.", rendered)
+        self.assertIn("Anamnese:<br>Mictieklachten sinds drie maanden.", rendered)
+        self.assertNotIn("patient-secret-reference", rendered)
+        self.assertNotIn("internal_field", rendered)
+
+    def test_readable_form_normalizes_generated_diagnosis_history_layout(self):
+        readable = readable_form_html(
+            {
+                "content": {
+                    "noteText": (
+                        "Algemene voorgeschiedenis:\n"
+                        "- Asthma — 01-01-2000: Allergische Asthma\n"
+                        "Urologische voorgeschiedenis:\n"
+                        "- Uretersteen — 01-07-2026: "
+                        "CT IVP: Distale uretersteen van 10mm\n"
+                        "Allergie:\nGeen"
+                    ),
+                },
+            }
+        )
+        rendered = str(readable)
+
+        self.assertIn(
+            "Algemene voorgeschiedenis:<br>"
+            "- Asthma:<br>"
+            "  01-01-2000: Allergische Asthma",
+            rendered,
+        )
+        self.assertIn(
+            "Urologische voorgeschiedenis:<br>"
+            "- Uretersteen:<br>"
+            "  01-07-2026: CT IVP: Distale uretersteen van 10mm",
+            rendered,
+        )
+        self.assertNotIn("—", rendered)
+
+        _, compiled_text = compile_correspondence_html(
+            compilation_id=uuid4(),
+            compiled_at=timezone.now(),
+            template_data="<div>{{ form.readable_html }}</div>",
+            context={"form": {"readable_html": readable}},
+            provenance={"contract": "test"},
+        )
+        self.assertIn(
+            "Algemene voorgeschiedenis:\n- Asthma:\n  01-01-2000: Allergische Asthma",
+            compiled_text,
+        )
+        self.assertNotIn("—", compiled_text)
 
     def test_renderer_rejects_unbounded_or_oversized_templates_and_output(self):
         context = {
@@ -1073,11 +1210,14 @@ class TestCorrespondenceCompilationConcurrency(
         self.assertEqual(CorrespondenceCompilation.objects.count(), 1)
         self.assertEqual(CorrespondenceCompileCommand.objects.count(), 1)
 
-    def test_concurrent_distinct_keys_same_sources_reuse_one_compilation(self):
+    def test_concurrent_distinct_keys_create_independent_letters(self):
         responses = self._post_concurrently([self._payload(), self._payload()])
 
-        self.assertEqual(sorted(code for code, _ in responses), [200, 201])
-        self.assertEqual(CorrespondenceCompilation.objects.count(), 1)
+        self.assertEqual(
+            sorted(code for code, _ in responses),
+            [HTTPStatus.CREATED, HTTPStatus.CREATED],
+        )
+        self.assertEqual(CorrespondenceCompilation.objects.count(), 2)
         self.assertEqual(CorrespondenceCompileCommand.objects.count(), 2)
 
     def test_amendment_and_compilation_have_only_serial_outcomes(self):

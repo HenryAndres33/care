@@ -5,7 +5,7 @@ from django.utils import timezone
 from pydantic import UUID4, BaseModel
 
 from care.emr.extensions.base import ExtensionResource
-from care.emr.extensions.validator import ExtensionValidator
+from care.emr.extensions.validator import ExtensionListRenderer, ExtensionValidator
 from care.emr.models import (
     Encounter,
     EncounterOrganization,
@@ -117,7 +117,7 @@ class EncounterUpdateSpec(ExtensionValidator, EncounterSpecBase):
             obj.discharge_summary_advice = None
 
 
-class EncounterListSpec(EncounterSpecBase):
+class EncounterListSpec(ExtensionListRenderer, EncounterSpecBase):
     patient: dict
     facility: dict
     status_history: dict
@@ -152,6 +152,7 @@ class EncounterListSpec(EncounterSpecBase):
             )
 
         mapping["care_team"] = care_team
+        super().perform_extra_serialization(mapping, obj)
 
 
 class EncounterRetrieveSpec(EncounterListSpec, EncounterPermissionsMixin):

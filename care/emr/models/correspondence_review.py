@@ -4,6 +4,7 @@ from django.db import models
 from care.emr.models.base import EMRBaseModel
 
 RECIPIENT_SOURCE_CONSTRAINT = "corrrecipient_source_scope_uniq"
+RECIPIENT_COMMAND_CONSTRAINT = "corrrecipient_cmd_request_id_uniq"
 REVIEW_COMPILATION_CONSTRAINT = "corrreview_compilation_uniq"
 REVIEW_COMMAND_CONSTRAINT = "corrreview_cmd_request_id_uniq"
 
@@ -104,6 +105,29 @@ class CorrespondenceRecipient(EMRBaseModel):
                 "content_hash",
             }
         return super().save(*args, **kwargs)
+
+
+class CorrespondenceRecipientCommand(EMRBaseModel):
+    IDEMPOTENCY_CONSTRAINT_NAME = RECIPIENT_COMMAND_CONSTRAINT
+
+    client_request_id = models.UUIDField()
+    payload_hash = models.CharField(max_length=64)
+    actor = models.ForeignKey("users.User", on_delete=models.PROTECT)
+    patient = models.ForeignKey("emr.Patient", on_delete=models.PROTECT)
+    facility = models.ForeignKey("facility.Facility", on_delete=models.PROTECT)
+    result_recipient = models.ForeignKey(
+        CorrespondenceRecipient,
+        on_delete=models.PROTECT,
+        related_name="idempotency_commands",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client_request_id"],
+                name=RECIPIENT_COMMAND_CONSTRAINT,
+            )
+        ]
 
 
 class CorrespondenceReview(EMRBaseModel):

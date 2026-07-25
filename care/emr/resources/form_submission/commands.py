@@ -22,6 +22,17 @@ class FormSubmissionCommandSpec(BaseModel):
     questionnaire: str = Field(min_length=1)
 
 
+class CreateDraftFormSubmissionSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    client_request_id: UUID4
+    encounter: UUID4 | None = None
+    form_instance_id: UUID4
+    patient: UUID4
+    questionnaire: str = Field(min_length=1)
+    response_dump: dict
+
+
 class UpdateDraftFormSubmissionSpec(FormSubmissionCommandSpec):
     response_dump: dict
 
@@ -67,6 +78,22 @@ def canonical_form_submission_command_hash(
             mode="python", exclude={"client_request_id"}
         ),
         "target": target_id,
+    }
+    return _sha256(canonical_input)
+
+
+def canonical_form_submission_create_hash(
+    request_spec: CreateDraftFormSubmissionSpec,
+    *,
+    actor_id: UUID,
+) -> str:
+    canonical_input = {
+        "actor": actor_id,
+        "command": "create_draft",
+        "contract": "form-submission-create-draft-v1",
+        "payload": request_spec.model_dump(
+            mode="python", exclude={"client_request_id"}
+        ),
     }
     return _sha256(canonical_input)
 

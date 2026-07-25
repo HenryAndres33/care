@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
@@ -397,6 +398,62 @@ class EncounterAPITests(CareAPITestBase):
         self.assertEqual(get_response.status_code, 200)
         self.assertEqual(get_response.data["id"], str(created_response.data["id"]))
 
+    def test_create_rejects_second_active_inpatient_for_patient(self):
+        self.encounter.encounter_class = ClassChoices.imp.value
+        self.encounter.status = StatusChoices.in_progress.value
+        self.encounter.save()
+        role = self.create_role_with_permissions(
+            permissions=[
+                EncounterPermissions.can_create_encounter.name,
+                EncounterPermissions.can_read_encounter.name,
+                PatientPermissions.can_list_patients.name,
+            ]
+        )
+        self.attach_role_facility_organization_user(
+            self.facility_organization, self.user, role
+        )
+
+        response = self.client.post(self.url, self.encounter_data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Patient already has an active inpatient encounter",
+            response.data["errors"][0]["msg"],
+        )
+
+    def test_database_rejects_second_active_inpatient_for_patient(self):
+        self.encounter.encounter_class = ClassChoices.imp.value
+        self.encounter.status = StatusChoices.on_hold.value
+        self.encounter.save()
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.create_encounter(
+                patient=self.patient,
+                facility=self.facility,
+                organization=self.facility_organization,
+                encounter_class=ClassChoices.imp.value,
+                status=StatusChoices.in_progress.value,
+            )
+
+    def test_completed_inpatient_does_not_block_new_admission(self):
+        self.encounter.encounter_class = ClassChoices.imp.value
+        self.encounter.status = StatusChoices.completed.value
+        self.encounter.save()
+        role = self.create_role_with_permissions(
+            permissions=[
+                EncounterPermissions.can_create_encounter.name,
+                EncounterPermissions.can_read_encounter.name,
+                PatientPermissions.can_list_patients.name,
+            ]
+        )
+        self.attach_role_facility_organization_user(
+            self.facility_organization, self.user, role
+        )
+
+        response = self.client.post(self.url, self.encounter_data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
     def test_create_encounter_without_permissions(self):
         response = self.client.post(self.url, self.encounter_data, format="json")
         self.assertEqual(response.status_code, 403)
@@ -443,25 +500,25 @@ class EncounterAPITests(CareAPITestBase):
             self.facility_organization, self.user, role
         )
         update_data = self.encounter_data.copy()
-        update_data["status"] = StatusChoices.completed.value
+        update_data["status"] = StatusChoices.on_hold.value
         response = self.client.put(
             self._get_detail_url(self.facility.external_id, self.patient.external_id),
             update_data,
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["status"], StatusChoices.completed.value)
+        self.assertEqual(response.data["status"], StatusChoices.on_hold.value)
 
         get_response = self.client.get(
             self._get_detail_url(self.facility.external_id, self.patient.external_id),
             format="json",
         )
         self.assertEqual(get_response.status_code, 200)
-        self.assertEqual(get_response.data["status"], StatusChoices.completed.value)
+        self.assertEqual(get_response.data["status"], StatusChoices.on_hold.value)
 
     def test_update_encounter_without_permissions(self):
         update_data = self.encounter_data.copy()
-        update_data["status"] = StatusChoices.completed.value
+        update_data["status"] = StatusChoices.on_hold.value
         response = self.client.put(
             self._get_detail_url(self.facility.external_id, self.patient.external_id),
             update_data,

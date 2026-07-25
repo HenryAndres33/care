@@ -16,7 +16,10 @@ from care.emr.models import (
     FacilityLocationOrganization,
 )
 from care.emr.models.organization import FacilityOrganization, FacilityOrganizationUser
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES
+from care.emr.resources.encounter.constants import (
+    CLINICALLY_CLOSED_CHOICES,
+    COMPLETED_CHOICES,
+)
 from care.emr.resources.facility_organization.spec import FacilityOrganizationReadSpec
 from care.emr.resources.location.spec import (
     FacilityLocationEncounterCreateSpec,
@@ -314,7 +317,7 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
                 location=location,
                 status=LocationEncounterAvailabilityStatusChoices.active.value,
             )
-            .exclude(encounter__status__in=COMPLETED_CHOICES)
+            .exclude(encounter__status__in=CLINICALLY_CLOSED_CHOICES)
             .first()
         )
         all_encounters = Encounter.objects.filter(current_location=location)
@@ -370,9 +373,9 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
             encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
             ).get(pk=instance.encounter_id)
-            if encounter.status in COMPLETED_CHOICES:
+            if encounter.status in CLINICALLY_CLOSED_CHOICES:
                 raise ValidationError(
-                    "Cannot associate a location to a terminal encounter"
+                    "Cannot associate a location to a clinically closed encounter"
                 )
             instance.encounter = encounter
             self.authorize_create(instance)
@@ -391,9 +394,9 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
             encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
             ).get(pk=instance.encounter_id)
-            if encounter.status in COMPLETED_CHOICES:
+            if encounter.status in CLINICALLY_CLOSED_CHOICES:
                 raise ValidationError(
-                    "Cannot associate a location to a terminal encounter"
+                    "Cannot associate a location to a clinically closed encounter"
                 )
             instance.encounter = encounter
             self.authorize_update({}, instance)
@@ -447,8 +450,10 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
             encounter = instance.encounter
             if not isinstance(instance.encounter, Encounter):
                 encounter = get_object_or_404(Encounter, external_id=encounter)
-        if encounter.status in COMPLETED_CHOICES:
-            raise ValidationError("Cannot associate a location to a terminal encounter")
+        if encounter.status in CLINICALLY_CLOSED_CHOICES:
+            raise ValidationError(
+                "Cannot associate a location to a clinically closed encounter"
+            )
         if model_obj:
             # Validate if the current dates are not in conflict with other dates
             base_qs = base_qs.exclude(id=model_obj.id)
@@ -547,7 +552,7 @@ class FacilityLocationEncounterViewSet(EMRModelViewSet):
 
 
 def close_related_location_from_encounter(instance):
-    if instance.status in COMPLETED_CHOICES:
+    if instance.status in CLINICALLY_CLOSED_CHOICES:
         with transaction.atomic():
             FacilityLocation.objects.filter(current_encounter=instance).update(
                 current_encounter=None,

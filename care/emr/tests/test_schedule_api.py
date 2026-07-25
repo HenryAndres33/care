@@ -1,9 +1,16 @@
+import copy
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from threading import Barrier
 
 from django.conf import settings
+from django.db import close_old_connections
+from django.test import TransactionTestCase
 from django.test.utils import ignore_warnings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from care.emr.models import (
     Availability,
@@ -226,7 +233,24 @@ class TestScheduleViewSet(CareAPITestBase):
         self.attach_role_facility_organization_user(self.organization, self.user, role)
 
         schedule_data = self.generate_schedule_data(
-            valid_from=(datetime.now(UTC) + timedelta(minutes=30)).replace(tzinfo=None)
+            valid_from=(datetime.now(UTC) + timedelta(minutes=30)).replace(tzinfo=None),
+            availabilities=[
+                {
+                    "name": "Afternoon Slot",
+                    "slot_type": SlotTypeOptions.appointment.value,
+                    "slot_size_in_minutes": 30,
+                    "tokens_per_slot": 1,
+                    "create_tokens": True,
+                    "reason": "Regular schedule",
+                    "availability": [
+                        {
+                            "day_of_week": 1,
+                            "start_time": "14:00:00",
+                            "end_time": "18:00:00",
+                        }
+                    ],
+                }
+            ],
         )
         response = self.client.post(self.base_url, schedule_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -284,6 +308,104 @@ class TestScheduleViewSet(CareAPITestBase):
         self.assertContains(
             response, "Availability time ranges are overlapping", status_code=400
         )
+
+    def test_create_schedule_rejects_overlap_with_existing_schedule(self):
+        permissions = [SchedulePermissions.can_write_schedule.name]
+        role = self.create_role_with_permissions(permissions)
+        self.attach_role_facility_organization_user(self.organization, self.user, role)
+        schedule_count = Schedule.objects.count()
+        schedule_data = self.generate_schedule_data(
+            valid_from=(datetime.now(UTC) + timedelta(minutes=30)).replace(tzinfo=None),
+            valid_to=(datetime.now(UTC) + timedelta(days=7)).replace(tzinfo=None),
+            availabilities=[
+                {
+                    "name": "Conflicting Slot",
+                    "slot_type": SlotTypeOptions.appointment.value,
+                    "slot_size_in_minutes": 30,
+                    "tokens_per_slot": 1,
+                    "create_tokens": True,
+                    "reason": "Regular schedule",
+                    "availability": [
+                        {
+                            "day_of_week": 1,
+                            "start_time": "10:00:00",
+                            "end_time": "12:00:00",
+                        }
+                    ],
+                }
+            ],
+        )
+
+        response = self.client.post(self.base_url, schedule_data, format="json")
+
+        self.assertContains(
+            response,
+            "Availability overlaps with an existing schedule for this resource",
+            status_code=400,
+        )
+        self.assertEqual(Schedule.objects.count(), schedule_count)
+
+    def test_create_schedule_allows_adjacent_availability(self):
+        permissions = [SchedulePermissions.can_write_schedule.name]
+        role = self.create_role_with_permissions(permissions)
+        self.attach_role_facility_organization_user(self.organization, self.user, role)
+        schedule_data = self.generate_schedule_data(
+            valid_from=(datetime.now(UTC) + timedelta(minutes=30)).replace(tzinfo=None),
+            valid_to=(datetime.now(UTC) + timedelta(days=7)).replace(tzinfo=None),
+            availabilities=[
+                {
+                    "name": "Adjacent Slot",
+                    "slot_type": SlotTypeOptions.appointment.value,
+                    "slot_size_in_minutes": 30,
+                    "tokens_per_slot": 1,
+                    "create_tokens": True,
+                    "reason": "Regular schedule",
+                    "availability": [
+                        {
+                            "day_of_week": 1,
+                            "start_time": "13:00:00",
+                            "end_time": "14:00:00",
+                        }
+                    ],
+                }
+            ],
+        )
+
+        response = self.client.post(self.base_url, schedule_data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_schedule_allows_weekday_absent_from_date_intersection(self):
+        permissions = [SchedulePermissions.can_write_schedule.name]
+        role = self.create_role_with_permissions(permissions)
+        self.attach_role_facility_organization_user(self.organization, self.user, role)
+        proposed_date = (datetime.now(UTC) + timedelta(days=1)).date()
+        absent_weekday = (proposed_date.weekday() + 1) % 7
+        schedule_data = self.generate_schedule_data(
+            valid_from=datetime.combine(proposed_date, datetime.min.time()).isoformat(),
+            valid_to=datetime.combine(proposed_date, datetime.max.time()).isoformat(),
+            availabilities=[
+                {
+                    "name": "Non-occurring Slot",
+                    "slot_type": SlotTypeOptions.appointment.value,
+                    "slot_size_in_minutes": 30,
+                    "tokens_per_slot": 1,
+                    "create_tokens": True,
+                    "reason": "Regular schedule",
+                    "availability": [
+                        {
+                            "day_of_week": absent_weekday,
+                            "start_time": "10:00:00",
+                            "end_time": "12:00:00",
+                        }
+                    ],
+                }
+            ],
+        )
+
+        response = self.client.post(self.base_url, schedule_data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_schedule_with_user_not_part_of_facility(self):
         """Users cannot write schedules for user not belonging to the facility."""
@@ -388,6 +510,56 @@ class TestScheduleViewSet(CareAPITestBase):
         update_url = self._get_schedule_url(self.schedule.external_id)
         response = self.client.put(update_url, updated_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_update_schedule_rejects_new_cross_template_overlap(self):
+        permissions = [
+            SchedulePermissions.can_write_schedule.name,
+            SchedulePermissions.can_list_schedule.name,
+        ]
+        role = self.create_role_with_permissions(permissions)
+        self.attach_role_facility_organization_user(self.organization, self.user, role)
+        other_valid_from = self.schedule.valid_to + timedelta(days=2)
+        other_valid_to = other_valid_from + timedelta(days=7)
+        other_schedule = self.create_schedule(
+            name="Later conflicting schedule",
+            valid_from=other_valid_from,
+            valid_to=other_valid_to,
+        )
+        Availability.objects.create(
+            schedule=other_schedule,
+            name="Conflicting availability",
+            slot_type=SlotTypeOptions.appointment.value,
+            slot_size_in_minutes=30,
+            tokens_per_slot=1,
+            availability=[
+                {
+                    "day_of_week": other_valid_from.weekday(),
+                    "start_time": "10:00:00",
+                    "end_time": "12:00:00",
+                }
+            ],
+        )
+        original_valid_to = self.schedule.valid_to
+        update_url = self._get_schedule_url(self.schedule.external_id)
+
+        response = self.client.put(
+            update_url,
+            {
+                "name": self.schedule.name,
+                "is_public": self.schedule.is_public,
+                "valid_from": self.schedule.valid_from,
+                "valid_to": other_valid_to,
+            },
+            format="json",
+        )
+
+        self.assertContains(
+            response,
+            "Availability overlaps with an existing schedule for this resource",
+            status_code=400,
+        )
+        self.schedule.refresh_from_db()
+        self.assertEqual(self.schedule.valid_to, original_valid_to)
 
     # DELETE TESTS
     def test_delete_schedule_with_permissions(self):
@@ -790,7 +962,7 @@ class TestAvailabilityExceptionsViewSet(CareAPITestBase):
         )
 
         # Create a slot for today
-        slot_start = datetime.now(UTC).replace(
+        slot_start = timezone.localtime(timezone.now()).replace(
             hour=10, minute=0, second=0, microsecond=0
         )
         slot = TokenSlot.objects.create(
@@ -957,6 +1129,36 @@ class TestAvailabilityViewSet(CareAPITestBase):
         response = self.client.post(self.base_url, availability_data, format="json")
         self.assertContains(
             response, "Availability time ranges are overlapping", status_code=400
+        )
+
+    def test_create_availability_rejects_overlap_with_another_schedule(self):
+        permissions = [SchedulePermissions.can_write_schedule.name]
+        role = self.create_role_with_permissions(permissions)
+        self.attach_role_facility_organization_user(self.organization, self.user, role)
+        other_schedule = self.create_schedule(name="Other schedule")
+        Availability.objects.create(
+            schedule=other_schedule,
+            name="Other availability",
+            slot_type=SlotTypeOptions.appointment.value,
+            slot_size_in_minutes=30,
+            tokens_per_slot=1,
+            availability=[
+                {
+                    "day_of_week": 2,
+                    "start_time": "09:00:00",
+                    "end_time": "13:00:00",
+                }
+            ],
+        )
+
+        response = self.client.post(
+            self.base_url, self.generate_availability_data(), format="json"
+        )
+
+        self.assertContains(
+            response,
+            "Availability overlaps with an existing schedule for this resource",
+            status_code=400,
         )
 
     def test_create_availability_not_overlapping_with_existing_availabilities(self):
@@ -1260,3 +1462,151 @@ class TestAvailabilityViewSet(CareAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.data["slot_size_in_minutes"])
         self.assertIsNone(response.data["tokens_per_slot"])
+
+
+@ignore_warnings(category=RuntimeWarning, message=r".*received a naive datetime.*")
+class TestScheduleOverlapConcurrency(TransactionTestCase):
+    fake = CareAPITestBase.fake
+    reset_sequences = True
+
+    def setUp(self):
+        self.user = CareAPITestBase.create_user(self)
+        self.facility = CareAPITestBase.create_facility(self, user=self.user)
+        self.organization = CareAPITestBase.create_facility_organization(
+            self, facility=self.facility
+        )
+        self.resource = SchedulableResource.objects.create(
+            resource_type=SchedulableResourceTypeOptions.practitioner.value,
+            user=self.user,
+            facility=self.facility,
+        )
+        role = CareAPITestBase.create_role_with_permissions(
+            self, [SchedulePermissions.can_write_schedule.name]
+        )
+        CareAPITestBase.attach_role_facility_organization_user(
+            self, self.organization, self.user, role
+        )
+        self.base_url = reverse(
+            "schedule-list",
+            kwargs={"facility_external_id": self.facility.external_id},
+        )
+
+    def _schedule_data(self):
+        start_date = (datetime.now(UTC) + timedelta(days=8)).date()
+        valid_from = datetime.combine(start_date, datetime.min.time())
+        valid_to = valid_from + timedelta(days=7)
+        return {
+            "resource_type": SchedulableResourceTypeOptions.practitioner.value,
+            "resource_id": str(self.user.external_id),
+            "name": "Concurrent schedule",
+            "is_public": False,
+            "valid_from": valid_from.isoformat(),
+            "valid_to": valid_to.isoformat(),
+            "availabilities": [
+                {
+                    "name": "Concurrent availability",
+                    "slot_type": SlotTypeOptions.appointment.value,
+                    "slot_size_in_minutes": 30,
+                    "tokens_per_slot": 1,
+                    "create_tokens": True,
+                    "reason": "Concurrency regression",
+                    "availability": [
+                        {
+                            "day_of_week": start_date.weekday(),
+                            "start_time": "09:00:00",
+                            "end_time": "12:00:00",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def test_concurrent_overlapping_creates_persist_only_one_schedule(self):
+        barrier = Barrier(2)
+
+        def post_schedule(payload):
+            close_old_connections()
+            client = APIClient()
+            client.force_authenticate(user=self.user)
+            barrier.wait()
+            response = client.post(self.base_url, payload, format="json")
+            close_old_connections()
+            return response.status_code
+
+        payload = self._schedule_data()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            response_codes = list(
+                executor.map(post_schedule, [copy.deepcopy(payload), payload])
+            )
+
+        self.assertEqual(sorted(response_codes), [200, 400])
+        self.assertEqual(Schedule.objects.count(), 1)
+
+    def test_concurrent_delete_and_availability_create_leave_no_active_child(self):
+        schedule = Schedule.objects.create(
+            resource=self.resource,
+            name="Schedule being deleted",
+            valid_from=datetime.now(UTC) + timedelta(days=1),
+            valid_to=datetime.now(UTC) + timedelta(days=8),
+            is_public=False,
+        )
+        schedule_url = reverse(
+            "schedule-detail",
+            kwargs={
+                "facility_external_id": self.facility.external_id,
+                "external_id": schedule.external_id,
+            },
+        )
+        availability_url = reverse(
+            "schedule-availability-list",
+            kwargs={
+                "facility_external_id": self.facility.external_id,
+                "schedule_external_id": schedule.external_id,
+            },
+        )
+        availability_data = {
+            "name": "Concurrent availability",
+            "slot_type": SlotTypeOptions.appointment.value,
+            "slot_size_in_minutes": 30,
+            "tokens_per_slot": 1,
+            "create_tokens": False,
+            "reason": "Deletion race regression",
+            "availability": [
+                {
+                    "day_of_week": 1,
+                    "start_time": "09:00:00",
+                    "end_time": "12:00:00",
+                }
+            ],
+        }
+        barrier = Barrier(2)
+
+        def delete_schedule():
+            close_old_connections()
+            client = APIClient()
+            client.force_authenticate(user=self.user)
+            barrier.wait()
+            response = client.delete(schedule_url)
+            close_old_connections()
+            return response.status_code
+
+        def create_availability():
+            close_old_connections()
+            client = APIClient()
+            client.force_authenticate(user=self.user)
+            barrier.wait()
+            response = client.post(availability_url, availability_data, format="json")
+            close_old_connections()
+            return response.status_code
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            delete_result = executor.submit(delete_schedule)
+            create_result = executor.submit(create_availability)
+
+        self.assertEqual(delete_result.result(), status.HTTP_204_NO_CONTENT)
+        self.assertIn(
+            create_result.result(),
+            [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND],
+        )
+        self.assertFalse(Schedule.objects.filter(id=schedule.id).exists())
+        self.assertFalse(Availability.objects.filter(schedule_id=schedule.id).exists())

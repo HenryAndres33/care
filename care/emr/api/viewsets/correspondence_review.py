@@ -1,4 +1,5 @@
 import logging
+from hashlib import sha256
 
 from django.db import IntegrityError, transaction
 from django.http import Http404
@@ -34,6 +35,7 @@ from care.emr.correspondence.source import compilation_sources_available
 from care.emr.models.correspondence import CorrespondenceCompilation
 from care.emr.models.correspondence_review import (
     CorrespondenceRecipient,
+    CorrespondenceRecipientCommand,
     CorrespondenceReview,
     CorrespondenceReviewCommand,
 )
@@ -52,8 +54,11 @@ from care.emr.resources.correspondence_review import (
     BindCorrespondenceReviewSpec,
     CorrespondenceRecipientReadSpec,
     CorrespondenceReviewReadSpec,
+    CreateManualCorrespondenceRecipientResponseSpec,
+    CreateManualCorrespondenceRecipientSpec,
     RecipientDiscoveryResponseSpec,
     RecipientDiscoverySpec,
+    canonical_manual_recipient_command_hash,
     canonical_review_command_hash,
 )
 from care.emr.workflow_capabilities import require_workflow_mutations_enabled
@@ -68,6 +73,133 @@ logger = logging.getLogger(__name__)
 
 class CorrespondenceRecipientViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
     database_model = CorrespondenceRecipient
+
+    @extend_schema(
+        request=CreateManualCorrespondenceRecipientSpec,
+        responses={
+            200: CreateManualCorrespondenceRecipientResponseSpec,
+            201: CreateManualCorrespondenceRecipientResponseSpec,
+        },
+    )
+    @action(detail=False, methods=["POST"], url_path="idempotent-manual")
+    def idempotent_manual(self, request, *args, **kwargs):
+        request_spec = CreateManualCorrespondenceRecipientSpec.model_validate(
+            request.data
+        )
+        patient = get_object_or_404(Patient, external_id=request_spec.patient)
+        facility = get_object_or_404(
+            Facility,
+            external_id=request_spec.facility,
+            is_active=True,
+        )
+        _authorize_clinical_read(request.user, patient)
+        _require_facility_membership(request.user, facility)
+        payload_hash = canonical_manual_recipient_command_hash(
+            request_spec,
+            actor_id=request.user.external_id,
+        )
+        if response := self._manual_command_replay(request_spec, payload_hash):
+            return response
+        require_workflow_mutations_enabled(facility.external_id)
+
+        try:
+            with transaction.atomic():
+                if response := self._manual_command_replay(
+                    request_spec, payload_hash
+                ):
+                    return response
+                locked_patient = get_object_or_404(
+                    Patient._base_manager.select_for_update(of=("self",)),  # noqa: SLF001
+                    pk=patient.pk,
+                    deleted=False,
+                )
+                locked_facility = get_object_or_404(
+                    Facility._base_manager.select_for_update(of=("self",)),  # noqa: SLF001
+                    pk=facility.pk,
+                    deleted=False,
+                    is_active=True,
+                )
+                _require_facility_membership(request.user, locked_facility)
+                normalized_key = sha256(
+                    request_spec.display_name.casefold().encode("utf-8")
+                ).hexdigest()[:40]
+                source_reference = f"manual-recipient-v1:{normalized_key}"
+                recipient = (
+                    CorrespondenceRecipient._base_manager.select_for_update(  # noqa: SLF001
+                        of=("self",)
+                    )
+                    .select_related(
+                        "patient", "facility", "verified_by"
+                    )
+                    .filter(
+                        patient=locked_patient,
+                        facility=locked_facility,
+                        source_type="manual_clinical_entry",
+                        source_reference=source_reference,
+                        deleted=False,
+                    )
+                    .first()
+                )
+                if recipient is None:
+                    verified_at = timezone.now()
+                    recipient = CorrespondenceRecipient(
+                        patient=locked_patient,
+                        facility=locked_facility,
+                        recipient_kind="healthcare_professional",
+                        display_name=request_spec.display_name,
+                        professional_role="Zorgverlener",
+                        organization_name="Handmatig geadresseerd",
+                        postal_address={
+                            "address_status": "not_supplied",
+                            "recipient_line": request_spec.display_name,
+                        },
+                        channel_type="postal",
+                        channel_identifier=f"manual-postal:{normalized_key}",
+                        source_type="manual_clinical_entry",
+                        source_reference=source_reference,
+                        source_provenance={
+                            "contract": "manual-correspondence-recipient-v1",
+                            "entered_by": str(request.user.external_id),
+                            "entry_mode": "authenticated_clinical_user",
+                        },
+                        active=True,
+                        verified=True,
+                        verified_by=request.user,
+                        verified_at=verified_at,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+                    recipient.save(force_insert=True)
+                elif recipient.display_name != request_spec.display_name:
+                    return self._manual_source_conflict()
+                CorrespondenceRecipientCommand.objects.create(
+                    client_request_id=request_spec.client_request_id,
+                    payload_hash=payload_hash,
+                    actor=request.user,
+                    patient=locked_patient,
+                    facility=locked_facility,
+                    result_recipient=recipient,
+                    created_by=request.user,
+                    updated_by=request.user,
+                )
+        except IntegrityError as exc:
+            if (
+                _constraint_name(exc)
+                == CorrespondenceRecipientCommand.IDEMPOTENCY_CONSTRAINT_NAME
+            ):
+                if response := self._manual_command_replay(
+                    request_spec, payload_hash
+                ):
+                    return response
+                return self._manual_idempotency_conflict()
+            raise
+
+        return self._manual_response(
+            request_spec.client_request_id,
+            recipient,
+            replayed=False,
+            response_status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         parameters=[RecipientDiscoverySpec],
@@ -130,6 +262,85 @@ class CorrespondenceRecipientViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSe
                 CorrespondenceRecipientReadSpec.serialize(recipient).to_json()
             )
         return Response({"results": results})
+
+    def _manual_command_replay(self, request_spec, payload_hash):
+        command = (
+            CorrespondenceRecipientCommand._base_manager.select_related(  # noqa: SLF001
+                "actor",
+                "patient",
+                "facility",
+                "result_recipient__patient",
+                "result_recipient__facility",
+                "result_recipient__organization",
+                "result_recipient__healthcare_service",
+                "result_recipient__verified_by",
+            )
+            .filter(client_request_id=request_spec.client_request_id)
+            .first()
+        )
+        if command is None:
+            return None
+        if not all(
+            [
+                not command.deleted,
+                command.payload_hash == payload_hash,
+                command.actor_id == self.request.user.id,
+                command.patient.external_id == request_spec.patient,
+                command.facility.external_id == request_spec.facility,
+            ]
+        ):
+            return self._manual_idempotency_conflict()
+        try:
+            validate_verified_recipient(command.result_recipient)
+        except InvalidVerifiedRecipientError:
+            return self._manual_source_conflict()
+        return self._manual_response(
+            request_spec.client_request_id,
+            command.result_recipient,
+            replayed=True,
+            response_status=status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def _manual_response(client_request_id, recipient, *, replayed, response_status):
+        return Response(
+            {
+                "client_request_id": str(client_request_id),
+                "replayed": replayed,
+                "recipient": CorrespondenceRecipientReadSpec.serialize(
+                    recipient
+                ).to_json(),
+            },
+            status=response_status,
+        )
+
+    @staticmethod
+    def _manual_idempotency_conflict():
+        return Response(
+            {
+                "errors": [
+                    {
+                        "type": "idempotency_conflict",
+                        "msg": "client_request_id was already used for another manual recipient",
+                    }
+                ]
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    @staticmethod
+    def _manual_source_conflict():
+        return Response(
+            {
+                "errors": [
+                    {
+                        "type": "correspondence_recipient_source_stale",
+                        "msg": "The stored manual recipient is no longer available",
+                    }
+                ]
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
 
 
 class CorrespondenceReviewViewSet(

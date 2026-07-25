@@ -8,6 +8,7 @@ from care.security.roles.role import (
     FACILITY_ADMIN_ROLE,
     NURSE_ROLE,
     PHARMACIST_ROLE,
+    SECRETARY_ROLE,
     STAFF_ROLE,
     VOLUNTEER_ROLE,
 )
@@ -20,6 +21,7 @@ class PatientPermissions(enum.Enum):
         PermissionContext.PATIENT,
         [
             STAFF_ROLE,
+            SECRETARY_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
             ADMINISTRATOR,
@@ -33,6 +35,7 @@ class PatientPermissions(enum.Enum):
         PermissionContext.PATIENT,
         [
             STAFF_ROLE,
+            SECRETARY_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
             ADMINISTRATOR,
@@ -46,6 +49,7 @@ class PatientPermissions(enum.Enum):
         PermissionContext.PATIENT,
         [
             STAFF_ROLE,
+            SECRETARY_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
             ADMINISTRATOR,

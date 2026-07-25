@@ -502,6 +502,7 @@ AUDIT_LOG_DOMAIN_LEDGER_MODELS = [
     "emr.FormSubmission",
     "emr.FormSubmissionCommand",
     "emr.FormSubmissionArtifactCommand",
+    "emr.EncounterDischargeCommand",
     "emr.QuestionnaireResponse",
     "emr.MedicationRequest",
     "emr.ReportUpload",

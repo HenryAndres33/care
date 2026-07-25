@@ -23,6 +23,9 @@ from care.emr.models.scheduling.schedule import (
     SchedulableResource,
     Schedule,
 )
+from care.emr.resources.scheduling.schedule.conflicts import (
+    assert_no_resource_schedule_conflict,
+)
 from care.emr.resources.scheduling.schedule.spec import (
     AvailabilityCreateSpec,
     AvailabilityForScheduleSpec,
@@ -159,7 +162,15 @@ class ScheduleViewSet(EMRModelViewSet):
                 instance._resource_id,  # noqa SLF001
                 self.get_facility_obj(),
             )
-            instance.resource = resource
+            instance.resource = SchedulableResource.objects.select_for_update().get(
+                id=resource.id
+            )
+            assert_no_resource_schedule_conflict(
+                resource_id=instance.resource.id,
+                valid_from=instance.valid_from,
+                valid_to=instance.valid_to,
+                availability_groups=instance.availabilities,
+            )
             super().perform_create(instance)
             for availability in instance.availabilities:
                 availability_obj = availability.de_serialize()
@@ -167,11 +178,21 @@ class ScheduleViewSet(EMRModelViewSet):
                 availability_obj.save()
 
     def perform_update(self, instance):
-        with Lock(f"booking:resource:{instance.resource.id}"):
+        with Lock(f"booking:resource:{instance.resource.id}"), transaction.atomic():
+            SchedulableResource.objects.select_for_update().get(id=instance.resource.id)
+            get_object_or_404(Schedule, id=instance.id)
+            assert_no_resource_schedule_conflict(
+                resource_id=instance.resource.id,
+                valid_from=instance.valid_from,
+                valid_to=instance.valid_to,
+                availability_groups=instance.availability_set.all(),
+                exclude_schedule_id=instance.id,
+            )
             super().perform_update(instance)
 
     def perform_destroy(self, instance):
         with Lock(f"booking:resource:{instance.resource.id}"), transaction.atomic():
+            SchedulableResource.objects.select_for_update().get(id=instance.resource.id)
             # Check if there are any tokens allocated for this schedule in the future
             availabilities = instance.availability_set.all()
             availability_ids = list(availabilities.values_list("id"))
@@ -328,8 +349,19 @@ class AvailabilityViewSet(EMRCreateMixin, EMRDestroyMixin, EMRBaseViewSet):
 
     def perform_create(self, instance):
         schedule = self.get_schedule_obj()
-        instance.schedule = schedule
-        super().perform_create(instance)
+        with transaction.atomic():
+            SchedulableResource.objects.select_for_update().get(id=schedule.resource_id)
+            schedule = get_object_or_404(
+                Schedule.objects.select_for_update(), id=schedule.id
+            )
+            assert_no_resource_schedule_conflict(
+                resource_id=schedule.resource_id,
+                valid_from=schedule.valid_from,
+                valid_to=schedule.valid_to,
+                availability_groups=[instance],
+            )
+            instance.schedule = schedule
+            super().perform_create(instance)
 
     def perform_destroy(self, instance):
         with Lock(f"booking:resource:{instance.schedule.resource.id}"):

@@ -1,14 +1,34 @@
+import copy
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
+from django.core.cache import cache
+from django.db import close_old_connections
+from django.test import TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
+from rest_framework import status
+from rest_framework.test import APIClient
 
-from care.emr.models.questionnaire import FormSubmission, Questionnaire
+from care.emr.models.questionnaire import (
+    FormSubmission,
+    FormSubmissionCommand,
+    Questionnaire,
+)
 from care.emr.resources.encounter.constants import StatusChoices
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
+from care.emr.signals.patient.facility_name_identifier import (
+    FacilityPatientNameIdentifierConfig,
+)
+from care.emr.signals.patient.name_identifier import NameIdentifierConfig
+from care.emr.signals.patient.phone_number_identifier import (
+    PhoneNumberIdentifierConfig,
+)
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
+from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
 
 
@@ -18,6 +38,7 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         self.user = self.create_user()
         self.facility = self.create_facility(user=self.user)
         self.organization = self.create_facility_organization(facility=self.facility)
+        self.questionnaire_organization = self.create_organization()
         self.patient = self.create_patient()
         self.encounter = self.create_encounter(
             patient=self.patient,
@@ -26,6 +47,7 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         )
         self.questionnaire = baker.make(
             Questionnaire,
+            organization_cache=[self.questionnaire_organization.id],
             slug="test-questionnaire",
             title="Test Questionnaire",
         )
@@ -66,15 +88,43 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         data.update(kwargs)
         return data
 
+    def _generate_idempotent_create_data(self, **kwargs):
+        data = {
+            "client_request_id": str(uuid.uuid4()),
+            "encounter": str(self.encounter.external_id),
+            "form_instance_id": str(uuid.uuid4()),
+            "patient": str(self.patient.external_id),
+            "questionnaire": self.questionnaire.slug,
+            "response_dump": {"answer": 42},
+        }
+        data.update(kwargs)
+        return data
+
     def _grant_patient_submit_permission(self):
-        permissions = [PatientPermissions.can_submit_patient_questionnaire.name]
+        permissions = [
+            PatientPermissions.can_submit_patient_questionnaire.name,
+            QuestionnairePermissions.can_submit_questionnaire.name,
+        ]
         role = self.create_role_with_permissions(permissions)
         self.attach_role_facility_organization_user(self.organization, self.user, role)
+        self.attach_role_organization_user(
+            self.questionnaire_organization,
+            self.user,
+            role,
+        )
 
     def _grant_encounter_submit_permission(self):
-        permissions = [EncounterPermissions.can_submit_encounter_questionnaire.name]
+        permissions = [
+            EncounterPermissions.can_submit_encounter_questionnaire.name,
+            QuestionnairePermissions.can_submit_questionnaire.name,
+        ]
         role = self.create_role_with_permissions(permissions)
         self.attach_role_facility_organization_user(self.organization, self.user, role)
+        self.attach_role_organization_user(
+            self.questionnaire_organization,
+            self.user,
+            role,
+        )
 
     # ── LIST ─────────────────────────────────────────────────────────────
 
@@ -295,6 +345,98 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["response_dump"], response_dump)
 
+    def test_idempotent_create_draft_replays_exact_request(self):
+        self._grant_encounter_submit_permission()
+        payload = self._generate_idempotent_create_data()
+        url = reverse("form_submission-idempotent-create-draft")
+
+        created = self.client.post(url, payload, format="json")
+        replayed = self.client.post(url, payload, format="json")
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(replayed.status_code, 200)
+        self.assertFalse(created.json()["replayed"])
+        self.assertTrue(replayed.json()["replayed"])
+        self.assertEqual(
+            created.json()["form_submission"]["id"],
+            payload["form_instance_id"],
+        )
+        self.assertEqual(
+            replayed.json()["form_submission"]["id"],
+            payload["form_instance_id"],
+        )
+        self.assertEqual(FormSubmission.objects.count(), 1)
+        self.assertEqual(
+            FormSubmissionCommand.objects.filter(command_type="create_draft").count(),
+            1,
+        )
+
+    def test_idempotent_create_draft_rejects_reused_key_with_new_content(self):
+        self._grant_encounter_submit_permission()
+        payload = self._generate_idempotent_create_data()
+        url = reverse("form_submission-idempotent-create-draft")
+        created = self.client.post(url, payload, format="json")
+
+        conflict = self.client.post(
+            url,
+            {**payload, "response_dump": {"answer": "different"}},
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(
+            conflict.json()["errors"][0]["type"],
+            "idempotency_conflict",
+        )
+        self.assertNotIn("form_submission", conflict.json())
+        self.assertEqual(FormSubmission.objects.count(), 1)
+
+    def test_idempotent_create_draft_rejects_second_command_for_instance(self):
+        self._grant_encounter_submit_permission()
+        payload = self._generate_idempotent_create_data()
+        url = reverse("form_submission-idempotent-create-draft")
+        created = self.client.post(url, payload, format="json")
+
+        conflict = self.client.post(
+            url,
+            {**payload, "client_request_id": str(uuid.uuid4())},
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(
+            conflict.json()["errors"][0]["type"],
+            "form_submission_instance_conflict",
+        )
+        self.assertNotIn("form_submission", conflict.json())
+        self.assertEqual(FormSubmission.objects.count(), 1)
+
+    def test_idempotent_create_draft_rejects_soft_deleted_instance(self):
+        self._grant_encounter_submit_permission()
+        payload = self._generate_idempotent_create_data()
+        existing = self._create_form_submission(
+            encounter=self.encounter,
+            external_id=payload["form_instance_id"],
+            deleted=True,
+        )
+
+        conflict = self.client.post(
+            reverse("form_submission-idempotent-create-draft"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(
+            conflict.json()["errors"][0]["type"],
+            "form_submission_instance_conflict",
+        )
+        self.assertTrue(
+            FormSubmission._base_manager.filter(pk=existing.pk).exists()  # noqa: SLF001
+        )
+
     def test_legacy_create_cannot_create_submitted_form(self):
         self._grant_patient_submit_permission()
         data = self._generate_create_data(
@@ -418,3 +560,119 @@ class TestFormSubmissionViewSet(CareAPITestBase):
         url = self._get_detail_url(submission.external_id)
         response = self.client.delete(url)
         self.assertEqual(response.status_code, 405)
+
+
+class TestFormSubmissionCreateDraftConcurrency(TransactionTestCase):
+    fake = CareAPITestBase.fake
+    reset_sequences = True
+
+    def setUp(self):
+        cache.clear()
+        FacilityPatientNameIdentifierConfig.CACHED_CONFIG.clear()
+        NameIdentifierConfig.CACHED_CONFIG.clear()
+        PhoneNumberIdentifierConfig.CACHED_CONFIG.clear()
+        self.user = CareAPITestBase.create_user(self)
+        self.facility = CareAPITestBase.create_facility(self, user=self.user)
+        self.organization = CareAPITestBase.create_facility_organization(
+            self,
+            facility=self.facility,
+        )
+        self.questionnaire_organization = CareAPITestBase.create_organization(self)
+        self.patient = CareAPITestBase.create_patient(self)
+        self.encounter = CareAPITestBase.create_encounter(
+            self,
+            patient=self.patient,
+            facility=self.facility,
+            organization=self.organization,
+        )
+        self.questionnaire = baker.make(
+            Questionnaire,
+            organization_cache=[self.questionnaire_organization.id],
+            slug="concurrent-form-submission-questionnaire",
+            title="Concurrent FormSubmission Questionnaire",
+        )
+        role = CareAPITestBase.create_role_with_permissions(
+            self,
+            [
+                EncounterPermissions.can_submit_encounter_questionnaire.name,
+                QuestionnairePermissions.can_submit_questionnaire.name,
+            ],
+        )
+        CareAPITestBase.attach_role_facility_organization_user(
+            self,
+            self.organization,
+            self.user,
+            role,
+        )
+        CareAPITestBase.attach_role_organization_user(
+            self,
+            self.questionnaire_organization,
+            self.user,
+            role,
+        )
+        self.url = reverse("form_submission-idempotent-create-draft")
+
+    def _payload(self):
+        return {
+            "client_request_id": str(uuid.uuid4()),
+            "encounter": str(self.encounter.external_id),
+            "form_instance_id": str(uuid.uuid4()),
+            "patient": str(self.patient.external_id),
+            "questionnaire": self.questionnaire.slug,
+            "response_dump": {"note_text": "Concurrent draft"},
+        }
+
+    def _post_concurrently(self, payloads):
+        barrier = Barrier(2)
+
+        def post_request(payload):
+            close_old_connections()
+            client = APIClient()
+            client.force_authenticate(user=self.user)
+            barrier.wait()
+            response = client.post(self.url, copy.deepcopy(payload), format="json")
+            close_old_connections()
+            return response.status_code, response.json()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            return list(executor.map(post_request, payloads))
+
+    def test_concurrent_exact_retries_create_one_draft_and_replay(self):
+        payload = self._payload()
+
+        responses = self._post_concurrently([payload, payload])
+
+        self.assertEqual(sorted(code for code, _ in responses), [200, 201])
+        self.assertEqual(
+            sorted(body["replayed"] for _, body in responses),
+            [False, True],
+        )
+        self.assertEqual(FormSubmission.objects.count(), 1)
+        self.assertEqual(
+            FormSubmissionCommand.objects.filter(command_type="create_draft").count(),
+            1,
+        )
+
+    def test_concurrent_tabs_cannot_create_duplicate_root_drafts(self):
+        first = self._payload()
+        second = {
+            **first,
+            "client_request_id": str(uuid.uuid4()),
+        }
+
+        responses = self._post_concurrently([first, second])
+
+        self.assertEqual(sorted(code for code, _ in responses), [201, 409])
+        conflict = next(
+            body for code, body in responses if code == status.HTTP_409_CONFLICT
+        )
+        self.assertEqual(
+            conflict["errors"][0]["type"],
+            "form_submission_instance_conflict",
+        )
+        self.assertNotIn("form_submission", conflict)
+        self.assertEqual(FormSubmission.objects.count(), 1)
+        self.assertEqual(
+            FormSubmissionCommand.objects.filter(command_type="create_draft").count(),
+            1,
+        )

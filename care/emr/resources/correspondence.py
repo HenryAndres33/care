@@ -112,6 +112,22 @@ def canonical_correspondence_command_hash(
     value = {
         "actor": actor_id,
         "command": "compile_correspondence",
+        "contract": "correspondence-compilation-command-v2",
+        "payload": request_spec.model_dump(mode="python"),
+    }
+    return canonical_sha256(value)
+
+
+def canonical_correspondence_command_hash_v1(
+    request_spec: CompileCorrespondenceSpec,
+    *,
+    actor_id: UUID,
+) -> str:
+    """Recompute the former hash only to replay pre-v2 committed commands."""
+
+    value = {
+        "actor": actor_id,
+        "command": "compile_correspondence",
         "contract": "correspondence-compilation-command-v1",
         "payload": request_spec.model_dump(
             mode="python", exclude={"client_request_id"}

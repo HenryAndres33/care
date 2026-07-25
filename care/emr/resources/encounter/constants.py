@@ -20,6 +20,15 @@ COMPLETED_CHOICES = [
     StatusChoices.discontinued.value,
 ]
 
+# Discharge closes the clinical episode while CARE may still allow explicitly
+# governed administrative work before the Encounter reaches ``completed``.
+# Clinical write paths must use this set; billing and reconciliation workflows
+# should keep their own narrower status policy.
+CLINICALLY_CLOSED_CHOICES = [
+    StatusChoices.discharged.value,
+    *COMPLETED_CHOICES,
+]
+
 ERROR_CHOICES = [
     StatusChoices.entered_in_error.value,
 ]

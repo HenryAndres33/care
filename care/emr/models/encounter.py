@@ -7,6 +7,9 @@ from care.emr.resources.patient_identifier.default_expression_evaluator import (
     evaluate_patient_facility_default_values,
 )
 
+ACTIVE_INPATIENT_STATUSES = ("in_progress", "on_hold")
+ACTIVE_INPATIENT_CONSTRAINT = "encounter_one_active_inpatient_per_patient"
+
 
 class Encounter(EMRBaseModel):
     status = models.CharField(max_length=100, null=True, blank=True)
@@ -39,6 +42,19 @@ class Encounter(EMRBaseModel):
     tags = ArrayField(models.IntegerField(), default=list)
 
     extensions = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                condition=models.Q(
+                    deleted=False,
+                    encounter_class="imp",
+                    status__in=ACTIVE_INPATIENT_STATUSES,
+                ),
+                fields=["patient"],
+                name=ACTIVE_INPATIENT_CONSTRAINT,
+            )
+        ]
 
     def sync_organization_cache(self):
         orgs = set()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from html import escape
 from html.parser import HTMLParser
 from typing import Any
@@ -10,6 +10,9 @@ from jinja2 import StrictUndefined, TemplateError, nodes
 from jinja2.sandbox import SandboxedEnvironment
 from markupsafe import Markup
 
+from care.emr.reports.clinical_narrative import (
+    normalize_diagnosis_history_layout,
+)
 from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
 
 
@@ -40,6 +43,13 @@ FORBIDDEN_TEMPLATE_NODES = (
     nodes.Mul,
     nodes.Pow,
 )
+_DUPLICATE_REASON_LABELS = frozenset(
+    {
+        "reden van presentatie:",
+        "reden van verwijzing:",
+    }
+)
+_CLINICAL_SECTION_HEADING = re.compile(r"^[^:\n]{1,80}:$")
 
 
 def compile_correspondence_html(
@@ -88,14 +98,14 @@ def compile_correspondence_html(
         )
     if not _html_to_text(sanitized_template):
         raise CorrespondenceCompilationError("Correspondence template rendered empty")
-    mandatory_snapshot = _mandatory_snapshot_html(
-        compilation_id=compilation_id,
-        compiled_at=compiled_at,
-        context=context,
-        provenance=provenance,
+    # Provenance remains frozen in CorrespondenceCompilation.source_provenance.
+    # It is deliberately not rendered into the clinician-facing letter body.
+    clinical_note = str(context["form"]["readable_html"])
+    clinical_attachment = (
+        "" if 'class="clinical-note"' in sanitized_template else clinical_note
     )
     compiled_html = sanitize_correspondence_html(
-        f"<article>{sanitized_template}{mandatory_snapshot}</article>"
+        f"<article>{sanitized_template}{clinical_attachment}</article>"
     )
     if len(compiled_html.encode()) > MAX_COMPILED_HTML_BYTES:
         raise CorrespondenceCompilationError(
@@ -105,7 +115,7 @@ def compile_correspondence_html(
         raise CorrespondenceCompilationError(
             "Sanitized correspondence contains unresolved placeholders"
         )
-    compiled_text = _html_to_text(compiled_html)
+    compiled_text = normalize_diagnosis_history_layout(_html_to_text(compiled_html))
     if not compiled_text:
         raise CorrespondenceCompilationError("Sanitized correspondence is unreadable")
     return compiled_html, compiled_text
@@ -126,10 +136,53 @@ def sanitize_correspondence_html(value: str) -> str:
 
 
 def readable_form_html(response_dump: dict) -> Markup:
+    content = response_dump.get("content")
+    if isinstance(content, dict):
+        note = next(
+            (
+                value.strip()
+                for value in (
+                    content.get("noteText"),
+                    content.get("narrativePreview"),
+                )
+                if isinstance(value, str) and value.strip()
+            ),
+            "",
+        )
+        if note:
+            note = normalize_diagnosis_history_layout(
+                _without_duplicate_reason_section(note)
+            )
+            paragraphs = "<br>".join(escape(line) for line in note.splitlines())
+            return Markup(  # noqa: S704 - note text is escaped above
+                f'<section class="clinical-note"><p>{paragraphs}</p></section>'
+            )
+
     return Markup(  # noqa: S704 - content is recursively escaped below
-        '<section class="form-snapshot"><h2>Finalized form responses</h2>'
-        f"{_render_value(response_dump)}</section>"
+        f'<section class="clinical-note">{_render_value(response_dump)}</section>'
     )
+
+
+def _without_duplicate_reason_section(note: str) -> str:
+    """Remove the reason block already rendered by the letter template."""
+
+    filtered: list[str] = []
+    skipping_reason = False
+    for line in note.splitlines():
+        stripped = line.strip()
+        if not skipping_reason and stripped.casefold() in _DUPLICATE_REASON_LABELS:
+            skipping_reason = True
+            continue
+        if skipping_reason:
+            if not stripped:
+                skipping_reason = False
+                continue
+            if _CLINICAL_SECTION_HEADING.fullmatch(stripped):
+                skipping_reason = False
+                filtered.append(line)
+            continue
+        filtered.append(line)
+    return "\n".join(filtered).strip()
 
 
 def readable_medications_html(medications: list[dict]) -> Markup:
@@ -140,65 +193,17 @@ def readable_medications_html(medications: list[dict]) -> Markup:
             "<tr>"
             f"<td>{escape(item['display'])}</td>"
             f"<td>{escape(item['status'])}</td>"
-            f"<td>{escape(item['intent'])}</td>"
             f"<td>{escape(item['dosage_text'])}</td>"
-            f"<td>{escape(item['id'])}</td>"
             "</tr>"
             for item in medications
         )
         content = (
-            "<table><thead><tr><th>Medication</th><th>Status</th>"
-            "<th>Intent</th><th>Dosage</th><th>Reference</th></tr></thead>"
+            "<table><thead><tr><th>Medicatie</th><th>Status</th>"
+            "<th>Dosering</th></tr></thead>"
             f"<tbody>{rows}</tbody></table>"
         )
     return Markup(  # noqa: S704 - all dynamic values are escaped above
-        '<section class="medication-snapshot"><h2>Confirmed medication actions</h2>'
-        f"{content}</section>"
-    )
-
-
-def _mandatory_snapshot_html(*, compilation_id, compiled_at, context, provenance):
-    patient_identifiers = "; ".join(
-        f"{item.get('config', 'identifier')}: {item['value']}"
-        for item in context["patient"]["identifiers"]
-    )
-    source_rows = [
-        ("Compilation reference", compilation_id),
-        ("Compiled at", _timestamp(compiled_at)),
-        ("Patient name", context["patient"]["name"]),
-        ("Patient CARE reference", context["patient"]["id"]),
-        ("Patient date of birth", context["patient"]["date_of_birth"]),
-        ("Patient identifiers", patient_identifiers),
-        ("Encounter CARE reference", context["encounter"]["id"]),
-        ("Encounter date", context["encounter"]["date"]),
-        ("Encounter reason", context["encounter"]["reason"]),
-        ("Facility", context["encounter"]["facility"]["name"]),
-        ("Department", context["encounter"]["department"]["name"]),
-        ("Author", context["author"]["display"]),
-        ("Author CARE reference", context["author"]["id"]),
-        ("Author professional role", context["author"]["professional_role"]),
-        ("Author qualification", _recorded(context["author"]["qualification"])),
-        ("Author registration", _recorded(context["author"]["registration"])),
-        ("Author facility", context["author"]["facility"]["name"]),
-        ("Author department", context["author"]["department"]["name"]),
-        ("Finalized form reference", context["form"]["id"]),
-        ("Finalized form version", context["form"]["version"]),
-        ("Finalized form SHA-256", context["form"]["hash"]),
-        ("Form artifact reference", context["form"]["artifact_id"]),
-        ("Template reference", context["template"]["id"]),
-        ("Template version", context["template"]["version"]),
-        ("Template SHA-256", context["template"]["hash"]),
-        ("Provenance contract", provenance["contract"]),
-    ]
-    rows = "".join(
-        f"<tr><th>{escape(str(label))}</th><td>{escape(str(value))}</td></tr>"
-        for label, value in source_rows
-    )
-    return (
-        '<section class="source-provenance"><h2>Source provenance</h2>'
-        f"<table><tbody>{rows}</tbody></table></section>"
-        f"{context['form']['readable_html']}"
-        f"{context['medications_readable_html']}"
+        f'<section class="medication-snapshot"><h2>Medicatie</h2>{content}</section>'
     )
 
 
@@ -212,10 +217,6 @@ def _validate_template_ast(parsed):
         raise CorrespondenceCompilationError(
             "Correspondence template uses an unbounded or unsupported construct"
         )
-
-
-def _recorded(value):
-    return value if value else "Not recorded in CARE"
 
 
 def _render_value(value: Any) -> str:
@@ -235,12 +236,6 @@ def _render_value(value: Any) -> str:
     if isinstance(value, bool):
         return "<span>Yes</span>" if value else "<span>No</span>"
     return f"<span>{escape(str(value))}</span>"
-
-
-def _timestamp(value: datetime) -> str:
-    if value.tzinfo is None:
-        return value.isoformat()
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _html_to_text(value: str) -> str:

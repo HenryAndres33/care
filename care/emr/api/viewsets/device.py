@@ -40,7 +40,7 @@ from care.emr.resources.device.spec import (
     DeviceRetrieveSpec,
     DeviceUpdateSpec,
 )
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES
+from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
 from care.facility.models import Facility
 from care.security.authorization import AuthorizationController
 from care.utils.filters.dummy_filter import DummyBooleanFilter
@@ -188,9 +188,9 @@ class DeviceViewSet(EMRModelViewSet):
                     ),
                     external_id=request_data.encounter,
                 )
-                if encounter.status in COMPLETED_CHOICES:
+                if encounter.status in CLINICALLY_CLOSED_CHOICES:
                     raise ValidationError(
-                        "Cannot associate a device to a terminal encounter"
+                        "Cannot associate a device to a clinically closed encounter"
                     )
                 if encounter.facility_id != facility.id:
                     raise ValidationError("Encounter is not part of given facility")
@@ -463,8 +463,8 @@ class DeviceServiceHistoryViewSet(
         )
 
 
-def disassociate_device_from_encounter(instance):
-    if instance.status in COMPLETED_CHOICES:
+def disassociate_device_from_encounter(instance, *, ended_at=None):
+    if instance.status in CLINICALLY_CLOSED_CHOICES:
         with transaction.atomic():
             device_ids = list(
                 Device.objects.filter(current_encounter=instance).values_list(
@@ -475,4 +475,4 @@ def disassociate_device_from_encounter(instance):
 
             DeviceEncounterHistory.objects.filter(
                 device_id__in=device_ids, encounter=instance, end__isnull=True
-            ).update(end=timezone.now())
+            ).update(end=ended_at or timezone.now())

@@ -99,7 +99,7 @@ class CareAPITestBase(APITestCase):
             "patient": patient,
             "facility": facility,
             "status": status or StatusChoices.in_progress.value,
-            "encounter_class": choice(list(ClassChoices)).value,
+            "encounter_class": ClassChoices.amb.value,
             "priority": choice(list(EncounterPriorityChoices)).value,
         }
 

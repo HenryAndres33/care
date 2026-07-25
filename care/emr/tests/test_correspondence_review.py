@@ -19,6 +19,7 @@ from care.emr.correspondence.review import correspondence_review_hash
 from care.emr.models.correspondence import CorrespondenceCompilation
 from care.emr.models.correspondence_review import (
     CorrespondenceRecipient,
+    CorrespondenceRecipientCommand,
     CorrespondenceReview,
     CorrespondenceReviewCommand,
 )
@@ -52,6 +53,9 @@ class CorrespondenceReviewTestMixin(CorrespondenceCompilationTestMixin):
         self.compilation = CorrespondenceCompilation.objects.get()
         self.recipient = self._recipient()
         self.discovery_url = reverse("correspondence-recipient-verified")
+        self.manual_recipient_url = reverse(
+            "correspondence-recipient-idempotent-manual"
+        )
         self.review_url = reverse("correspondence-review-idempotent-bind")
 
     def _recipient(self, **overrides):
@@ -121,6 +125,83 @@ class TestCorrespondenceReviewAPI(
     def setUp(self):
         super().setUp()
         self.build_review_context()
+
+    def _manual_recipient_payload(self, **overrides):
+        payload = {
+            "client_request_id": str(uuid4()),
+            "patient": str(self.patient.external_id),
+            "facility": str(self.facility.external_id),
+            "display_name": "  Dr.   Chigaroe  ",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_manual_recipient_is_verified_persisted_and_discoverable(self):
+        response = self.client.post(
+            self.manual_recipient_url,
+            self._manual_recipient_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.CREATED)
+        recipient = response.json()["recipient"]
+        self.assertEqual(recipient["display_name"], "Dr. Chigaroe")
+        self.assertEqual(recipient["source_type"], "manual_clinical_entry")
+        self.assertEqual(recipient["channel_type"], "postal")
+        self.assertEqual(
+            recipient["postal_address"],
+            {
+                "address_status": "not_supplied",
+                "recipient_line": "Dr. Chigaroe",
+            },
+        )
+        self.assertEqual(CorrespondenceRecipientCommand.objects.count(), 1)
+        discovery = self.client.get(
+            self.discovery_url,
+            {
+                "patient": str(self.patient.external_id),
+                "facility": str(self.facility.external_id),
+            },
+        )
+        self.assertEqual(discovery.status_code, HTTPStatus.OK)
+        self.assertIn(
+            "Dr. Chigaroe",
+            [item["display_name"] for item in discovery.json()["results"]],
+        )
+
+    def test_manual_recipient_exact_retry_is_idempotent(self):
+        payload = self._manual_recipient_payload()
+
+        created = self.client.post(
+            self.manual_recipient_url, payload, format="json"
+        )
+        replayed = self.client.post(
+            self.manual_recipient_url, payload, format="json"
+        )
+
+        self.assertEqual(created.status_code, HTTPStatus.CREATED)
+        self.assertEqual(replayed.status_code, HTTPStatus.OK)
+        self.assertTrue(replayed.json()["replayed"])
+        self.assertEqual(
+            created.json()["recipient"]["id"],
+            replayed.json()["recipient"]["id"],
+        )
+        self.assertEqual(CorrespondenceRecipientCommand.objects.count(), 1)
+
+    def test_manual_recipient_rejects_reused_request_for_other_name(self):
+        payload = self._manual_recipient_payload()
+        self.client.post(self.manual_recipient_url, payload, format="json")
+
+        conflict = self.client.post(
+            self.manual_recipient_url,
+            {**payload, "display_name": "Dr. Anders"},
+            format="json",
+        )
+
+        self.assertEqual(conflict.status_code, HTTPStatus.CONFLICT)
+        self.assertEqual(
+            conflict.json()["errors"][0]["type"], "idempotency_conflict"
+        )
 
     def test_verified_recipient_discovery_is_scoped_strict_and_never_auto_selects(self):
         second = self._recipient(display_name="Second Verified Recipient")

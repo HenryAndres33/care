@@ -73,7 +73,10 @@ from care.emr.resources.consult_closure import (
     consult_closure_recovery_resolution_payload_hash,
     consult_closure_snapshot_hash,
 )
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES, StatusChoices
+from care.emr.resources.encounter.constants import (
+    CLINICALLY_CLOSED_CHOICES,
+    StatusChoices,
+)
 from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
 from care.emr.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
@@ -513,7 +516,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         )
         correspondence_objects = correspondence.pop("_objects")
 
-        if encounter.status in COMPLETED_CHOICES:
+        if encounter.status in CLINICALLY_CLOSED_CHOICES:
             blockers.add("encounter_terminal")
         elif encounter.status != StatusChoices.in_progress.value:
             blockers.add("encounter_state_stale")

@@ -14,10 +14,7 @@ from care.emr.models import (
 from care.emr.resources.encounter.constants import (
     COMPLETED_CHOICES,
     ClassChoices,
-    EncounterPriorityChoices,
-)
-from care.emr.resources.encounter.constants import (
-    StatusChoices as EncounterStatusChoices,
+    DischargeDispositionChoices,
 )
 from care.emr.resources.location.spec import (
     FacilityLocationFormChoices,
@@ -1096,9 +1093,7 @@ class TestFacilityLocationEncounterViewSet(FacilityLocationMixin, CareAPITestBas
         self.assertEqual(error["type"], "validation_error")
         self.assertIn("Cannot change status after marking completed", error["msg"])
 
-    def test_completion_of_location_encounter_after_encounter_status_update_to_completed(
-        self,
-    ):
+    def test_discharge_command_completes_location_encounter(self):
         # Create Encounter
         encounter = self.create_encounter(
             self.patient,
@@ -1106,6 +1101,10 @@ class TestFacilityLocationEncounterViewSet(FacilityLocationMixin, CareAPITestBas
             self.facility.default_internal_organization,
             status_history={"history": []},
             encounter_class=ClassChoices.imp.value,
+            period={
+                "start": (timezone.now() - datetime.timedelta(days=1)).isoformat()
+            },
+            hospitalization={},
         )
 
         # Create Facility Location Encounter
@@ -1140,18 +1139,26 @@ class TestFacilityLocationEncounterViewSet(FacilityLocationMixin, CareAPITestBas
         )
         self.assertIsNone(encounter_location_obj.end_datetime)
 
-        # Update Encounter to Completed
-        encounter_update_url = reverse(
-            "encounter-detail", kwargs={"external_id": encounter.external_id}
+        # Close the inpatient Encounter through the explicit discharge command.
+        discharge_url = reverse(
+            "encounter-idempotent-discharge",
+            kwargs={"external_id": encounter.external_id},
         )
-        update_data = {
-            "status": EncounterStatusChoices.completed.value,
-            "priority": EncounterPriorityChoices.urgent.value,
-            "encounter_class": ClassChoices.imp.value,
+        discharge_data = {
+            "client_request_id": str(uuid.uuid4()),
+            "discharge_disposition": DischargeDispositionChoices.home.value,
+            "discharged_at": timezone.now().isoformat(),
+            "discharge_summary_advice": "",
+            "release_bed": True,
         }
 
         self.client.force_authenticate(self.super_user)  # To avoid permissions error
-        self.client.put(encounter_update_url, data=update_data, format="json")
+        discharge_response = self.client.post(
+            discharge_url,
+            data=discharge_data,
+            format="json",
+        )
+        self.assertEqual(discharge_response.status_code, 201)
 
         # Refresh and verify encounter location status
         encounter_location_obj.refresh_from_db()

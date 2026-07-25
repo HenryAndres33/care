@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import UUID4, BaseModel, ConfigDict, PositiveInt
+from pydantic import UUID4, BaseModel, ConfigDict, Field, PositiveInt, field_validator
 
 from care.emr.models.correspondence_review import (
     CorrespondenceRecipient,
@@ -10,6 +10,8 @@ from care.emr.models.correspondence_review import (
 )
 from care.emr.resources.base import EMRResource
 from care.emr.resources.correspondence import Sha256, canonical_sha256
+
+MIN_MANUAL_RECIPIENT_NAME_LENGTH = 2
 
 
 class RecipientDiscoverySpec(BaseModel):
@@ -60,6 +62,29 @@ class CorrespondenceRecipientReadSpec(EMRResource):
 
 class RecipientDiscoveryResponseSpec(BaseModel):
     results: list[CorrespondenceRecipientReadSpec]
+
+
+class CreateManualCorrespondenceRecipientSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    client_request_id: UUID4
+    patient: UUID4
+    facility: UUID4
+    display_name: str = Field(min_length=2, max_length=255)
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_display_name(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if len(normalized) < MIN_MANUAL_RECIPIENT_NAME_LENGTH:
+            raise ValueError("display_name must contain at least two characters")
+        return normalized
+
+
+class CreateManualCorrespondenceRecipientResponseSpec(BaseModel):
+    client_request_id: UUID4
+    replayed: bool
+    recipient: CorrespondenceRecipientReadSpec
 
 
 class BindCorrespondenceReviewSpec(BaseModel):
@@ -131,6 +156,23 @@ def canonical_review_command_hash(
             "actor": actor_id,
             "command": "bind_correspondence_review",
             "contract": "correspondence-review-command-v1",
+            "payload": request_spec.model_dump(
+                mode="python", exclude={"client_request_id"}
+            ),
+        }
+    )
+
+
+def canonical_manual_recipient_command_hash(
+    request_spec: CreateManualCorrespondenceRecipientSpec,
+    *,
+    actor_id: UUID,
+) -> str:
+    return canonical_sha256(
+        {
+            "actor": actor_id,
+            "command": "create_manual_correspondence_recipient",
+            "contract": "manual-correspondence-recipient-command-v1",
             "payload": request_spec.model_dump(
                 mode="python", exclude={"client_request_id"}
             ),

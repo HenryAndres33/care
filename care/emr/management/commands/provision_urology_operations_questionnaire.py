@@ -65,7 +65,8 @@ class Command(BaseCommand):
             try:
                 organization_ids.append(uuid.UUID(raw_id))
             except (TypeError, ValueError) as error:
-                raise CommandError(f"Invalid organization UUID: {raw_id}") from error
+                message = f"Invalid organization UUID: {raw_id}"
+                raise CommandError(message) from error
 
         organizations = list(
             Organization.objects.filter(external_id__in=organization_ids)
@@ -77,11 +78,10 @@ class Command(BaseCommand):
             if organization_id not in found_ids
         ]
         if missing:
-            raise CommandError(f"Organization(s) not found: {', '.join(missing)}")
+            message = f"Organization(s) not found: {', '.join(missing)}"
+            raise CommandError(message)
 
-        questionnaire = Questionnaire.objects.filter(
-            slug=QUESTIONNAIRE_SLUG
-        ).first()
+        questionnaire = Questionnaire.objects.filter(slug=QUESTIONNAIRE_SLUG).first()
         created = questionnaire is None
         if questionnaire is None:
             questionnaire = Questionnaire.objects.create(
@@ -89,8 +89,7 @@ class Command(BaseCommand):
                 slug=QUESTIONNAIRE_SLUG,
                 title="Urologie operatieverslag",
                 description=(
-                    "Encounter-owned digitaal operatieverslag voor de "
-                    "urologieworkflow."
+                    "Encounter-owned digitaal operatieverslag voor de urologieworkflow."
                 ),
                 subject_type="encounter",
                 status="active",

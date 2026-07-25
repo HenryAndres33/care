@@ -504,9 +504,7 @@ class TestCorrespondenceLetterAPI(
 
         exact_create = self._create(create_payload)
         exact_revise = self._revise(first, revise_payload)
-        new_create = self._create(
-            {**create_payload, "client_request_id": str(uuid4())}
-        )
+        new_create = self._create({**create_payload, "client_request_id": str(uuid4())})
         new_revise = self._revise(
             second,
             self._revision_payload(
@@ -550,9 +548,7 @@ class TestCorrespondenceLetterAPI(
         self.user.save(update_fields=["first_name"])
 
         exact = self._create(payload)
-        new_key = self._create(
-            {**payload, "client_request_id": str(uuid4())}
-        )
+        new_key = self._create({**payload, "client_request_id": str(uuid4())})
 
         self.assertEqual(exact.status_code, HTTPStatus.OK)
         self.assertTrue(exact.json()["replayed"])
@@ -612,9 +608,7 @@ class TestCorrespondenceLetterAPI(
             replay.json()["correspondence"]["artifact_status"],
             "unavailable",
         )
-        self.assertIsNone(
-            replay.json()["correspondence"]["artifact"]["download_url"]
-        )
+        self.assertIsNone(replay.json()["correspondence"]["artifact"]["download_url"])
         self.assertEqual(
             CorrespondenceLetterCommand.objects.filter(command_type="finalize").count(),
             1,
@@ -645,6 +639,141 @@ class TestCorrespondenceLetterAPI(
             ReportUpload.objects.filter(correspondence_revision__isnull=False).count(),
             0,
         )
+
+    def test_final_pdf_html_is_a_clinical_letter_without_audit_dump(self):
+        draft = self._created_revision()
+        artifact_id = uuid4()
+        html = build_correspondence_letter_html(
+            artifact_id=artifact_id,
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertNotIn("MEDISCHE BRIEF", html)
+        self.assertIn(self.patient.name, html)
+        self.assertIn(self.review.recipient_snapshot["display_name"], html)
+        self.assertIn("<p>Dear colleague,</p>", html)
+        self.assertIn("<p>Please review this patient.</p>", html)
+        self.assertIn("Presentatiedatum", html)
+        self.assertIn("Vertrouwelijk medisch document", html)
+        self.assertNotIn(str(artifact_id), html)
+        self.assertNotIn(str(draft.letter.external_id), html)
+        self.assertNotIn("Revision SHA-256", html)
+        self.assertNotIn("Review binding", html)
+        self.assertNotIn("Patient CARE reference", html)
+
+    def test_final_pdf_uses_configured_urology_specialty_letterhead(self):
+        draft = self._created_revision()
+        draft.letter.review.compilation.template.options = {
+            "letterhead_title": "POLIKLINIEK UROLOGIE",
+        }
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn("POLIKLINIEK UROLOGIE", html)
+        self.assertNotIn("SPECIALISTENBRIEF", html)
+        self.assertIn('class="specialty-name"', html)
+
+    def test_final_pdf_formats_clinical_sections_and_normalizes_reason_heading(self):
+        draft = self._created_revision()
+        draft.letter.review.compilation.source_provenance["form"][
+            "presentation_reason"
+        ] = "Macroscopische hematurie"
+        draft.body = (
+            "Geachte collega,\n\n"
+            "Reden van presentatie: Hematurie\n\n"
+            "Anamnese:\nSinds twee dagen macroscopische hematurie.\n\n"
+            "Beleid:\nCT-urografie en cystoscopie."
+        )
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn(
+            '<section class="subject"><span>Onderwerp</span>'
+            "Macroscopische hematurie</section>",
+            html,
+        )
+        self.assertIn("<h2>Reden van komst</h2><p>Hematurie</p>", html)
+        self.assertIn(
+            "<h2>Anamnese</h2><p>Sinds twee dagen macroscopische hematurie.</p>",
+            html,
+        )
+        self.assertIn("<h2>Beleid</h2><p>CT-urografie en cystoscopie.</p>", html)
+
+    def test_pdf_subject_recovers_note_reason_for_older_compilation_snapshot(self):
+        draft = self._created_revision()
+        compilation = draft.letter.review.compilation
+        compilation.source_provenance["form"].pop("presentation_reason", None)
+        compilation.form_submission.response_dump = {
+            "content": {
+                "values": {"reasonForVisit": "Macroscopische hematurie"},
+            }
+        }
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn(
+            '<section class="subject"><span>Onderwerp</span>'
+            "Macroscopische hematurie</section>",
+            html,
+        )
+
+    def test_pdf_formats_diagnosis_history_without_em_dash(self):
+        draft = self._created_revision()
+        draft.body = (
+            "Algemene voorgeschiedenis:\n"
+            "- Asthma — 01-01-2000: Allergische Asthma\n\n"
+            "Urologische voorgeschiedenis:\n"
+            "- Uretersteen — 01-07-2026: "
+            "CT IVP: Distale uretersteen van 10mm"
+        )
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn('<ul class="history-list">', html)
+        self.assertIn(
+            '<span class="history-diagnosis">Asthma:</span>'
+            '<div class="history-detail">'
+            "01-01-2000: Allergische Asthma</div>",
+            html,
+        )
+        self.assertIn(
+            '<span class="history-diagnosis">Uretersteen:</span>'
+            '<div class="history-detail">'
+            "01-07-2026: CT IVP: Distale uretersteen van 10mm</div>",
+            html,
+        )
+        self.assertNotIn("—", html)
+
+    def test_existing_closing_and_author_are_not_duplicated_in_pdf(self):
+        draft = self._created_revision()
+        author_name = self.review.author_snapshot["display"]
+        draft.body = f"Geachte collega,\n\nKlinische tekst.\n\nMet vriendelijke groet,\n{author_name}"
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertEqual(html.count("Met vriendelijke groet"), 1)
+        self.assertEqual(html.count(author_name), 1)
 
     def test_storage_failure_rolls_back_final_revision_command_and_artifact(self):
         draft = self._created_revision()
@@ -829,7 +958,5 @@ class TestCorrespondenceLetterConcurrency(
         )
         expected_letters = 1 if responses[1][0] == HTTPStatus.CREATED else 0
         self.assertEqual(CorrespondenceLetter.objects.count(), expected_letters)
-        self.assertEqual(
-            CorrespondenceLetterRevision.objects.count(), expected_letters
-        )
+        self.assertEqual(CorrespondenceLetterRevision.objects.count(), expected_letters)
         self.assertEqual(CorrespondenceLetterCommand.objects.count(), expected_letters)

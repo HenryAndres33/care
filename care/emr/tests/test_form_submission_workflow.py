@@ -56,6 +56,7 @@ from care.emr.signals.patient.phone_number_identifier import (
 )
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
+from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
 
 
@@ -94,6 +95,7 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
         self.user = self.create_user()
         self.facility = self.create_facility(user=self.user)
         self.organization = self.create_facility_organization(facility=self.facility)
+        self.questionnaire_organization = self.create_organization()
         self.patient = self.create_patient()
         self.encounter = self.create_encounter(
             patient=self.patient,
@@ -104,15 +106,22 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
             Questionnaire,
             slug="generic-versioned-form",
             title="Generic Versioned Form",
+            organization_cache=[self.questionnaire_organization.id],
         )
         role = self.create_role_with_permissions(
             [
                 PatientPermissions.can_view_clinical_data.name,
                 EncounterPermissions.can_read_encounter_clinical_data.name,
                 EncounterPermissions.can_submit_encounter_questionnaire.name,
+                QuestionnairePermissions.can_submit_questionnaire.name,
             ]
         )
         self.attach_role_facility_organization_user(self.organization, self.user, role)
+        self.attach_role_organization_user(
+            self.questionnaire_organization,
+            self.user,
+            role,
+        )
         self.client.force_authenticate(user=self.user)
         self.submission = self._draft()
 
@@ -1111,7 +1120,7 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
         self.assertTrue(replay.json()["replayed"])
         self.assertEqual(denied.status_code, 400)
         self.assertIn(
-            "future reconciliation workflow",
+            "reconciliation workflow",
             str(denied.json()),
         )
 
@@ -1227,6 +1236,7 @@ class TestFormSubmissionCommandConcurrency(TransactionTestCase):
         self.organization = CareAPITestBase.create_facility_organization(
             self, facility=self.facility
         )
+        self.questionnaire_organization = CareAPITestBase.create_organization(self)
         self.patient = CareAPITestBase.create_patient(self)
         self.encounter = CareAPITestBase.create_encounter(
             self,
@@ -1238,16 +1248,24 @@ class TestFormSubmissionCommandConcurrency(TransactionTestCase):
             Questionnaire,
             slug="concurrent-versioned-form",
             title="Concurrent Versioned Form",
+            organization_cache=[self.questionnaire_organization.id],
         )
         role = CareAPITestBase.create_role_with_permissions(
             self,
             [
                 EncounterPermissions.can_read_encounter_clinical_data.name,
                 EncounterPermissions.can_submit_encounter_questionnaire.name,
+                QuestionnairePermissions.can_submit_questionnaire.name,
             ],
         )
         CareAPITestBase.attach_role_facility_organization_user(
             self, self.organization, self.user, role
+        )
+        CareAPITestBase.attach_role_organization_user(
+            self,
+            self.questionnaire_organization,
+            self.user,
+            role,
         )
         self.submission = baker.make(
             FormSubmission,

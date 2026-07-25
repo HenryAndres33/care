@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema
 from pydantic import UUID4, BaseModel
@@ -29,8 +29,17 @@ from care.emr.models import (
     Patient,
     TokenBooking,
 )
+from care.emr.models.encounter import (
+    ACTIVE_INPATIENT_CONSTRAINT,
+    ACTIVE_INPATIENT_STATUSES,
+)
 from care.emr.models.patient import PatientIdentifier, PatientIdentifierConfig
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES, StatusChoices
+from care.emr.resources.encounter.constants import (
+    CLINICALLY_CLOSED_CHOICES,
+    COMPLETED_CHOICES,
+    ClassChoices,
+    StatusChoices,
+)
 from care.emr.resources.encounter.spec import (
     EncounterCareTeamMemberWriteSpec,
     EncounterCreateSpec,
@@ -60,9 +69,9 @@ class LiveFilter(filters.CharFilter):
         if not value:
             return queryset
         if value.lower() == "true":
-            queryset = queryset.filter(status__in=COMPLETED_CHOICES)
+            queryset = queryset.filter(status__in=CLINICALLY_CLOSED_CHOICES)
         elif value.lower() == "false":
-            queryset = queryset.exclude(status__in=COMPLETED_CHOICES)
+            queryset = queryset.exclude(status__in=CLINICALLY_CLOSED_CHOICES)
         return queryset
 
 
@@ -131,6 +140,35 @@ class EncounterViewSet(
     ordering_fields = ["created_date", "modified_date"]
     resource_type = TagResource.encounter
 
+    @staticmethod
+    def _active_inpatient_conflicts(patient_id, exclude_id=None):
+        conflicts = Encounter.objects.filter(
+            deleted=False,
+            encounter_class=ClassChoices.imp.value,
+            patient_id=patient_id,
+            status__in=ACTIVE_INPATIENT_STATUSES,
+        )
+        if exclude_id is not None:
+            conflicts = conflicts.exclude(id=exclude_id)
+        return conflicts.exists()
+
+    @staticmethod
+    def _raise_active_inpatient_conflict():
+        raise ValidationError("Patient already has an active inpatient encounter")
+
+    def create(self, request, *args, **kwargs):
+        try:
+            with transaction.atomic():
+                return super().create(request, *args, **kwargs)
+        except IntegrityError as error:
+            diagnostic = getattr(error.__cause__, "diag", None)
+            if (
+                getattr(diagnostic, "constraint_name", None)
+                == ACTIVE_INPATIENT_CONSTRAINT
+            ):
+                self._raise_active_inpatient_conflict()
+            raise
+
     def update(self, request, *args, **kwargs):
         """Serialize ordinary mutations with terminal close/restart transitions."""
         with transaction.atomic():
@@ -138,39 +176,59 @@ class EncounterViewSet(
                 self.get_queryset().select_for_update(of=("self",)),
                 external_id=self.kwargs["external_id"],
             )
-            if instance.status in COMPLETED_CHOICES:
+            if instance.status in CLINICALLY_CLOSED_CHOICES:
                 raise ValidationError(
-                    "Terminal encounters are immutable; use the explicit restart endpoint"
+                    "Clinically closed encounters are immutable; use an explicit workflow"
                 )
             return Response(self.handle_update(instance, request.data))
 
     def validate_data(self, instance, model_obj=None):
-        if model_obj is not None and model_obj.status in COMPLETED_CHOICES:
+        if (
+            model_obj is not None
+            and model_obj.status in CLINICALLY_CLOSED_CHOICES
+        ):
             raise ValidationError(
-                "Terminal encounters are immutable; use the explicit restart endpoint"
+                "Clinically closed encounters are immutable; use an explicit workflow"
             )
-        if model_obj is not None and instance.status in COMPLETED_CHOICES:
+        if (
+            model_obj is not None
+            and instance.status in CLINICALLY_CLOSED_CHOICES
+        ):
             raise ValidationError(
-                "Terminal encounter transitions require the consult close workflow"
+                "Clinical closure transitions require an explicit command workflow"
             )
         if model_obj is None:
+            patient = Patient.objects.filter(external_id=instance.patient).first()
+            if patient is None:
+                raise ValidationError("Patient does not exist")
+
+            if not Facility.objects.filter(external_id=instance.facility).exists():
+                raise ValidationError("Facility does not exist")
+
+            if (
+                instance.encounter_class == ClassChoices.imp.value
+                and instance.status in ACTIVE_INPATIENT_STATUSES
+                and self._active_inpatient_conflicts(patient.id)
+            ):
+                self._raise_active_inpatient_conflict()
+
             if (
                 self.database_model.objects.filter(
                     patient__external_id=instance.patient,
                     facility__external_id=instance.facility,
                 )
-                .exclude(status__in=COMPLETED_CHOICES)
+                .exclude(status__in=CLINICALLY_CLOSED_CHOICES)
                 .count()
                 >= settings.MAX_ACTIVE_ENCOUNTERS_PER_PATIENT_IN_FACILITY
             ):
                 error = f"Patient already has maximum number of active encounters ({settings.MAX_ACTIVE_ENCOUNTERS_PER_PATIENT_IN_FACILITY}) in the facility"
                 raise ValidationError(error)
-
-            if not Patient.objects.filter(external_id=instance.patient).exists():
-                raise ValidationError("Patient does not exist")
-
-            if not Facility.objects.filter(external_id=instance.facility).exists():
-                raise ValidationError("Facility does not exist")
+        elif (
+            instance.encounter_class == ClassChoices.imp.value
+            and instance.status in ACTIVE_INPATIENT_STATUSES
+            and self._active_inpatient_conflicts(model_obj.patient_id, model_obj.id)
+        ):
+            self._raise_active_inpatient_conflict()
 
     def authorize_retrieve(self, model_instance):
         patient = model_instance.patient
@@ -307,6 +365,11 @@ class EncounterViewSet(
                 raise ValidationError("Encounter is not in a completed state")
             if instance.status != StatusChoices.completed.value:
                 raise ValidationError("Only completed encounters can be restarted")
+            if (
+                instance.encounter_class == ClassChoices.imp.value
+                and self._active_inpatient_conflicts(instance.patient_id, instance.id)
+            ):
+                self._raise_active_inpatient_conflict()
             if (
                 ConsultClosure._base_manager.select_for_update(  # noqa: SLF001
                     of=("self",)

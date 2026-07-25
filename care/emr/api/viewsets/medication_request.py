@@ -15,7 +15,7 @@ from care.emr.models.medication_request import MedicationRequest
 from care.emr.registries.system_questionnaire.system_questionnaire import (
     InternalQuestionnaireRegistry,
 )
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES
+from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
 from care.emr.resources.inventory.product_knowledge.spec import ProductTypeOptions
 from care.emr.resources.medication.request.idempotency import (
     IdempotentMedicationRequestCreateResponseSpec,
@@ -97,9 +97,9 @@ class MedicationRequestViewSet(
             encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
             ).get(pk=instance.encounter_id)
-            if encounter.status in COMPLETED_CHOICES:
+            if encounter.status in CLINICALLY_CLOSED_CHOICES:
                 raise ValidationError(
-                    "Cannot create medication requests on a terminal encounter"
+                    "Cannot create medication requests on a clinically closed encounter"
                 )
             if not AuthorizationController.call(
                 "can_update_encounter_clinical_data",
@@ -116,9 +116,9 @@ class MedicationRequestViewSet(
             encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
             ).get(pk=reference.encounter_id)
-            if encounter.status in COMPLETED_CHOICES:
+            if encounter.status in CLINICALLY_CLOSED_CHOICES:
                 raise ValidationError(
-                    "Cannot update medication requests on a terminal encounter"
+                    "Cannot update medication requests on a clinically closed encounter"
                 )
             medication = get_object_or_404(
                 self.get_queryset().select_for_update(of=("self",)),
@@ -134,9 +134,9 @@ class MedicationRequestViewSet(
             encounter = Encounter._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
             ).get(pk=reference.encounter_id)
-            if encounter.status in COMPLETED_CHOICES:
+            if encounter.status in CLINICALLY_CLOSED_CHOICES:
                 raise ValidationError(
-                    "Cannot delete medication requests on a terminal encounter"
+                    "Cannot delete medication requests on a clinically closed encounter"
                 )
             medication = get_object_or_404(
                 self.get_queryset().select_for_update(of=("self",)),

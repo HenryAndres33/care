@@ -1,8 +1,10 @@
 import uuid
+from datetime import timedelta
 from secrets import choice
 from uuid import uuid4
 
 from django.urls import reverse
+from django.utils import timezone
 
 from care.emr.models import Device, FacilityLocation
 from care.emr.resources.device.spec import (
@@ -11,8 +13,7 @@ from care.emr.resources.device.spec import (
 )
 from care.emr.resources.encounter.constants import (
     ClassChoices,
-    EncounterPriorityChoices,
-    StatusChoices,
+    DischargeDispositionChoices,
 )
 from care.emr.resources.location.spec import FacilityLocationModeChoices
 from care.emr.tests.test_location_api import FacilityLocationMixin
@@ -426,7 +427,7 @@ class TestDeviceViewSet(DeviceBaseTest):
         self.assertEqual(response_clear.status_code, 200)
         self.assertIsNone(Device.objects.get(external_id=device["id"]).current_location)
 
-    def test_dissociation_device_encounter_after_encounter_status_update(self):
+    def test_discharge_command_dissociates_device_encounter(self):
         device = self.create_device()
         encounter = self.create_encounter(
             self.patient,
@@ -434,6 +435,8 @@ class TestDeviceViewSet(DeviceBaseTest):
             self.facility.default_internal_organization,
             status_history={"history": []},
             encounter_class=ClassChoices.imp.value,
+            period={"start": (timezone.now() - timedelta(days=1)).isoformat()},
+            hospitalization={},
         )
         self.add_permissions(
             [
@@ -448,18 +451,23 @@ class TestDeviceViewSet(DeviceBaseTest):
         device_instance = Device.objects.get(external_id=device["id"])
         self.assertEqual(device_instance.current_encounter, encounter)
         self.client.force_authenticate(self.super_user)
-        encounter_update_url = reverse(
-            "encounter-detail", kwargs={"external_id": encounter.external_id}
+        discharge_url = reverse(
+            "encounter-idempotent-discharge",
+            kwargs={"external_id": encounter.external_id},
         )
-        update_data = {
-            "status": StatusChoices.completed.value,
-            "priority": EncounterPriorityChoices.urgent.value,
-            "encounter_class": ClassChoices.imp.value,
+        discharge_data = {
+            "client_request_id": str(uuid4()),
+            "discharge_disposition": DischargeDispositionChoices.home.value,
+            "discharged_at": timezone.now().isoformat(),
+            "discharge_summary_advice": "",
+            "release_bed": False,
         }
-        update_response = self.client.put(
-            encounter_update_url, data=update_data, format="json"
+        discharge_response = self.client.post(
+            discharge_url,
+            data=discharge_data,
+            format="json",
         )
-        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(discharge_response.status_code, 201)
         device_instance.refresh_from_db()
         self.assertIsNone(device_instance.current_encounter)
 
