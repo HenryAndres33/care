@@ -1,3 +1,21 @@
+"""TURP Smart Text fixture for automated tests.
+
+This is NOT a mirror of the live catalog and must not be treated as one.
+
+Clinicians author the real Smart Text templates through the UI, and that live
+content is the source of truth. This declaration exists only so automated tests
+start from a known, deterministic catalog. The two are expected to drift — the
+live TURP template already uses a shared anesthesia list that this fixture does
+not — and that drift is fine.
+
+Do not "resync" this file to match production. Keeping two copies aligned by
+hand is the failure mode this arrangement avoids. If a test needs to assert on a
+specific template, assert against this fixture in a test database.
+
+`provision_urology_turp_clinical_text` refuses to write this into anything but a
+known test database for the same reason. See care_fe/docs/pilot-scope.md.
+"""
+
 TURP_CATALOG_VERSION = 3
 
 TURP_TEMPLATE_BODY = """OPERATIEVERLOOP

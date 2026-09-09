@@ -2,7 +2,7 @@ import uuid
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import connections, transaction
 
 from care.emr.clinical_text_catalogs.urology_turp import (
     TURP_CATALOG_VERSION,
@@ -12,14 +12,33 @@ from care.emr.models.clinical_text import ClinicalTextResource
 from care.emr.resources.clinical_text import ClinicalTextResourceWriteSpec
 from care.facility.models import Facility
 
+# Databases this catalog may be written into. The declared catalog is a
+# deterministic fixture for automated tests, not a mirror of production.
+#
+# Clinicians author the real Smart Text catalog through the UI, and that live
+# content is the source of truth. The two are expected to drift: TURP's live
+# template already uses a shared anesthesia list this fixture does not. Seeding
+# a non-test database would overwrite clinician-authored content with an older
+# declaration and record it as a routine version bump.
+SEEDABLE_DATABASE_NAMES = frozenset({"care_test"})
+
 
 class Command(BaseCommand):
     help = (
-        "Provision the versioned TURP Smart Text template, lists and preset "
-        "for one or more CARE facilities."
+        "Seed the versioned TURP Smart Text fixture into a test database. "
+        "Refuses non-test databases: the live catalog is authored through the "
+        "Smart Text UI and is the source of truth."
     )
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--allow-non-test-database",
+            action="store_true",
+            help=(
+                "Seed a database that is not a known test database. This "
+                "overwrites clinician-authored Smart Text content."
+            ),
+        )
         target = parser.add_mutually_exclusive_group(required=True)
         target.add_argument(
             "--facility",
@@ -44,6 +63,9 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        self._require_seedable_database(
+            allow_override=options["allow_non_test_database"]
+        )
         facilities = self._resolve_facilities(options)
         actor = self._load_actor(options["user"])
         counts = {"created": 0, "updated": 0, "unchanged": 0}
@@ -60,6 +82,30 @@ class Command(BaseCommand):
                 f"{counts['created']} created, {counts['updated']} updated, "
                 f"{counts['unchanged']} unchanged."
             )
+        )
+
+    def _require_seedable_database(self, *, allow_override):
+        db_name = connections["default"].settings_dict["NAME"]
+        # Django prefixes its throwaway test databases with "test_", so the
+        # command's own test suite runs against e.g. "test_care_test".
+        if db_name in SEEDABLE_DATABASE_NAMES or db_name.startswith("test_"):
+            return
+        if allow_override:
+            self.stderr.write(
+                self.style.WARNING(
+                    f"Seeding '{db_name}', which is not a known test database. "
+                    "Clinician-authored Smart Text content may be overwritten."
+                )
+            )
+            return
+        raise CommandError(
+            f"Refusing to seed database '{db_name}'.\n\n"
+            "This command writes a test fixture. The live Smart Text catalog is "
+            "authored through the UI and is the source of truth, so seeding here "
+            "would overwrite clinician-authored content with an older "
+            "declaration and log it as a routine update.\n\n"
+            f"Permitted databases: {', '.join(sorted(SEEDABLE_DATABASE_NAMES))}.\n"
+            "Override deliberately with --allow-non-test-database."
         )
 
     @staticmethod
