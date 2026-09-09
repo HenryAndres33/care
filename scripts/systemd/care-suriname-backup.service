@@ -1,0 +1,15 @@
+[Unit]
+Description=CARE Suriname database and file backup
+Documentation=file:///home/henrywielzen/projects/care-suriname/care_fe/docs/backups.md
+# Backups are pointless if the stack is down; the script checks and fails loudly.
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/henrywielzen/projects/care-suriname/care
+ExecStart=/usr/bin/env bash /home/henrywielzen/projects/care-suriname/care/scripts/care-suriname-backup.sh
+# Backups contain clinical data. Keep them readable only by the owning user.
+UMask=0077
+# A failed backup must be visible in `systemctl --user status`, not retried into
+# silence. The timer's next run is the retry.
+Restart=no

@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily CARE Suriname backup
+Documentation=file:///home/henrywielzen/projects/care-suriname/care_fe/docs/backups.md
+
+[Timer]
+# Nightly, with jitter so it never contends with anything else scheduled on the
+# hour. A workstation is not always on at a fixed time, hence Persistent.
+OnCalendar=*-*-* 02:30:00
+RandomizedDelaySec=15min
+
+# If the machine was off at 02:30, run once shortly after it next boots.
+# Without this a laptop that sleeps overnight would simply never be backed up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
