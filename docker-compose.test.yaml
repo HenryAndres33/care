@@ -1,0 +1,130 @@
+# Isolated stack for Playwright end-to-end tests.
+#
+# Standalone: run it directly, not layered over docker-compose.yaml.
+#
+#   docker compose -f docker-compose.test.yaml up -d
+#   docker compose -f docker-compose.test.yaml down -v
+#
+# The compose project name is pinned to "care-test", so every container,
+# network and volume is namespaced away from the development stack. Nothing is
+# shared: separate PostgreSQL, Redis and MinIO, separate storage volumes, and
+# host ports chosen not to collide.
+#
+#   service   development        test
+#   ---------------------------------------
+#   postgres  5433               5434
+#   redis     6380               6381
+#   backend   9000               9002
+#   minio S3  9100               9101
+#   minio UI  9001               9103
+#
+# MinIO deliberately uses a named volume rather than the ./care/media/minio
+# bind mount that the development stack uses. A bind mount would write test
+# artefacts into live media storage, which is the class of leak this stack
+# exists to prevent.
+#
+# See care_fe/docs/testing-environment.md for the full workflow.
+
+name: care-test
+
+networks:
+  default:
+    name: care-test
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file:
+      - ./docker/.test.env
+    volumes:
+      - test-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 10s
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    volumes:
+      - test-redis-data:/data
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 10s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      AWS_DEFAULT_REGION: ap-south-1
+    volumes:
+      - test-minio-data:/data
+      - "./docker/minio/init-script.sh:/init-script.sh:ro"
+      - "./docker/minio/entrypoint.sh:/entrypoint.sh:ro"
+    ports:
+      - "9101:9000"
+      - "9103:9001"
+    entrypoint: ["/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 10s
+
+  celery:
+    image: care_local
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+      args:
+        ADDITIONAL_PLUGS: ${ADDITIONAL_PLUGS:-}
+    env_file:
+      - ./docker/.test.env
+    entrypoint: ["bash", "scripts/celery-dev.sh"]
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+
+  backend:
+    image: care_local
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+      args:
+        ADDITIONAL_PLUGS: ${ADDITIONAL_PLUGS:-}
+    env_file:
+      - ./docker/.test.env
+    volumes:
+      - .:/app
+    entrypoint: ["bash", "scripts/start-dev.sh"]
+    ports:
+      - "9002:9000"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      celery:
+        condition: service_healthy
+
+volumes:
+  test-postgres-data:
+  test-redis-data:
+  test-minio-data:
