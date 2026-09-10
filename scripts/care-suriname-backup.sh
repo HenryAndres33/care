@@ -14,12 +14,14 @@
 #
 # Environment:
 #   CARE_BACKUP_DIR              destination (default ~/care-suriname-backups)
+#   CARE_BACKUP_MIRROR_DIR       second device, e.g. a USB drive (optional)
 #   CARE_BACKUP_RETENTION_DAYS   prune older sets (default 14)
 
 set -euo pipefail
 
 care_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 backup_root="${CARE_BACKUP_DIR:-$HOME/care-suriname-backups}"
+mirror_dir="${CARE_BACKUP_MIRROR_DIR:-}"
 retention_days="${CARE_BACKUP_RETENTION_DAYS:-14}"
 db_name="${POSTGRES_DB:-care}"
 db_user="${POSTGRES_USER:-postgres}"
@@ -101,17 +103,51 @@ echo "  manifest: recording checksums"
 (cd "$target" && sha256sum --check --status checksums.sha256) ||
   fail "checksum verification failed immediately after writing"
 
+# Mirror to a second device --------------------------------------------------
+# The primary copy sits on the same disk as the database, so it survives a bad
+# migration but not a disk failure or a stolen laptop. The mirror is what makes
+# this a real backup.
+#
+# A missing drive is a warning, not a failure: an unplugged USB stick must never
+# mean there was no backup that night.
+
+mirror_status="not configured"
+if [ -n "$mirror_dir" ]; then
+  if [ -d "$(dirname "$mirror_dir")" ] && mkdir -p "$mirror_dir" 2>/dev/null; then
+    mirror_target="$mirror_dir/$stamp"
+    if cp -r "$target" "$mirror_target" 2>/dev/null &&
+      (cd "$mirror_target" && sha256sum --check --status checksums.sha256); then
+      # Verified at the destination. A copy that truncated silently would
+      # otherwise look identical to a good one until a restore needed it.
+      mirror_status="verified at $mirror_target"
+    else
+      [ -d "${mirror_target:-}" ] && touch "$mirror_target/INCOMPLETE" 2>/dev/null || true
+      mirror_status="FAILED — copy or checksum did not verify"
+    fi
+  else
+    mirror_status="SKIPPED — $mirror_dir unavailable (drive not plugged in?)"
+  fi
+fi
+
 # Retention ------------------------------------------------------------------
 # Prune only complete sets. An INCOMPLETE marker survives until inspected.
 
-pruned=0
-if [ "$retention_days" -gt 0 ]; then
+prune_old_sets() {
+  local root="$1" count=0
+  [ -d "$root" ] || return 0
   while IFS= read -r old; do
     [ -f "$old/INCOMPLETE" ] && continue
     rm -rf -- "$old"
-    pruned=$((pruned + 1))
-  done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d \
+    count=$((count + 1))
+  done < <(find "$root" -mindepth 1 -maxdepth 1 -type d \
     -mtime "+$retention_days" 2>/dev/null || true)
+  echo "$count"
+}
+
+pruned=0
+if [ "$retention_days" -gt 0 ]; then
+  pruned=$(prune_old_sets "$backup_root")
+  [ -n "$mirror_dir" ] && [ -d "$mirror_dir" ] && prune_old_sets "$mirror_dir" > /dev/null
 fi
 
 # Summary --------------------------------------------------------------------
@@ -122,4 +158,11 @@ total_sets=$(find "$backup_root" -mindepth 1 -maxdepth 1 -type d | wc -l)
 
 echo "Backup OK: database $db_size, files $minio_size, $dump_entries archive entries"
 echo "  location: $target"
+echo "  mirror:   $mirror_status"
 echo "  retained: $total_sets set(s), pruned $pruned older than ${retention_days}d"
+
+# A mirror that failed while the drive was present is worth a non-zero exit, so
+# `systemctl --user status` shows it rather than reporting a clean run.
+case "$mirror_status" in
+  FAILED*) exit 1 ;;
+esac

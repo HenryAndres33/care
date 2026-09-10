@@ -7,6 +7,9 @@ After=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/home/henrywielzen/projects/care-suriname/care
+# Mirror to the external drive. If it is not plugged in the run still succeeds
+# and says SKIPPED; only a failed copy while the drive is present is an error.
+Environment=CARE_BACKUP_MIRROR_DIR=/media/henry-wielzen/External/care-suriname-backups
 ExecStart=/usr/bin/env bash /home/henrywielzen/projects/care-suriname/care/scripts/care-suriname-backup.sh
 # Backups contain clinical data. Keep them readable only by the owning user.
 UMask=0077
