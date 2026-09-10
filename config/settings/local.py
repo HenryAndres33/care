@@ -56,6 +56,8 @@ CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = ["*"]
 CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = {
     "urology": ["urology-medisch-dossier"],
     "19d9ec24-cf5e-4944-93a9-a4900e1f4feb": ["urology-medisch-dossier"],
+    # Owner-approved AZP department policy; exact UUID avoids name collisions.
+    "d1dd82e0-0690-4121-94d8-7605b27192ee": ["urology-medisch-dossier"],
 }
 
 # open id connect

@@ -1,0 +1,1 @@
+"""Isolated configuration contract tests."""
