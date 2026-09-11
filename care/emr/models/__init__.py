@@ -1,4 +1,5 @@
 from .account import *  # noqa F403
+from .admission_documentation import *  # noqa F403
 from .activity_definition import *  # noqa F403
 from .allergy_intolerance import *  # noqa F403
 from .charge_item import *  # noqa F403

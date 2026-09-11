@@ -20,6 +20,9 @@ from care.emr.resources.encounter.discharge import (
     encounter_discharge_command_hash,
     encounter_discharge_payload_hash,
 )
+from care.emr.resources.encounter.discharge_documentation import (
+    lock_discharge_documentation,
+)
 from care.emr.resources.encounter.discharge_state import (
     apply_encounter_discharge,
     discharge_snapshot_matches_encounter,
@@ -42,10 +45,14 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
     )
     def preflight_discharge(self, request, *args, **kwargs):
         request_spec = EncounterDischargeSpec.model_validate(request.data)
+        reference = self._reference_encounter()
+        self._authorize_discharge(reference)
         with transaction.atomic():
+            documentation_blockers, _ = lock_discharge_documentation(reference)
             context = lock_discharge_context(self.kwargs["external_id"])
             self._authorize_discharge(context["encounter"])
             blockers = encounter_discharge_blockers(context, request_spec)
+            blockers = sorted(set(blockers + documentation_blockers))
         return Response(
             {
                 "ready": not blockers,
@@ -77,6 +84,9 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
 
         try:
             with transaction.atomic():
+                documentation_blockers, documentation = lock_discharge_documentation(
+                    reference
+                )
                 context = lock_discharge_context(self.kwargs["external_id"])
                 encounter = context["encounter"]
                 self._authorize_discharge(encounter)
@@ -87,6 +97,7 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 ):
                     return replay
                 blockers = encounter_discharge_blockers(context, request_spec)
+                blockers = sorted(set(blockers + documentation_blockers))
                 if blockers:
                     return self._conflict(blockers)
                 snapshot = apply_encounter_discharge(
@@ -94,6 +105,7 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                     request_spec,
                     request.user,
                 )
+                snapshot["documentation"] = documentation
                 disassociate_device_from_encounter(
                     encounter,
                     ended_at=request_spec.discharged_at,

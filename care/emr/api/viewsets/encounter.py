@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
+from care.emr.api.viewsets.admission_documentation import AdmissionDocumentationMixin
 from care.emr.api.viewsets.base import (
     EMRBaseViewSet,
     EMRCreateMixin,
@@ -118,6 +119,7 @@ class EncounterFilters(filters.FilterSet):
 
 
 class EncounterViewSet(
+    AdmissionDocumentationMixin,
     EMRCreateMixin,
     EMRRetrieveMixin,
     EMRUpdateMixin,
@@ -183,17 +185,11 @@ class EncounterViewSet(
             return Response(self.handle_update(instance, request.data))
 
     def validate_data(self, instance, model_obj=None):
-        if (
-            model_obj is not None
-            and model_obj.status in CLINICALLY_CLOSED_CHOICES
-        ):
+        if model_obj is not None and model_obj.status in CLINICALLY_CLOSED_CHOICES:
             raise ValidationError(
                 "Clinically closed encounters are immutable; use an explicit workflow"
             )
-        if (
-            model_obj is not None
-            and instance.status in CLINICALLY_CLOSED_CHOICES
-        ):
+        if model_obj is not None and instance.status in CLINICALLY_CLOSED_CHOICES:
             raise ValidationError(
                 "Clinical closure transitions require an explicit command workflow"
             )

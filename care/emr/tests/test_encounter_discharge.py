@@ -29,6 +29,13 @@ from care.utils.tests.base import CareAPITestBase
 class EncounterDischargeTests(CareAPITestBase):
     def setUp(self):
         super().setUp()
+        # Lifecycle tests isolate documentation, covered by DischargeDocumentationTests.
+        documentation = patch(
+            "care.emr.api.viewsets.encounter_discharge.lock_discharge_documentation",
+            return_value=([], None),
+        )
+        documentation.start()
+        self.addCleanup(documentation.stop)
         self.user = self.create_user()
         self.facility = self.create_facility(user=self.user)
         self.patient = self.create_patient(name="Synthetic discharge patient")

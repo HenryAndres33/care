@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier
+from unittest.mock import patch
 from uuid import uuid4
 
 from django.db import close_old_connections
@@ -26,6 +27,13 @@ class EncounterDischargeConcurrencyTests(APITransactionTestCase):
     reset_sequences = True
 
     def setUp(self):
+        # Exercise command replay/bed locks separately from documentation validation.
+        documentation = patch(
+            "care.emr.api.viewsets.encounter_discharge.lock_discharge_documentation",
+            return_value=([], None),
+        )
+        documentation.start()
+        self.addCleanup(documentation.stop)
         self.user = baker.make(User, is_superuser=True)
         self.facility = baker.make(Facility, created_by=self.user)
         self.patient = baker.make(Patient, name="Synthetic concurrent discharge")

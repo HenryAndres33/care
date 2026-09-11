@@ -32,6 +32,14 @@ class EncounterDischargeCommandSpec(EncounterDischargeSpec):
     client_request_id: UUID4
 
 
+class DischargeDocumentationSnapshot(BaseModel):
+    summary_submission: UUID4
+    summary_version: int
+    summary_hash: str
+    letter_revision: UUID4
+    letter_hash: str
+
+
 class EncounterDischargeResultSpec(BaseModel):
     encounter: UUID4
     status: Literal["discharged"]
@@ -41,6 +49,7 @@ class EncounterDischargeResultSpec(BaseModel):
     discharge_summary_advice: str
     bed_released: bool
     released_location: UUID4 | None
+    documentation: DischargeDocumentationSnapshot | None = None
 
 
 class EncounterDischargeCommandResponseSpec(BaseModel):
