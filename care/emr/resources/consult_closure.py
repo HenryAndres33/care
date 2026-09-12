@@ -19,6 +19,7 @@ from care.emr.resources.correspondence import (
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 CONSULT_CLOSE_POLICY_ID = "care.standard.consult-close"
+EMERGENCY_CLOSE_POLICY_ID = "care.standard.emergency-close"
 CONSULT_CLOSE_POLICY_VERSION = 1
 CONSULT_CLOSE_PREFLIGHT_VERSION = 1
 CONSULT_CLOSE_POLICY_HASH = canonical_sha256(
@@ -103,15 +104,15 @@ class ConsultCloseCommandCandidateSpec(BaseModel):
     patient: UUID4
     facility: UUID4
     department: UUID4
-    token: UUID4
-    appointment: UUID4
+    token: UUID4 | None
+    appointment: UUID4 | None
     expected_encounter_status: Literal["in_progress"]
     expected_encounter_modified_at: datetime
-    expected_token_status: Literal["IN_PROGRESS"]
-    expected_token_modified_at: datetime
-    expected_booking_status: Literal["in_consultation"]
-    expected_booking_modified_at: datetime
-    policy_id: Literal[CONSULT_CLOSE_POLICY_ID]
+    expected_token_status: Literal["IN_PROGRESS"] | None
+    expected_token_modified_at: datetime | None
+    expected_booking_status: Literal["in_consultation"] | None
+    expected_booking_modified_at: datetime | None
+    policy_id: Literal[CONSULT_CLOSE_POLICY_ID, EMERGENCY_CLOSE_POLICY_ID]
     policy_version: Literal[CONSULT_CLOSE_POLICY_VERSION]
     policy_hash: Sha256
     preflight_version: Literal[CONSULT_CLOSE_PREFLIGHT_VERSION]
@@ -134,6 +135,21 @@ class ConsultCloseCommandCandidateSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate_policy_and_medication_shape(self):
+        scheduling = [
+            self.token,
+            self.appointment,
+            self.expected_token_status,
+            self.expected_token_modified_at,
+            self.expected_booking_status,
+            self.expected_booking_modified_at,
+        ]
+        if self.policy_id == EMERGENCY_CLOSE_POLICY_ID:
+            if any(value is not None for value in scheduling):
+                raise ValueError(
+                    "Unscheduled emergency must not contain queue evidence"
+                )
+        elif any(value is None for value in scheduling):
+            raise ValueError("Booked consultation requires complete queue evidence")
         has_actions = bool(self.medication_actions)
         if (self.medication_outcome == "completed") != has_actions:
             raise ValueError("medication outcome does not match medication actions")
@@ -169,12 +185,12 @@ class ConsultClosureReadSpec(BaseModel):
     patient: UUID4
     facility: UUID4
     department: UUID4
-    token: UUID4
-    appointment: UUID4
+    token: UUID4 | None
+    appointment: UUID4 | None
     status: Literal["completed"]
     encounter_status: Literal["completed"]
-    token_status: Literal["FULFILLED"]
-    booking_status: Literal["fulfilled"]
+    token_status: Literal["FULFILLED", "not_required"]
+    booking_status: Literal["fulfilled", "not_required"]
     policy_id: str
     policy_version: PositiveInt
     policy_hash: Sha256
@@ -255,14 +271,24 @@ def consult_close_preflight_hash(candidate: dict) -> str:
     )
 
 
-def consult_close_policy_hash(required_questionnaire_slugs: list[str]) -> str:
-    return canonical_sha256(
+def consult_close_policy_hash(
+    required_questionnaire_slugs: list[str], policy_id=CONSULT_CLOSE_POLICY_ID
+) -> str:
+    booked_hash = canonical_sha256(
         {
             "base_policy_hash": CONSULT_CLOSE_POLICY_HASH,
             "contract": "care-standard-consult-close-department-policy-v1",
             "required_questionnaire_slugs": sorted(required_questionnaire_slugs),
         }
     )
+    if policy_id == EMERGENCY_CLOSE_POLICY_ID:
+        return canonical_sha256(
+            {
+                "booked_evidence_policy": booked_hash,
+                "contract": "unscheduled-emergency-close-v1",
+            }
+        )
+    return booked_hash
 
 
 def consult_closure_recovery_hash(value: dict) -> str:

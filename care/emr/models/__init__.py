@@ -43,3 +43,5 @@ from .supply_delivery import *  # noqa F403
 from .supply_request import *  # noqa F403
 from .tag_config import *  # noqa F403
 from .valueset import *  # noqa F403
+from care.emr.models.emergency_admission import EmergencyAdmission
+from care.emr.models.operation_plan import OperationPlan

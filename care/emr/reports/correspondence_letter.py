@@ -35,7 +35,7 @@ def build_correspondence_letter_html(*, artifact_id, revision, generated_at):
     author_details = " · ".join(
         value
         for value in [
-            author.get("professional_role"),
+            professional_role_label(author.get("professional_role")),
             author.get("qualification"),
             author.get("registration"),
         ]
@@ -163,19 +163,44 @@ def _postal_address_lines(recipient):
     return list(dict.fromkeys(values))
 
 
+# Identifier systems that are contact details or names, never a record number.
+_NON_RECORD_IDENTIFIER_SYSTEMS = ("phone", "email", "patient-name", "/name")
+
+
+def _identifier_config(config_id):
+    from care.emr.models.patient import PatientIdentifierConfigCache
+
+    try:
+        return PatientIdentifierConfigCache.get_config(str(config_id)) or {}
+    except Exception:  # a missing config must not break the PDF
+        return {}
+
+
 def _patient_identifiers(patient, encounter):
+    """Return the patient's record number for the paper file.
+
+    Only identifiers whose configuration is a record number are eligible;
+    phone numbers, e-mail addresses and name identifiers are never printed
+    as "Patiëntnummer". Identifiers marked usual/official rank first.
+    """
     identifiers = list(patient.instance_identifiers or [])
     facility_identifiers = patient.facility_identifiers or {}
     identifiers.extend(
         facility_identifiers.get(str(encounter.facility_id), [])
         or facility_identifiers.get(encounter.facility_id, [])
     )
-    readable = [
-        str(item.get("value", ""))
-        for item in identifiers
-        if isinstance(item, dict) and item.get("value")
-    ]
-    return readable[0] if readable else "Niet vastgelegd"
+    ranked = []
+    for item in identifiers:
+        if not isinstance(item, dict) or not item.get("value"):
+            continue
+        config = _identifier_config(item.get("config")).get("config") or {}
+        system = str(config.get("system") or "").casefold()
+        if any(marker in system for marker in _NON_RECORD_IDENTIFIER_SYSTEMS):
+            continue
+        use = str(config.get("use") or "").casefold()
+        ranked.append((0 if use in ("usual", "official") else 1, str(item["value"])))
+    ranked.sort(key=lambda entry: entry[0])
+    return ranked[0][1] if ranked else "Niet vastgelegd"
 
 
 def _encounter_reason(compilation):
@@ -212,30 +237,54 @@ def _template_option(compilation, key, default):
     return default
 
 
+_CLOSING_MARKERS = (
+    "met vriendelijke groet",
+    "met collegiale groet",
+    "collegiale groet",
+    "vriendelijke groet",
+    "hoogachtend",
+    "with kind regards",
+    "kind regards",
+    "sincerely",
+)
+
+# CARE's built-in role names are English; the paper letter is Dutch.
+_ROLE_LABELS = {
+    "doctor": "Arts",
+    "nurse": "Verpleegkundige",
+    "staff": "Medewerker",
+    "administrator": "Beheerder",
+    "facility admin": "Beheerder",
+    "volunteer": "Vrijwilliger",
+}
+
+
+def professional_role_label(role):
+    text = str(role or "").strip()
+    return _ROLE_LABELS.get(text.casefold(), text)
+
+
 def _signature_html(
     *, body_text, author, author_details, facility_name, department_name
 ):
+    """Exactly one closing per letter; the author identity always comes from
+    the frozen server snapshot, never from the typed body."""
     author_display = str(author.get("display") or "").strip()
     normalized_body = body_text.casefold()
-    closing_markers = (
-        "met vriendelijke groet",
-        "hoogachtend",
-        "with kind regards",
-        "kind regards",
-        "sincerely",
-    )
+    body_has_closing = any(marker in normalized_body for marker in _CLOSING_MARKERS)
     if (
         author_display
         and author_display.casefold() in normalized_body
-        and any(marker in normalized_body for marker in closing_markers)
+        and body_has_closing
     ):
         return ""
     facility_line = escape(str(facility_name))
     if department_name:
         facility_line += f" · {escape(str(department_name))}"
+    greeting = "" if body_has_closing else "<div>Met vriendelijke groet,</div>"
     return (
         '<section class="signature">'
-        "<div>Met vriendelijke groet,</div>"
+        f"{greeting}"
         f"<strong>{escape(author_display)}</strong>"
         f"<div>{escape(author_details)}</div>"
         f"<div>{facility_line}</div>"

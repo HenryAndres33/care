@@ -223,6 +223,103 @@ class ConsultClosureWorkflowTests(
         self.encounter.appointment = self.booking
         self.encounter.save(update_fields=["status", "appointment", "modified_date"])
 
+    def _unscheduled_emergency(self):
+        self.encounter.encounter_class = "emer"
+        self.encounter.appointment = None
+        self.encounter.save(
+            update_fields=["encounter_class", "appointment", "modified_date"]
+        )
+        self.booking.associated_encounter = None
+        self.booking.save(update_fields=["associated_encounter", "modified_date"])
+
+    def test_unscheduled_emergency_close_replay_read_keeps_admission_open(self):
+        self._unscheduled_emergency()
+        admission = self.create_encounter(
+            patient=self.patient,
+            facility=self.facility,
+            organization=self.organization,
+            encounter_class="imp",
+            status="in_progress",
+        )
+        from care.emr.models.emergency_admission import EmergencyAdmission
+
+        EmergencyAdmission.objects.create(
+            emergency=self.encounter, admission=admission, created_by=self.user
+        )
+        candidate = self._ready_candidate()
+        self.assertEqual(candidate["policy_id"], "care.standard.emergency-close")
+        self.assertIsNone(candidate["appointment"])
+        self.assertIsNone(candidate["token"])
+        response, payload = self._close(candidate)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["closure"]["booking_status"], "not_required")
+        replay = self.client.post(self.close_url, payload, format="json")
+        self.assertEqual(replay.status_code, 200, replay.data)
+        self.assertTrue(replay.data["replayed"])
+        read = self.client.get(self.read_url)
+        self.assertEqual(read.status_code, 200, read.data)
+        self.assertEqual(read.data["closure"], response.data["closure"])
+        admission.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.token.refresh_from_db()
+        self.assertEqual(admission.status, "in_progress")
+        self.assertEqual(self.booking.status, "in_consultation")
+        self.assertEqual(self.token.status, "IN_PROGRESS")
+        self.assertEqual(ConsultClosure.objects.count(), 1)
+
+    def test_unbooked_ambulatory_still_requires_appointment(self):
+        self._unscheduled_emergency()
+        self.encounter.encounter_class = "amb"
+        self.encounter.save()
+        response = self.client.post(
+            self.preflight_url, self._preflight_body(), format="json"
+        )
+        self.assertIn("appointment_missing", response.data["blocker_codes"])
+
+    def test_booked_emergency_retains_queue_checks(self):
+        self.encounter.encounter_class = "emer"
+        self.encounter.save()
+        self.assertEqual(
+            self._ready_candidate()["policy_id"], "care.standard.consult-close"
+        )
+        self.token.status = "FULFILLED"
+        self.token.save()
+        response = self.client.post(
+            self.preflight_url, self._preflight_body(), format="json"
+        )
+        self.assertIn("token_state_stale", response.data["blocker_codes"])
+
+    def test_emergency_class_change_invalidates_preflight(self):
+        self._unscheduled_emergency()
+        candidate = self._ready_candidate()
+        self.encounter.encounter_class = "amb"
+        self.encounter.save()
+        response, _ = self._close(candidate)
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertFalse(ConsultClosure.objects.exists())
+
+    def test_emergency_still_requires_valid_pdf(self):
+        self._unscheduled_emergency()
+        ReportUpload.objects.filter(form_submission=self.submission).update(
+            is_archived=True
+        )
+        response = self.client.post(
+            self.preflight_url, self._preflight_body(), format="json"
+        )
+        self.assertIn("form_artifact_invalid", response.data["blocker_codes"])
+
+    def test_emergency_close_rolls_back_on_ledger_failure(self):
+        self._unscheduled_emergency()
+        candidate = self._ready_candidate()
+        with patch.object(
+            ConsultClosureCommand, "save", side_effect=RuntimeError("synthetic failure")
+        ):
+            response, _ = self._close(candidate)
+        self.assertEqual(response.status_code, 503)
+        self.encounter.refresh_from_db()
+        self.assertEqual(self.encounter.status, "in_progress")
+        self.assertFalse(ConsultClosure.objects.exists())
+
     def _preflight_body(self, **overrides):
         body = {
             "patient": str(self.patient.external_id),
@@ -375,9 +472,7 @@ class ConsultClosureWorkflowTests(
             ),
         ):
             revision = self._finalized_letter_revision()
-            letter_artifact = ReportUpload.objects.get(
-                correspondence_revision=revision
-            )
+            letter_artifact = ReportUpload.objects.get(correspondence_revision=revision)
             sent = self.client.post(
                 reverse("correspondence-delivery-idempotent-send"),
                 {
@@ -681,8 +776,7 @@ class ConsultClosureWorkflowTests(
         case.refresh_from_db()
         with (
             patch(
-                "care.emr.api.viewsets.consult_closure."
-                "correction_case_integrity_valid",
+                "care.emr.api.viewsets.consult_closure.correction_case_integrity_valid",
                 return_value=True,
             ),
             patch(

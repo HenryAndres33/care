@@ -2,12 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Binding CARE Suriname rules
+## Read first
 
-Read and follow `../care_fe/CODING_RULES.md` before changing this repository.
-It is the workspace-wide architecture, clinical-safety,
-controlled-core-change, and verification standard; the repository guidance
-below remains additionally applicable.
+Read `../care_fe/CODING_RULES.md` before changing this repository. It states
+the situation (a paper-based urology practice in Suriname moving to a hybrid
+digital workflow), the philosophy, and the binding rules for both
+repositories. Then read `../care_fe/PROJECT_HANDOFF.md` for current state.
+
+This backend is upstream CARE plus small additive Suriname extensions. Each
+extension has a `*.md` beside it (for example
+`care/emr/resources/scheduling/OPERATION_PLAN.md`) stating what it does, why,
+and how to roll it back. Follow that pattern for any new extension; never
+modify upstream behaviour without such a record.
 
 ## What is CARE?
 

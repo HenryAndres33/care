@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRModelViewSet
+from care.emr.api.viewsets.doctor_activation import DoctorActivationMixin
 from care.emr.models import Organization
 from care.emr.models.organization import OrganizationUser
 from care.emr.resources.common.mail_type import MailTypeChoices
@@ -91,7 +92,7 @@ class UserFilter(filters.FilterSet):
     )
 
 
-class UserViewSet(EMRModelViewSet):
+class UserViewSet(DoctorActivationMixin, EMRModelViewSet):
     database_model = User
     pydantic_model = UserCreateSpec
     pydantic_update_model = UserUpdateSpec

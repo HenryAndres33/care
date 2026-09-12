@@ -772,6 +772,13 @@ class FormSubmissionViewSet(
             patient = Patient.objects.select_for_update().get(pk=patient.pk)
             self._authorize_write(patient=patient)
         self._authorize_questionnaire_submission(questionnaire)
+        from care.emr.resources.scheduling.operation_plan import (
+            validate_planned_form_identity,
+        )
+
+        validate_planned_form_identity(
+            request_spec.form_instance_id, questionnaire, patient, encounter
+        )
         return questionnaire, patient, encounter
 
     def _create_draft_replay_response(self, request_spec, payload_hash):

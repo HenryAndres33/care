@@ -19,6 +19,7 @@ from care.emr.models.correspondence_letter import (
     CorrespondenceLetterRevision,
 )
 from care.emr.models.correspondence_review import CorrespondenceReview
+from care.emr.models.patient import PatientIdentifierConfig
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.correspondence_letter import build_correspondence_letter_html
 from care.emr.resources.correspondence_letter import (
@@ -774,6 +775,108 @@ class TestCorrespondenceLetterAPI(
 
         self.assertEqual(html.count("Met vriendelijke groet"), 1)
         self.assertEqual(html.count(author_name), 1)
+
+    def test_template_closing_is_kept_and_server_greeting_is_not_added_again(self):
+        draft = self._created_revision()
+        author_name = self.review.author_snapshot["display"]
+        draft.body = "Geachte collega,\n\nKlinische tekst.\n\nMet collegiale groet,"
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertNotIn("Met vriendelijke groet", html)
+        self.assertEqual(html.count("collegiale groet"), 1)
+        # Identity still comes from the frozen server snapshot.
+        self.assertEqual(html.count(author_name), 1)
+
+    def test_built_in_role_name_is_printed_in_dutch(self):
+        draft = self._created_revision()
+        # In-memory only: reviewed bindings are immutable in the database.
+        draft.letter.review.author_snapshot["professional_role"] = "Doctor"
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn("Arts", html)
+        self.assertNotIn(">Doctor<", html)
+
+    def test_phone_number_is_never_printed_as_patient_number(self):
+        draft = self._created_revision()
+        phone_config = PatientIdentifierConfig.objects.create(
+            status="active",
+            config={
+                "system": "system.care.ohc.network/patient-phone-number",
+                "display": "Patient Phone Number",
+                "use": "secondary",
+                "required": False,
+                "unique": False,
+            },
+        )
+        self.patient.instance_identifiers = [
+            {"value": "+597000000", "config": str(phone_config.external_id)}
+        ]
+        self.patient.save(update_fields=["instance_identifiers"])
+        draft.letter.patient.refresh_from_db()
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertNotIn("+597000000", html)
+        self.assertIn(
+            "<span>Patiëntnummer</span><strong>Niet vastgelegd</strong>", html
+        )
+
+    def test_record_number_identifier_is_printed_as_patient_number(self):
+        draft = self._created_revision()
+        mrn_config = PatientIdentifierConfig.objects.create(
+            status="active",
+            facility=self.facility,
+            config={
+                "system": "urn:care:azp:mrn",
+                "display": "MRN",
+                "use": "usual",
+                "required": False,
+                "unique": True,
+            },
+        )
+        phone_config = PatientIdentifierConfig.objects.create(
+            status="active",
+            config={
+                "system": "system.care.ohc.network/patient-phone-number",
+                "display": "Patient Phone Number",
+                "use": "secondary",
+            },
+        )
+        self.patient.instance_identifiers = [
+            {"value": "+597000000", "config": str(phone_config.external_id)}
+        ]
+        self.patient.facility_identifiers = {
+            str(self.facility.id): [
+                {"value": "AZP-000123", "config": str(mrn_config.external_id)}
+            ]
+        }
+        self.patient.save(
+            update_fields=["instance_identifiers", "facility_identifiers"]
+        )
+        draft.letter.patient.refresh_from_db()
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn("<span>Patiëntnummer</span><strong>AZP-000123</strong>", html)
+        self.assertNotIn("+597000000", html)
 
     def test_storage_failure_rolls_back_final_revision_command_and_artifact(self):
         draft = self._created_revision()

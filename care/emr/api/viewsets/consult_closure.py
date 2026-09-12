@@ -56,6 +56,7 @@ from care.emr.resources.consult_closure import (
     CONSULT_CLOSE_POLICY_ID,
     CONSULT_CLOSE_POLICY_VERSION,
     CONSULT_CLOSE_PREFLIGHT_VERSION,
+    EMERGENCY_CLOSE_POLICY_ID,
     ConsultCloseCommandCandidateSpec,
     ConsultCloseCommandResponseSpec,
     ConsultCloseCommandSpec,
@@ -458,7 +459,8 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         token = None
         subqueues = []
         if not encounter.appointment_id:
-            blockers.add("appointment_missing")
+            if encounter.encounter_class != "emer":
+                blockers.add("appointment_missing")
         else:
             appointment = (
                 TokenBooking._base_manager.select_for_update(of=("self",))  # noqa: SLF001
@@ -547,17 +549,28 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             "patient": encounter.patient.external_id,
             "facility": encounter.facility.external_id,
             "department": department_link.organization.external_id,
-            "token": token.external_id,
-            "appointment": appointment.external_id,
+            "token": self._external_uuid(token),
+            "appointment": self._external_uuid(appointment),
             "expected_encounter_status": StatusChoices.in_progress.value,
             "expected_encounter_modified_at": encounter.modified_date,
-            "expected_token_status": TokenStatusOptions.IN_PROGRESS.value,
-            "expected_token_modified_at": token.modified_date,
-            "expected_booking_status": BookingStatusChoices.in_consultation.value,
-            "expected_booking_modified_at": appointment.modified_date,
-            "policy_id": CONSULT_CLOSE_POLICY_ID,
+            "expected_token_status": TokenStatusOptions.IN_PROGRESS.value
+            if token
+            else None,
+            "expected_token_modified_at": token.modified_date if token else None,
+            "expected_booking_status": BookingStatusChoices.in_consultation.value
+            if appointment
+            else None,
+            "expected_booking_modified_at": appointment.modified_date
+            if appointment
+            else None,
+            "policy_id": CONSULT_CLOSE_POLICY_ID
+            if appointment
+            else EMERGENCY_CLOSE_POLICY_ID,
             "policy_version": CONSULT_CLOSE_POLICY_VERSION,
-            "policy_hash": consult_close_policy_hash(required_forms),
+            "policy_hash": consult_close_policy_hash(
+                required_forms,
+                CONSULT_CLOSE_POLICY_ID if appointment else EMERGENCY_CLOSE_POLICY_ID,
+            ),
             "preflight_version": CONSULT_CLOSE_PREFLIGHT_VERSION,
             "form_submission": source.external_id,
             "form_source_version": source.resource_version,
@@ -881,13 +894,17 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 update_fields=["current_location", "updated_by", "modified_date"]
             )
 
-        appointment.status = BookingStatusChoices.fulfilled.value
-        appointment.updated_by = self.request.user
-        appointment.save(update_fields=["status", "updated_by", "modified_date"])
-        token.status = TokenStatusOptions.FULFILLED.value
-        token.is_next = False
-        token.updated_by = self.request.user
-        token.save(update_fields=["status", "is_next", "updated_by", "modified_date"])
+        if appointment:
+            appointment.status = BookingStatusChoices.fulfilled.value
+            appointment.updated_by = self.request.user
+            appointment.save(update_fields=["status", "updated_by", "modified_date"])
+        if token:
+            token.status = TokenStatusOptions.FULFILLED.value
+            token.is_next = False
+            token.updated_by = self.request.user
+            token.save(
+                update_fields=["status", "is_next", "updated_by", "modified_date"]
+            )
         for subqueue in context["subqueues"]:
             if subqueue.current_token_id == token.id:
                 subqueue.current_token = None
@@ -929,8 +946,12 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             correspondence_case_version=request_spec.correspondence_case_version,
             correspondence_case_hash=request_spec.correspondence_case_hash,
             encounter_status=StatusChoices.completed.value,
-            token_status=TokenStatusOptions.FULFILLED.value,
-            booking_status=BookingStatusChoices.fulfilled.value,
+            token_status=TokenStatusOptions.FULFILLED.value
+            if token
+            else "not_required",
+            booking_status=BookingStatusChoices.fulfilled.value
+            if appointment
+            else "not_required",
             closed_at=closed_at,
             closed_by=self.request.user,
             closure_hash="",
@@ -1106,14 +1127,16 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         appointment = (
             TokenBooking._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("token_slot__resource")
-            .get(pk=closure.appointment_id)
+            .filter(pk=closure.appointment_id)
+            .first()
         )
         token = (
             Token._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("queue__resource")
-            .get(pk=closure.token_id)
+            .filter(pk=closure.token_id)
+            .first()
         )
-        subqueue_points_to_token = (
+        subqueue_points_to_token = token is not None and (
             TokenSubQueue._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
             )
@@ -1143,14 +1166,28 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 self._closure_history_integrity_valid(closures),
                 all(self._recovery_integrity_valid(item) for item in recoveries),
                 encounter.status == StatusChoices.completed.value,
-                encounter.appointment_id == appointment.id,
+                (
+                    closure.policy_id == EMERGENCY_CLOSE_POLICY_ID
+                    and encounter.encounter_class == "emer"
+                    and encounter.appointment_id is None
+                    and closure.appointment_id is None
+                    and closure.token_id is None
+                    and closure.token_status == "not_required"
+                    and closure.booking_status == "not_required"
+                )
+                if appointment is None
+                else (
+                    token is not None
+                    and closure.policy_id == CONSULT_CLOSE_POLICY_ID
+                    and encounter.appointment_id == appointment.id
+                    and appointment.status == BookingStatusChoices.fulfilled.value
+                    and appointment.token_id == token.id
+                    and appointment.associated_encounter_id == encounter.id
+                    and token.status == TokenStatusOptions.FULFILLED.value
+                    and token.booking_id == appointment.id
+                    and token.patient_id == encounter.patient_id
+                ),
                 encounter.current_location_id is None,
-                appointment.status == BookingStatusChoices.fulfilled.value,
-                appointment.token_id == token.id,
-                appointment.associated_encounter_id == encounter.id,
-                token.status == TokenStatusOptions.FULFILLED.value,
-                token.booking_id == appointment.id,
-                token.patient_id == encounter.patient_id,
                 not subqueue_points_to_token,
                 not location_points_to_encounter,
                 not device_points_to_encounter,
@@ -1192,7 +1229,8 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         required_forms = self._required_form_slugs(closure.department)
         if (
             source.questionnaire.slug not in required_forms
-            or closure.policy_hash != consult_close_policy_hash(required_forms)
+            or closure.policy_hash
+            != consult_close_policy_hash(required_forms, closure.policy_id)
         ):
             return False
         blockers = set()
@@ -1325,13 +1363,13 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             encounter,
         ):
             raise PermissionDenied("Permission denied for consult close")
-        if not AuthorizationController.call(
+        if context["appointment"] and not AuthorizationController.call(
             "can_write_booking",
             context["appointment"].token_slot.resource,
             self.request.user,
         ):
             raise PermissionDenied("Permission denied for consult close")
-        if not AuthorizationController.call(
+        if context["token"] and not AuthorizationController.call(
             "can_write_token",
             context["token"].queue.resource,
             self.request.user,
@@ -1353,13 +1391,13 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             projection["encounter"],
         ):
             raise PermissionDenied("Permission denied for consult recovery")
-        if not AuthorizationController.call(
+        if projection["appointment"] and not AuthorizationController.call(
             "can_write_booking",
             projection["appointment"].token_slot.resource,
             self.request.user,
         ):
             raise PermissionDenied("Permission denied for consult recovery")
-        if not AuthorizationController.call(
+        if projection["token"] and not AuthorizationController.call(
             "can_write_token",
             projection["token"].queue.resource,
             self.request.user,
@@ -1480,8 +1518,8 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             "patient": str(closure.patient.external_id),
             "facility": str(closure.facility.external_id),
             "department": str(closure.department.external_id),
-            "token": str(closure.token.external_id),
-            "appointment": str(closure.appointment.external_id),
+            "token": self._external_id(closure.token),
+            "appointment": self._external_id(closure.appointment),
             "status": "completed",
             "encounter_status": closure.encounter_status,
             "token_status": closure.token_status,

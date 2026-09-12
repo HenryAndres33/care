@@ -20,6 +20,7 @@ from care.emr.api.viewsets.base import (
     EMRUpdateMixin,
 )
 from care.emr.api.viewsets.scheduling import lock_create_appointment
+from care.emr.api.viewsets.scheduling.operation_plan import OperationPlanMixin
 from care.emr.api.viewsets.scheduling.schedule import get_schedulable_resource
 from care.emr.models import TokenSlot
 from care.emr.models.organization import (
@@ -88,6 +89,7 @@ class TokenBookingFilters(FilterSet):
 
 
 class TokenBookingViewSet(
+    OperationPlanMixin,
     EMRRetrieveMixin,
     EMRUpdateMixin,
     EMRListMixin,

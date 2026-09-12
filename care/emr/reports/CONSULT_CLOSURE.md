@@ -1,5 +1,63 @@
 # Consult closure workflow (Slice 12)
 
+## Approved unscheduled-emergency extension — 11 September 2026
+
+Owner: CARE Suriname maintainers. Core patch scope: `api/viewsets/consult_closure.py`,
+`resources/consult_closure.py`, `models/consult_closure.py`, migration
+`0102_emergency_consult_closure.py`, and `tests/test_consult_closure.py`.
+The frontend's existing closure adapter/validator consumes the extended contract;
+no second closure service, endpoint or clinical record was created.
+
+An encounter with class `emer` and **no appointment** uses policy
+`care.standard.emergency-close` v1. Its candidate has explicit null booking/token
+IDs, timestamps and states. Its immutable closure stores null IDs and
+`not_required` states. The database constraint permits this combination only for
+that policy. Mixed/partial queue evidence is rejected. A booked emergency still
+uses `care.standard.consult-close` and every existing booking/token guard.
+Unbooked ambulatory/inpatient contacts do not gain this exception.
+
+Both paths preserve exact finalized source/PDF, clinical outcome evidence,
+department/encounter/report authorization, facility kill switch, locked
+preflight revalidation, explicit confirmation, atomic rollback and idempotency.
+An admission linked by EmergencyAdmission is not updated. No clinical text moves.
+The emergency policy has a distinct hash; existing booked hashes and wire
+fixtures remain unchanged. GET/replay/recovery verify absent queue evidence plus
+the emergency class and unchanged appointment absence. Historical ledgers remain
+immutable and retain their existing hash material.
+
+Deployment: apply 0102 before enabling the extended frontend. Migration retains
+all old records and only changes nullability plus the scheduling-shape constraint.
+Applied locally on 11 September without reset. After any emergency closure exists,
+**do not reverse 0102 or deploy the old reader**: it cannot represent null queue
+links. Disable new emergency entry/preflight if necessary, retain compatible
+read/recovery support, and roll forward. Normal retention/audit rules still apply.
+
+Upstream-update checklist: compare the scoped core patch, scheduling association
+and permission APIs, lock order, terminal encounter guards, artifact validation,
+model constraints and policy hashes. Run booked and unbooked tests in the isolated
+stack before upgrading live CARE. Never assume a clean merge proves compatibility.
+The legacy large closure controller is intentionally not split during this safety
+patch; size/separation cleanup needs a dedicated behavior-preserving review.
+
+Verification: 29 isolated tests (18 closure, 11 handoff), including emergency
+close/replay/GET, unchanged linked admission, rollback, archived PDF rejection,
+class-change invalidation, booked-emergency queue checks and unbooked ambulatory
+rejection. Ruff and migration drift checks pass. The first archived-PDF test used
+an invalid upload flag; the database correctly rejected it, and the fixture was
+corrected to use an archived artifact without weakening constraints.
+
+Normal doctor browser simulation: Ravi emergency
+`33c4dc89-846a-4386-a051-faca325ae12e`, exact finalized note
+`baceb76f-08ce-45f6-9bac-ed0d1d07de7c` v3 and its verified PDF. Both optional
+clinical outcomes explicitly not required. Preflight passed, confirmed closure
+completed and authoritative Refresh CARE closure returned the same closure #1,
+hash `cf71151144f0ec8ee897b945a7363fdc2d7bc2d3baf4ac217725944b67491232`.
+Linked admission `eef1a34a-3eda-4f3e-9b4a-1d251e4b3cab` remained admitted in UI.
+No new patient, appointment, queue ticket, letter, delivery or physical print.
+Real simultaneous writers and emergency recovery after actual production drift
+were not browser-tested. The broader Spoed admission-to-discharge and full new
+operation scenario remain outside this narrow acceptance.
+
 Slice 12 provides a disease-independent, server-orchestrated boundary for
 closing an outpatient consultation. It binds the current encounter, native
 CARE booking/token state, finalized form source and PDF artifact, complete

@@ -24,8 +24,12 @@ class ConsultClosure(EMRBaseModel):
         "emr.FacilityOrganization",
         on_delete=models.PROTECT,
     )
-    token = models.ForeignKey("emr.Token", on_delete=models.PROTECT)
-    appointment = models.ForeignKey("emr.TokenBooking", on_delete=models.PROTECT)
+    token = models.ForeignKey(
+        "emr.Token", on_delete=models.PROTECT, null=True, blank=True
+    )
+    appointment = models.ForeignKey(
+        "emr.TokenBooking", on_delete=models.PROTECT, null=True, blank=True
+    )
     policy_id = models.CharField(max_length=64)
     policy_version = models.PositiveIntegerField()
     policy_hash = models.CharField(max_length=64)
@@ -101,8 +105,22 @@ class ConsultClosure(EMRBaseModel):
                     & models.Q(form_artifact_hash__regex=r"^[0-9a-f]{64}$")
                     & models.Q(closure_hash__regex=r"^[0-9a-f]{64}$")
                     & models.Q(encounter_status="completed")
-                    & models.Q(token_status="FULFILLED")
-                    & models.Q(booking_status="fulfilled")
+                    & (
+                        models.Q(
+                            policy_id="care.standard.consult-close",
+                            token__isnull=False,
+                            appointment__isnull=False,
+                            token_status="FULFILLED",
+                            booking_status="fulfilled",
+                        )
+                        | models.Q(
+                            policy_id="care.standard.emergency-close",
+                            token__isnull=True,
+                            appointment__isnull=True,
+                            token_status="not_required",
+                            booking_status="not_required",
+                        )
+                    )
                     & models.Q(created_by=models.F("closed_by"))
                     & models.Q(updated_by=models.F("closed_by"))
                 ),

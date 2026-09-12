@@ -21,6 +21,7 @@ from care.emr.api.viewsets.base import (
     EMRUpdateMixin,
 )
 from care.emr.api.viewsets.device import disassociate_device_from_encounter
+from care.emr.api.viewsets.emergency_admission import EmergencyAdmissionMixin
 from care.emr.api.viewsets.location import close_related_location_from_encounter
 from care.emr.models import (
     ConsultClosure,
@@ -120,6 +121,7 @@ class EncounterFilters(filters.FilterSet):
 
 class EncounterViewSet(
     AdmissionDocumentationMixin,
+    EmergencyAdmissionMixin,
     EMRCreateMixin,
     EMRRetrieveMixin,
     EMRUpdateMixin,

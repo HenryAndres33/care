@@ -119,3 +119,23 @@ split yet.
 Migration `0084_correspondence_letter_workflow` creates the aggregate and adds
 the nullable ReportUpload provenance link. It does not modify existing
 correspondence compilations or artifacts.
+
+## Printout corrections — 12 September 2026
+
+`reports/correspondence_letter.py`:
+
+- **Patiëntnummer** now comes only from identifiers whose configuration is a
+  record number. Phone-number, e-mail and name identifier systems are skipped
+  (a synthetic letter printed the patient's phone number here). Identifiers
+  with `use` usual/official rank first; with no eligible identifier the field
+  prints "Niet vastgelegd". AZP currently has no MRN identifier configured, so
+  letters print "Niet vastgelegd" until an administrator adds one under
+  Settings → Patiënt-ID.
+- **One closing per letter.** When the template body already ends with a
+  closing ("Met collegiale groet," etc.), the server sign-off omits its own
+  greeting line and prints only the frozen author identity, role and facility.
+- **Role label in Dutch** for CARE's built-in role names (Doctor → Arts, …)
+  via `professional_role_label`; custom role names print unchanged.
+
+Tests: `tests/test_correspondence_letter.py` (four new). Rollback: revert the
+file; no data or schema change.

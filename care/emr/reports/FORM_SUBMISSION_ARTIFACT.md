@@ -72,3 +72,15 @@ return an artifact body, and unavailable/deleted artifacts fail closed.
 
 Artifact generation is an explicit post-finalization command. The
 `idempotent-finalize` action does not generate a PDF automatically.
+
+## Admission-note titles — 12 September 2026
+
+`reports/form_submission_artifact.py` titles the printout from the admission
+documentation reservation when one exists for the submission's series:
+`admission` → "Opnamenotitie", `visit:<day>` → "Visitenotitie",
+`discharge` → "Ontslagsamenvatting"; otherwise "Medisch dossier" (and
+"Operatieverslag" for the operations questionnaire). Inpatient encounters
+label the date "Opnamedatum" instead of "Consultdatum". Nothing new is stored;
+the slot kind already lives on `AdmissionDocumentation`. Existing artifacts are
+immutable and keep their old title. Tests: two in
+`tests/test_form_submission_artifact.py`.

@@ -110,11 +110,7 @@ def build_form_submission_artifact_html(
     patient = submission.patient
     encounter = submission.encounter
     questionnaire = submission.questionnaire
-    document_title = (
-        "Operatieverslag"
-        if questionnaire.slug == "urology-operaties"
-        else "Medisch dossier"
-    )
+    document_title = _document_title(submission, questionnaire)
     author = submission.created_by
     finalizer = submission.workflow_finalized_by
     if (
@@ -133,7 +129,7 @@ def build_form_submission_artifact_html(
     patient_rows = [
         ("Patient", patient.name),
         ("Geboortedatum", _date_of_birth(patient)),
-        ("Consultdatum", _encounter_date(encounter.period)),
+        (_encounter_date_label(encounter), _encounter_date(encounter.period)),
         ("Behandelaar", _user_name(finalizer)),
     ]
     patient_details = "".join(
@@ -337,6 +333,47 @@ def _humanize_key(key: str) -> str:
     label = key.rsplit(".", maxsplit=1)[-1].replace("_", " ").replace("-", " ")
     label = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", label)
     return label[:1].upper() + label[1:]
+
+
+# Titles for admission-owned notes; the slot kind is stored with the admission
+# reservation, so the printout only says what the database already knows.
+_ADMISSION_SLOT_TITLES = {
+    "admission": "Opnamenotitie",
+    "visit": "Visitenotitie",
+    "discharge": "Ontslagsamenvatting",
+}
+
+
+def _document_title(submission, questionnaire) -> str:
+    if questionnaire.slug == "urology-operaties":
+        return "Operatieverslag"
+    slot = _admission_slot(submission)
+    # Visit slots are stored as "visit:<Suriname day>"; the kind is the prefix.
+    kind = slot.split(":", 1)[0] if slot else None
+    return _ADMISSION_SLOT_TITLES.get(kind, "Medisch dossier")
+
+
+def _admission_slot(submission) -> str | None:
+    from care.emr.models.admission_documentation import AdmissionDocumentation
+    from care.emr.models.questionnaire import FormSubmission
+
+    if not submission.encounter_id:
+        return None
+    series_ids = FormSubmission.objects.filter(series_id=submission.series_id).values(
+        "external_id"
+    )
+    reservation = (
+        AdmissionDocumentation.objects.filter(
+            admission_id=submission.encounter_id, form_instance_id__in=series_ids
+        )
+        .only("slot")
+        .first()
+    )
+    return reservation.slot if reservation else None
+
+
+def _encounter_date_label(encounter) -> str:
+    return "Opnamedatum" if encounter.encounter_class == "imp" else "Consultdatum"
 
 
 def _date_of_birth(patient) -> str:

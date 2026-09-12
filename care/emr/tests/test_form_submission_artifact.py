@@ -233,6 +233,44 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.assertIn("Patient-safe &lt;script&gt;markup&lt;/script&gt;", html)
         self.assertNotIn("Patient-safe <script>", html)
 
+    def test_admission_slot_note_prints_its_kind_and_admission_date_label(self):
+        from care.emr.models.admission_documentation import AdmissionDocumentation
+
+        self.encounter.encounter_class = "imp"
+        self.encounter.save(update_fields=["encounter_class"])
+        AdmissionDocumentation.objects.create(
+            admission=self.encounter,
+            slot="discharge",
+            form_instance_id=self.submission.external_id,
+            created_by=self.user,
+        )
+
+        response = self._generate(self._payload())
+
+        self.assertEqual(response.status_code, HTTPStatus.CREATED)
+        html = self.render_pdf.call_args.args[0]
+        self.assertIn("Ontslagsamenvatting", html)
+        self.assertNotIn("Medisch dossier", html)
+        self.assertIn("Opnamedatum", html)
+        self.assertNotIn("Consultdatum", html)
+
+    def test_dated_visit_slot_prints_visit_note_title(self):
+        from care.emr.models.admission_documentation import AdmissionDocumentation
+
+        self.encounter.encounter_class = "imp"
+        self.encounter.save(update_fields=["encounter_class"])
+        AdmissionDocumentation.objects.create(
+            admission=self.encounter,
+            slot="visit:2026-09-12",
+            form_instance_id=self.submission.external_id,
+            created_by=self.user,
+        )
+
+        response = self._generate(self._payload())
+
+        self.assertEqual(response.status_code, HTTPStatus.CREATED)
+        self.assertIn("Visitenotitie", self.render_pdf.call_args.args[0])
+
     def test_exact_retry_replays_same_artifact_without_second_upload(self):
         payload = self._payload()
         created = self._generate(payload)
