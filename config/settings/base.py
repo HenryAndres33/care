@@ -499,6 +499,7 @@ AUDIT_LOG_ENABLED = env.bool("AUDIT_LOG_ENABLED", default=False)
 # Excluding them from the generic value-diff logger prevents clinical values from
 # being copied to console/Sentry when generic audit logging is enabled.
 AUDIT_LOG_DOMAIN_LEDGER_MODELS = [
+    "users.DraftRecoveryKey",
     "emr.FormSubmission",
     "emr.FormSubmissionCommand",
     "emr.FormSubmissionArtifactCommand",
@@ -751,3 +752,7 @@ TOTP_DISABLED_EMAIL_TEMPLATE_PATH = env(
 
 # Cleanup incomplete file uploads, set to 0 to disable
 FILE_UPLOAD_EXPIRY_HOURS = env.int("FILE_UPLOAD_EXPIRY_HOURS", default=24)
+
+# No fallback to SECRET_KEY or a browser token. Missing file disables key release.
+DRAFT_RECOVERY_WRAPPING_KEYS_FILE = env("DRAFT_RECOVERY_WRAPPING_KEYS_FILE", default="")
+DRAFT_RECOVERY_RECENT_AUTH_SECONDS = 15 * 60

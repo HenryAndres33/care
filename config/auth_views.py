@@ -15,6 +15,7 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.views import TokenVerifyView, TokenViewBase
 
+from config.draft_recovery_auth import interactive_refresh_token
 from config.ratelimit import ratelimit
 
 User = get_user_model()
@@ -131,7 +132,7 @@ class TokenObtainPairSerializer(TokenObtainSerializer):
 
     @classmethod
     def get_token(cls, user):
-        return RefreshToken.for_user(user)
+        return interactive_refresh_token(user, "password")
 
     def validate(self, attrs):
         data = super().validate(attrs)

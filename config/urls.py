@@ -11,6 +11,7 @@ from drf_spectacular.views import (
 )
 
 from care.users.api.viewsets.change_password import ChangePasswordView
+from care.users.draft_recovery.views import DraftRecoveryKeyView
 from care.users.reset_password_views import (
     ResetPasswordCheck,
     ResetPasswordConfirm,
@@ -61,6 +62,16 @@ urlpatterns = [
         "api/v1/password_change/",
         ChangePasswordView.as_view(),
         name="change_password_view",
+    ),
+    path(
+        "api/v1/users/me/draft-recovery-key/",
+        DraftRecoveryKeyView.as_view(),
+        name="draft-recovery-key",
+    ),
+    path(
+        "api/v1/users/me/draft-recovery-key/<uuid:key_id>/",
+        DraftRecoveryKeyView.as_view(),
+        name="draft-recovery-key-detail",
     ),
     path("api/v1/", include(api_router.urlpatterns)),
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),

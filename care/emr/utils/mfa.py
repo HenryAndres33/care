@@ -10,6 +10,7 @@ from rest_framework_simplejwt.exceptions import (
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from care.users.models import User
+from config.draft_recovery_auth import interactive_refresh_token
 from config.ratelimit import ratelimit
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ def check_mfa_user_rate_limit(request, user_id: str):
 
 def create_auth_response(user: User) -> Response:
     """Create authentication response with access and refresh tokens"""
-    refresh = RefreshToken.for_user(user)
+    refresh = interactive_refresh_token(user, "mfa")
     return Response(
         {
             "access": str(refresh.access_token),

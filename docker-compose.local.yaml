@@ -8,8 +8,11 @@ services:
         ADDITIONAL_PLUGS: ${ADDITIONAL_PLUGS:-}
     env_file:
       - ./docker/.local.env
+    environment:
+      DRAFT_RECOVERY_WRAPPING_KEYS_FILE: /run/secrets/care-draft-recovery-keys.json
     volumes:
       - .:/app
+      - ../.local-secrets/draft-recovery-keyring.json:/run/secrets/care-draft-recovery-keys.json:ro
     entrypoint: ["bash", "scripts/start-dev.sh"]
     ports:
       - "9000:9000"

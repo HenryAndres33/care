@@ -266,3 +266,7 @@ class UserFlag(BaseFlag):
     @classmethod
     def get_all_flags(cls, user_id: int) -> tuple[FlagName]:
         return super().get_all_flags(user_id)
+
+
+# Separate recovery-key model; not exposed through the native user serializer.
+from care.users.draft_recovery.models import DraftRecoveryKey  # noqa: E402, F401
