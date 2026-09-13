@@ -1,3 +1,4 @@
+from datetime import timedelta
 from io import BytesIO
 from unittest.mock import patch
 
@@ -6,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
+from care.emr.models import SchedulableResource, TokenBooking, TokenSlot
 from care.emr.resources.patient.spec import GenderChoices
 from care.security.permissions.user import UserPermissions
 from care.utils.tests.base import CareAPITestBase
@@ -337,6 +339,35 @@ class UserviewTestCase(CareAPITestBase):
         self.assertContains(
             get_response, "No User matches the given query.", status_code=404
         )
+
+    def test_delete_user_without_login_history_with_protected_booking(self):
+        """Users with protected records are soft deleted even without a login."""
+        user = self.create_user(username="userwithbooking")
+        facility = self.create_facility(user=self.super_user)
+        resource = SchedulableResource.objects.create(
+            facility=facility,
+            resource_type="practitioner",
+            user=user,
+        )
+        slot = TokenSlot.objects.create(
+            resource=resource,
+            start_datetime=timezone.now(),
+            end_datetime=timezone.now() + timedelta(minutes=20),
+        )
+        booking = TokenBooking.objects.create(
+            token_slot=slot,
+            patient=self.create_patient(),
+            status="booked",
+        )
+
+        self.client.force_authenticate(user=self.super_user)
+        response = self.client.delete(self.get_user_detail_url(user.username))
+
+        self.assertEqual(response.status_code, 204)
+        user.refresh_from_db()
+        self.assertTrue(user.deleted)
+        self.assertTrue(TokenBooking.objects.filter(pk=booking.pk).exists())
+        self.assertTrue(SchedulableResource.objects.filter(pk=resource.pk).exists())
 
     def test_delete_user_login_history_without_permission(self):
         """Test that regular users cannot delete other users."""

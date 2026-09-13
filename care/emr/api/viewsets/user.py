@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.utils.decorators import method_decorator
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema
@@ -166,7 +167,11 @@ class UserViewSet(DoctorActivationMixin, EMRModelViewSet):
             instance.deleted = True
             instance.save(update_fields=["deleted"])
         else:
-            instance.delete()
+            try:
+                instance.delete()
+            except ProtectedError:
+                instance.deleted = True
+                instance.save(update_fields=["deleted"])
 
     def authorize_destroy(self, instance):
         if not self.request.user.is_superuser:
