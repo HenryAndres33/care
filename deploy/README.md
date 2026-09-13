@@ -67,10 +67,14 @@ to the React bundle, `https://files.DOMAIN` to MinIO (presigned PDF links).
 
 ## Updating
 
-    git -C ../ pull && git -C ../../care_fe pull
-    docker compose build && docker compose up -d
+Commit on the laptop, push to GitHub, then on the server:
 
-Migrations run automatically in `celery-beat` before the API starts.
+    bash ~/care-suriname/care/deploy/update.sh
+
+It pulls both repos, rebuilds only what changed, restarts those containers
+and prints the live frontend commit. Migrations run automatically in
+`celery-beat` before the API starts. The server only ever reads GitHub;
+nothing goes from the laptop to the server directly.
 
 ## Backups on the server
 
