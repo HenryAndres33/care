@@ -1,0 +1,9 @@
+[Unit]
+Description=CARE Suriname nightly server backup (database + files)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=henry
+ExecStart=/usr/bin/env bash /home/henry/care-suriname/care/deploy/server-backup.sh

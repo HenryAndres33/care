@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly CARE Suriname server backup
+
+[Timer]
+# 06:00 UTC = 03:00 in Paramaribo, well outside clinic hours. The laptop pulls
+# the set home from 07:00 UTC onward.
+OnCalendar=*-*-* 06:00:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
