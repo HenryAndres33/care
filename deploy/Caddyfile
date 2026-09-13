@@ -1,0 +1,31 @@
+# CARE Suriname — HTTPS front door.
+#
+# Caddy obtains and renews Let's Encrypt certificates automatically for both
+# names below, so DNS must point BOTH of these at the server before first start:
+#
+#   {CARE_DOMAIN}        A  <server ip>
+#   files.{CARE_DOMAIN}  A  <server ip>
+#
+# One origin for the app and its API keeps cookies and CORS simple. MinIO gets
+# its own hostname because S3 presigned URLs are signed against the exact host
+# and path the browser will use; rewriting a path prefix would break the
+# signature.
+
+{$CARE_DOMAIN} {
+	encode zstd gzip
+
+	# Django: API, admin, its own static files and health endpoints.
+	@backend path /api/* /admin/* /staticfiles/* /health/* /ping /app_version
+	handle @backend {
+		reverse_proxy backend:9000
+	}
+
+	# Everything else is the React bundle.
+	handle {
+		reverse_proxy frontend:80
+	}
+}
+
+files.{$CARE_DOMAIN} {
+	reverse_proxy minio:9000
+}

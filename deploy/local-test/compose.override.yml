@@ -1,0 +1,14 @@
+# docker compose -f docker-compose.yml -f local-test/compose.override.yml …
+services:
+  frontend:
+    build:
+      args:
+        REACT_CARE_API_URL: http://localhost
+        REACT_PUBLIC_URL: http://localhost
+  caddy:
+    ports: !override
+      - "80:80"
+    volumes:
+      - ./local-test/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config

@@ -18,6 +18,9 @@ ENV HOME=$APP_HOME
 # ---
 FROM base AS builder
 
+# ARG scope ends at each FROM; redeclare so $APP_HOME is set in this stage.
+ARG APP_HOME=/app
+
 RUN apt-get update && apt-get install --no-install-recommends -y \
   build-essential libjpeg-dev zlib1g-dev libgmp-dev libpq-dev git wget \
   libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libharfbuzz-subset0 libffi-dev libopenjp2-7-dev \
@@ -41,6 +44,9 @@ RUN python3 $APP_HOME/install_plugins.py
 # ---
 FROM base AS runtime
 
+# ARG scope ends at each FROM; redeclare so $APP_HOME is set in this stage.
+ARG APP_HOME=/app
+
 RUN addgroup --system django \
   && adduser --system --ingroup django django
 
@@ -56,7 +62,8 @@ COPY --from=builder --chown=django:django $APP_HOME/.venv $APP_HOME/.venv
 ARG APP_VERSION="unknown"
 ENV APP_VERSION=$APP_VERSION
 
-COPY --chmod=0755 --chown=django:django ./scripts/*.sh $APP_HOME
+COPY --chown=django:django ./scripts/*.sh $APP_HOME/
+RUN chmod 0755 $APP_HOME/*.sh
 
 COPY --chown=django:django . $APP_HOME
 

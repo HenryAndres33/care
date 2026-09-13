@@ -1,0 +1,16 @@
+# Plain-HTTP Caddyfile for testing the production stack on a laptop where no
+# real domain exists. Same routing as ../Caddyfile, no TLS. Never use on a server.
+
+http://localhost {
+	@backend path /api/* /admin/* /staticfiles/* /health/* /ping /app_version
+	handle @backend {
+		reverse_proxy backend:9000
+	}
+	handle {
+		reverse_proxy frontend:80
+	}
+}
+
+http://files.localhost {
+	reverse_proxy minio:9000
+}

@@ -6,3 +6,11 @@ staticfiles
 care/media/
 celerybeat-schedule
 celerybeat*
+.ruff_cache
+.pytest_cache
+.mypy_cache
+**/__pycache__
+care-backups
+tmp
+# Deployment files never belong inside the image; deploy/.env holds secrets.
+deploy
