@@ -24,17 +24,21 @@ trap 'rm -rf "$out"' EXIT
 commit=$(git -C "$fe" rev-parse --short HEAD)
 branch=$(git -C "$fe" branch --show-current)
 if [ -n "$(git -C "$fe" status --porcelain)" ]; then
-  echo "care_fe has uncommitted changes; commit (and push) first so the server runs known code." >&2
-  exit 1
+  echo "Note: care_fe has uncommitted changes; they are NOT shipped. Building committed HEAD $commit only."
 fi
-if ! git -C "$fe" merge-base --is-ancestor HEAD "@{upstream}" 2>/dev/null &&
-   [ "$(git -C "$fe" rev-list --count '@{push}..HEAD' 2>/dev/null || echo 1)" != 0 ]; then
-  echo "Warning: care_fe HEAD ($commit) is not pushed; pushing keeps GitHub the record of what runs." >&2
+if ! git -C "$fe" merge-base --is-ancestor HEAD "$(git -C "$fe" rev-parse --abbrev-ref --symbolic-full-name '@{push}' 2>/dev/null || echo HEAD)" 2>/dev/null; then
+  echo "Warning: care_fe HEAD ($commit) is not pushed; push so GitHub records what the server runs." >&2
 fi
 
-echo "1/4 building care_fe $commit for https://$domain"
+# Build from a clean export of HEAD, never from the working tree, so an
+# agent's half-finished edits cannot reach the clinic. node_modules is
+# borrowed from the checkout (same lockfile) to avoid a 3-minute npm ci.
+echo "1/4 exporting care_fe $commit and building for https://$domain"
+mkdir -p "$out/src"
+git -C "$fe" archive HEAD | tar -x -C "$out/src"
+ln -s "$fe/node_modules" "$out/src/node_modules"
 (
-  cd "$fe"
+  cd "$out/src"
   export REACT_CARE_API_URL="https://$domain" REACT_PUBLIC_URL="https://$domain"
   export GIT_COMMIT="$commit" GIT_BRANCH="$branch"
   npm run -s build:meta && npm run -s supported-browsers
