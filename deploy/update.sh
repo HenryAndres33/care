@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Update the running server to the latest pushed code. Run ON THE SERVER:
 #
-#   bash ~/care-suriname/care/deploy/update.sh            # both repos
-#   bash ~/care-suriname/care/deploy/update.sh frontend   # only care_fe
-#   bash ~/care-suriname/care/deploy/update.sh backend    # only care
+#   bash ~/care-suriname/care/deploy/update.sh
 #
-# Pulls from GitHub, rebuilds only what changed, and restarts those
-# containers. Database migrations run in celery-beat before the API starts,
+# Pulls both repos from GitHub, rebuilds the backend if it changed and
+# restarts it. The frontend is built on the laptop and shipped as an image
+# (deploy/ship-frontend.sh); this script only tells you when that is due. Database migrations run in celery-beat before the API starts,
 # as on every start. The site keeps serving the old build while the new one
 # compiles; the switch itself takes seconds.
 
@@ -42,7 +41,15 @@ export FRONTEND_BRANCH=$(git -C "$root/care_fe" branch --show-current)
 
 services=()
 $changed_backend  && services+=(backend celery-worker celery-beat)
-$changed_frontend && services+=(frontend)
+# The frontend is never compiled here: the server cannot afford it while
+# serving. It arrives as a finished image from the laptop (ship-frontend.sh).
+if $changed_frontend && ! $changed_backend; then
+  echo "care_fe changed. Build and ship it from the laptop:"
+  echo "    bash care/deploy/ship-frontend.sh"
+  exit 0
+elif $changed_frontend; then
+  echo "care_fe changed too; after this, run from the laptop: bash care/deploy/ship-frontend.sh"
+fi
 
 echo "Building: ${services[*]}"
 docker compose build "${services[@]}"

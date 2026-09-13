@@ -67,14 +67,25 @@ to the React bundle, `https://files.DOMAIN` to MinIO (presigned PDF links).
 
 ## Updating
 
-Commit on the laptop, push to GitHub, then on the server:
+Commit on the laptop and push to GitHub. Then:
 
-    bash ~/care-suriname/care/deploy/update.sh
+- **Backend changed** — on the server (or over ssh):
 
-It pulls both repos, rebuilds only what changed, restarts those containers
-and prints the live frontend commit. Migrations run automatically in
-`celery-beat` before the API starts. The server only ever reads GitHub;
-nothing goes from the laptop to the server directly.
+      bash ~/care-suriname/care/deploy/update.sh
+
+  Pulls, rebuilds the backend image, restarts it; migrations run in
+  `celery-beat` before the API starts. ~2–10 min.
+
+- **Frontend changed** — from the laptop:
+
+      bash care/deploy/ship-frontend.sh
+
+  Compiles the bundle on the laptop (~2 min), packs it into the nginx image,
+  sends it over ssh and restarts only `frontend`. The server never compiles
+  the frontend: with 4 GB it cannot do so while also serving the clinic.
+
+`update.sh` refuses nothing, but it also never builds the frontend; it tells
+you when a ship is due.
 
 ## Backups on the server
 
