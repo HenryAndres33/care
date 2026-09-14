@@ -3,7 +3,7 @@ from django.db.models import Q
 
 from care.emr.models import Encounter, PatientUser
 from care.emr.models.organization import FacilityOrganizationUser, OrganizationUser
-from care.emr.resources.encounter.constants import COMPLETED_CHOICES
+from care.emr.resources.encounter.constants import COMPLETED_CHOICES, StatusChoices
 from care.security.authorization.base import (
     AuthorizationController,
     AuthorizationHandler,
@@ -30,6 +30,14 @@ class PatientAccess(AuthorizationHandler):
             # Through Location
             if encounter[1]:
                 encounter_set = encounter_set.union(set(encounter[1]))
+        # Through completed encounters (see PATIENT_DEPARTMENT_ACCESS.md): the
+        # department that finished a consultation keeps its record readable.
+        if settings.PATIENT_DEPARTMENT_LONGITUDINAL_ACCESS_ENABLED:
+            completed = Encounter.objects.filter(
+                patient=patient, status=StatusChoices.completed.value
+            ).values_list("facility_organization_cache", flat=True)
+            for organizations in completed:
+                encounter_set = encounter_set.union(set(organizations))
         # Find roles based on Location and
         roles = FacilityOrganizationUser.objects.filter(
             organization_id__in=encounter_set, user=user
