@@ -7,7 +7,6 @@ from care.security.roles.role import (
     DOCTOR_ROLE,
     FACILITY_ADMIN_ROLE,
     NURSE_ROLE,
-    SECRETARY_ROLE,
     STAFF_ROLE,
     VOLUNTEER_ROLE,
 )
@@ -34,7 +33,6 @@ class FacilityOrganizationPermissions(enum.Enum):
             FACILITY_ADMIN_ROLE,
             ADMIN_ROLE,
             STAFF_ROLE,
-            SECRETARY_ROLE,
             DOCTOR_ROLE,
             ADMINISTRATOR,
             NURSE_ROLE,
@@ -61,7 +59,6 @@ class FacilityOrganizationPermissions(enum.Enum):
             FACILITY_ADMIN_ROLE,
             ADMIN_ROLE,
             STAFF_ROLE,
-            SECRETARY_ROLE,
             DOCTOR_ROLE,
             ADMINISTRATOR,
             NURSE_ROLE,

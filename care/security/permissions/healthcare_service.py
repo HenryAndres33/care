@@ -8,7 +8,6 @@ from care.security.roles.role import (
     FACILITY_ADMIN_ROLE,
     NURSE_ROLE,
     PHARMACIST_ROLE,
-    SECRETARY_ROLE,
     STAFF_ROLE,
     VOLUNTEER_ROLE,
 )
@@ -30,7 +29,6 @@ class HealthcareServicePermissions(enum.Enum):
             ADMINISTRATOR,
             ADMIN_ROLE,
             STAFF_ROLE,
-            SECRETARY_ROLE,
             DOCTOR_ROLE,
             NURSE_ROLE,
             VOLUNTEER_ROLE,
