@@ -52,13 +52,16 @@ verification matrix are documented in
 - `discharge_summary_advice` of at most 4000 characters;
 - `release_bed`.
 
-It returns HTTP 200 with `ready`, sorted `blocker_codes`, and `checked_at`.
+It returns HTTP 200 with `ready`, sorted hard `blocker_codes`, sorted non-blocking
+`warning_codes` for missing or unavailable discharge documentation, and `checked_at`.
 
 `POST /api/v1/encounter/{id}/idempotent-discharge/` accepts the same fields plus
 a UUID-v4 `client_request_id`. A first commit returns HTTP 201. An exact replay
 returns HTTP 200 with the original immutable result snapshot and
 `replayed=true`. Reuse of the request ID with another actor, Encounter, or
-payload returns HTTP 409 with `idempotency_conflict`.
+payload returns HTTP 409 with `idempotency_conflict`. The committed immutable
+result snapshot repeats any documentation `warning_codes`, so discharge remains
+possible without silently losing the open documentation state.
 
 An assigned bed makes `release_bed=false` a preflight blocker. This prevents a
 discharged admission from retaining a current bed. Missing or contradictory

@@ -153,6 +153,7 @@ class EncounterDischargeTests(CareAPITestBase):
         self.assertEqual(preflight.status_code, status.HTTP_200_OK, preflight.data)
         self.assertTrue(preflight.data["ready"], preflight.data)
         self.assertEqual(preflight.data["blocker_codes"], [])
+        self.assertEqual(preflight.data["warning_codes"], [])
 
         payload = self._payload(discharge_summary_advice="  Herstel rustig.  ")
         created = self.client.post(self.command_url, payload, format="json")
@@ -163,6 +164,7 @@ class EncounterDischargeTests(CareAPITestBase):
         self.assertEqual(replay.status_code, status.HTTP_200_OK, replay.data)
         self.assertTrue(replay.data["replayed"])
         self.assertEqual(replay.data["discharge"], created.data["discharge"])
+        self.assertEqual(created.data["discharge"]["warning_codes"], [])
         self.assertEqual(created["Cache-Control"], "no-store")
         self.assertEqual(EncounterDischargeCommand.objects.count(), 1)
 

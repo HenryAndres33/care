@@ -48,15 +48,16 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         reference = self._reference_encounter()
         self._authorize_discharge(reference)
         with transaction.atomic():
-            documentation_blockers, _ = lock_discharge_documentation(reference)
+            documentation_warnings, _ = lock_discharge_documentation(reference)
             context = lock_discharge_context(self.kwargs["external_id"])
             self._authorize_discharge(context["encounter"])
             blockers = encounter_discharge_blockers(context, request_spec)
-            blockers = sorted(set(blockers + documentation_blockers))
+            blockers = sorted(set(blockers))
         return Response(
             {
                 "ready": not blockers,
                 "blocker_codes": blockers,
+                "warning_codes": sorted(set(documentation_warnings)),
                 "checked_at": timezone.now(),
             }
         )
@@ -84,7 +85,7 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
 
         try:
             with transaction.atomic():
-                documentation_blockers, documentation = lock_discharge_documentation(
+                documentation_warnings, documentation = lock_discharge_documentation(
                     reference
                 )
                 context = lock_discharge_context(self.kwargs["external_id"])
@@ -97,7 +98,7 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 ):
                     return replay
                 blockers = encounter_discharge_blockers(context, request_spec)
-                blockers = sorted(set(blockers + documentation_blockers))
+                blockers = sorted(set(blockers))
                 if blockers:
                     return self._conflict(blockers)
                 snapshot = apply_encounter_discharge(
@@ -106,6 +107,7 @@ class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                     request.user,
                 )
                 snapshot["documentation"] = documentation
+                snapshot["warning_codes"] = sorted(set(documentation_warnings))
                 disassociate_device_from_encounter(
                     encounter,
                     ended_at=request_spec.discharged_at,

@@ -120,41 +120,47 @@ class DischargeDocumentationTests(CorrespondenceReviewTestMixin, CareAPITestBase
             format="json",
         )
 
-    def assert_blocked(self, code):
+    def assert_warned_and_closed(self, code):
         preflight = self.discharge(preflight=True)
         self.assertEqual(preflight.status_code, 200, preflight.data)
-        self.assertFalse(preflight.data["ready"])
-        self.assertIn(code, preflight.data["blocker_codes"])
+        self.assertTrue(preflight.data["ready"])
+        self.assertEqual(preflight.data["blocker_codes"], [])
+        self.assertEqual(preflight.data["warning_codes"], [code])
         response = self.discharge()
-        self.assertEqual(response.status_code, 409, response.data)
-        self.assertIn(code, response.data["blocker_codes"])
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["discharge"]["warning_codes"], [code])
+        self.assertIsNone(response.data["discharge"]["documentation"])
         self.encounter.refresh_from_db()
-        self.assertEqual(self.encounter.status, "in_progress")
-        self.assertFalse(EncounterDischargeCommand.objects.exists())
+        self.assertEqual(self.encounter.status, "discharged")
+        command = EncounterDischargeCommand.objects.get()
+        self.assertEqual(command.result_snapshot["warning_codes"], [code])
 
-    def test_missing_summary_cannot_close_directly(self):
+    def test_missing_summary_warns_and_allows_close(self):
         self.slot.form_instance_id = uuid4()
         self.slot.save()
-        self.assert_blocked("discharge_summary_required")
+        self.assert_warned_and_closed("discharge_summary_required")
 
-    def test_missing_or_draft_letter_blocks(self):
-        self.assert_blocked("discharge_letter_required")
+    def test_draft_letter_warns_and_allows_close(self):
         self.letter(finalize=False)
-        self.assert_blocked("discharge_letter_required")
+        self.assert_warned_and_closed("discharge_letter_required")
 
     def test_final_letter_allows_close_and_exact_replay(self):
         revision = self.letter()
         preflight = self.discharge(preflight=True)
         self.assertTrue(preflight.data["ready"], preflight.data)
+        self.assertEqual(preflight.data["warning_codes"], [])
         result = self.discharge()
         self.assertEqual(result.status_code, 201, result.data)
+        self.assertEqual(result.data["discharge"]["warning_codes"], [])
         self.assertEqual(
             result.data["discharge"]["documentation"]["letter_revision"],
             str(revision.external_id),
         )
         self.encounter.refresh_from_db()
         self.assertEqual(self.encounter.status, "discharged")
-        self.assertEqual(self.discharge().status_code, 200)
+        replay = self.discharge()
+        self.assertEqual(replay.status_code, 200, replay.data)
+        self.assertEqual(replay.data["discharge"], result.data["discharge"])
         self.assertEqual(EncounterDischargeCommand.objects.count(), 1)
         reopened = self.client.get(
             reverse(
@@ -165,26 +171,34 @@ class DischargeDocumentationTests(CorrespondenceReviewTestMixin, CareAPITestBase
         self.assertEqual(reopened.status_code, 200, reopened.data)
         self.assertEqual(reopened.data["artifact_status"], "available")
 
-    def test_archived_pdf_after_preflight_blocks_commit(self):
+    def test_archived_pdf_after_preflight_warns_on_commit(self):
         revision = self.letter()
-        self.assertTrue(self.discharge(preflight=True).data["ready"])
+        preflight = self.discharge(preflight=True)
+        self.assertTrue(preflight.data["ready"])
+        self.assertEqual(preflight.data["warning_codes"], [])
         ReportUpload.objects.filter(correspondence_revision=revision).update(
             is_archived=True
         )
-        self.assert_blocked("discharge_letter_unavailable")
+        response = self.discharge()
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            response.data["discharge"]["warning_codes"],
+            ["discharge_letter_unavailable"],
+        )
+        self.assertIsNone(response.data["discharge"]["documentation"])
 
-    def test_different_summary_letter_does_not_satisfy_discharge(self):
+    def test_different_summary_letter_warns_and_allows_close(self):
         self.letter()
         other = self._finalized_submission(
             response_dump={"assessment": "Another summary"}
         )
         self.slot.form_instance_id = other.external_id
         self.slot.save()
-        self.assert_blocked("discharge_letter_required")
+        self.assert_warned_and_closed("discharge_letter_required")
 
-    def test_entered_in_error_summary_blocks(self):
+    def test_entered_in_error_summary_warns_and_allows_close(self):
         self.letter()
         FormSubmission.objects.filter(pk=self.submission.pk).update(
             status="entered_in_error"
         )
-        self.assert_blocked("discharge_summary_required")
+        self.assert_warned_and_closed("discharge_summary_required")

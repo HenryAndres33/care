@@ -1,7 +1,8 @@
-"""Discharge requires the current admission summary and its finalized letter.
+"""Inspect the current admission summary and its finalized letter at discharge.
 
 Lock the form head before the encounter, matching FormSubmission amendments.
-Call inside the same transaction as discharge; never trust a client-ready flag.
+Call inside the same transaction as discharge. Missing documentation is recorded
+as a warning; the native encounter/bed safety checks remain authoritative.
 """
 
 from care.emr.correspondence.correction import (

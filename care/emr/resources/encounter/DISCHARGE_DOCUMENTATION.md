@@ -1,4 +1,4 @@
-# Discharge documentation gate — 11 September 2026
+# Discharge documentation warnings — updated 14 September 2026
 
 Current verification supersedes the historical blocker below: Sarwan's synthetic
 admission 826017e3… passed finalized letter/PDF, preflight, discharge command,
@@ -12,13 +12,14 @@ Owner-approved local core patch, uncommitted. This is a safety prerequisite,
 not evidence of complete live clinical acceptance. Read alongside
 `ADMISSION_DOCUMENTATION.md` and `docs/development/encounter-discharge-core-patch.md`.
 
-## Why server enforcement is necessary
+## Why server inspection is necessary
 
-Previously the native discharge preflight could report ready even when the
-Urology discharge letter was blocked. A disabled frontend button alone cannot
-protect direct API calls or stale preflight results.
+The owner decided that operational discharge must remain possible when the Urology
+discharge summary or letter is incomplete. The server still inspects documentation
+inside the transaction so the gap is visible, deterministic, and audit-bound rather
+than silently ignored by the frontend.
 
-Both `preflight-discharge` and `idempotent-discharge` now require:
+Both `preflight-discharge` and `idempotent-discharge` inspect:
 
 - the reserved `discharge` slot's current, submitted `urology-medisch-dossier`
   FormSubmission, belonging to this admission and patient;
@@ -27,28 +28,30 @@ Both `preflight-discharge` and `idempotent-discharge` now require:
 - existing correspondence actionability checks, including source/review integrity,
   author/recipient/template availability and an available immutable PDF artifact.
 
-The gate applies to every inpatient call through these discharge endpoints. It
-does not infer a specialty from display names, skip documentation for missing
-slots, or permit a caller to opt out. This deployment assumption must be reviewed
-before reusing the endpoints for other specialties or legacy admissions. It
-does not change outpatient closure or generic encounter status rules.
+Missing or unavailable documentation produces a sorted `warning_codes` list and does
+not change `ready`. The immutable discharge command snapshot records the same warnings
+with `documentation=null`. Authorization, active inpatient state, period, timestamp,
+location history, bed release, device release, concurrency, integrity, and idempotency
+remain hard server-side blockers. This does not change outpatient closure or generic
+encounter status rules.
 
 ## Transaction and provenance
 
 Authorization precedes documentation reads. The current form-series head is
 locked before the encounter/bed locks, matching the existing amendment lock
-order. The final command reruns the checks inside its transaction; a previous
-ready response is not authority to close. Native lifecycle, period, disposition,
+order. The final command reruns both native blockers and documentation inspection inside
+its transaction; a previous ready response is not authority to close. Native lifecycle, period, disposition,
 bed release, device disassociation and idempotency guards remain unchanged.
 
-The command snapshot records summary identity/version/hash and letter
-identity/hash. The response schema makes this field optional for replay of
-pre-existing commands. Exact authorized replay returns the committed result;
+When documentation is complete, the command snapshot records summary identity/version/
+hash and letter identity/hash. Otherwise it records the exact documentation warning
+codes; these are the durable open-action audit evidence. The documentation field stays
+optional for replay of pre-existing commands. Exact authorized replay returns the committed result;
 it does not require today's documentation state to repeat yesterday's mutation.
 
-The letter scan is bounded to 50 candidates and fails closed beyond that.
-Missing summary, missing letter, and unavailable/invalid finalized letter have
-distinct blocker codes. Artifact availability here uses CARE metadata/integrity
+The letter scan is bounded to 50 candidates; excessive or invalid candidates produce
+`discharge_letter_unavailable`. Missing summary, missing letter, and unavailable or
+invalid finalized letter have distinct warning codes. Artifact availability here uses CARE metadata/integrity
 checks, not an object-store byte download; browser delivery separately verifies
 the PDF bytes. The entire correspondence catalogue is not locked by this gate;
 broader concurrent permission/catalogue mutation acceptance remains unverified.
@@ -64,8 +67,8 @@ The prior admission-documentation migration is a prerequisite, not introduced
 by this gate. Upstreaming should make specialty policy a deliberate native
 contract before adoption outside this Urology deployment. Rollback is code-only:
 remove the policy integration/schema addition, preserving existing command
-snapshots and the admission-documentation data. Such rollback removes a safety
-guard and needs explicit owner approval; never delete clinical/audit rows.
+snapshots and the admission-documentation data. Such rollback removes documentation warning evidence and needs explicit owner approval;
+never delete clinical or audit rows.
 
 ## Verification
 
@@ -75,16 +78,15 @@ Isolated database command:
 docker exec care-test-backend-1 /.venv/bin/python manage.py test care.emr.tests.test_discharge_documentation care.emr.tests.test_encounter_discharge care.emr.tests.test_encounter_discharge_concurrency --keepdb --noinput
 ```
 
-14 tests pass. Six new HTTP tests exercise the real documentation gate, including
-missing/draft/wrong-source letters, invalid summary, archived PDF after preflight,
-successful discharge and exact replay. PDF rendering and S3 are mocked in these
+The focused suites pass 13 tests. Documentation tests cover missing, draft, wrong-source,
+invalid and archived documentation as successful discharge with warnings, plus complete
+documentation and exact replay. Lifecycle tests continue to prove hard blockers and
+atomic bed/device release. PDF rendering and S3 are mocked in these
 tests; permissions and the native command are real. Existing lifecycle/bed and
 concurrency suites isolate the added policy with a stub. They do not prove the
 new documentation gate's full multi-user concurrency behavior. Scoped Ruff passes.
 
-Browser preflight on synthetic admission `9b6dbdc3-7780-4439-9499-746854e3bcd0`
-returned `ready:false`, `discharge_letter_required`, and disabled final closure.
-No live discharge was performed. Final letter generation is blocked by missing
-native reason configuration and the signed-in user's denied tag-config write
-permission. Full completion/PDF/census read-back must be retested after normal
-administrator configuration. See frontend admission `DISCHARGE_SIMULATION.md`.
+Browser acceptance of the one-action frontend and a warning-bearing live synthetic
+discharge is required after deployment. The automated backend result does not by itself
+prove the visible workflow, census refresh, PDF retrieval, or occupied-bed release.
+See the frontend admission simulation evidence.

@@ -50,6 +50,7 @@ class EncounterDischargeResultSpec(BaseModel):
     bed_released: bool
     released_location: UUID4 | None
     documentation: DischargeDocumentationSnapshot | None = None
+    warning_codes: list[str] = []
 
 
 class EncounterDischargeCommandResponseSpec(BaseModel):
@@ -61,6 +62,7 @@ class EncounterDischargeCommandResponseSpec(BaseModel):
 class EncounterDischargePreflightResponseSpec(BaseModel):
     ready: bool
     blocker_codes: list[str]
+    warning_codes: list[str]
     checked_at: datetime
 
 
