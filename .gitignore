@@ -363,3 +363,6 @@ care_db.dump
 .nix-data
 
 import/
+
+# CARE Suriname: never commit a clinical backup dump
+care-backups/
