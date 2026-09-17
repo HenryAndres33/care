@@ -27,6 +27,10 @@ from care.emr.correspondence.delivery import (
     latest_delivery_event,
     lock_and_verify_delivery_ledger,
 )
+from care.emr.correspondence.letter import (
+    correspondence_revision_artifact_status,
+    correspondence_revision_frozen_integrity_valid,
+)
 from care.emr.correspondence.source import compilation_frozen_integrity_valid
 from care.emr.models.consult_closure import (
     ConsultClosure,
@@ -40,6 +44,7 @@ from care.emr.models.correspondence_correction import (
     CorrespondenceSourceCorrection,
 )
 from care.emr.models.correspondence_delivery import CorrespondenceDelivery
+from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
 from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.device import Device
 from care.emr.models.encounter import Encounter, EncounterOrganization
@@ -57,6 +62,7 @@ from care.emr.resources.consult_closure import (
     CONSULT_CLOSE_POLICY_VERSION,
     CONSULT_CLOSE_PREFLIGHT_VERSION,
     EMERGENCY_CLOSE_POLICY_ID,
+    UNSCHEDULED_CONSULT_CLOSE_POLICY_ID,
     ConsultCloseCommandCandidateSpec,
     ConsultCloseCommandResponseSpec,
     ConsultCloseCommandSpec,
@@ -388,21 +394,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             return self._preflight_blocked(["form_source_stale"])
         if source.pk != source_reference.pk:
             return self._preflight_blocked(["form_source_stale"])
-        required_sources = list(
-            FormSubmission._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-            .select_related("questionnaire")
-            .filter(
-                encounter_id=source_reference.encounter_id,
-                questionnaire__slug__in=required_forms,
-                deleted=False,
-            )
-            .order_by("series_id", "resource_version")
-        )
-        if (
-            source.questionnaire.slug not in required_forms
-            or not required_sources
-            or {item.series_id for item in required_sources} != {source.series_id}
-        ):
+        if source.questionnaire.slug not in required_forms:
             return self._preflight_blocked(["form_not_finalized"])
 
         encounter = (
@@ -458,18 +450,20 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         appointment = None
         token = None
         subqueues = []
-        if not encounter.appointment_id:
-            if encounter.encounter_class != "emer":
-                blockers.add("appointment_missing")
-        else:
+        if encounter.appointment_id:
             appointment = (
                 TokenBooking._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .select_related("token_slot__resource", "token")
                 .get(pk=encounter.appointment_id)
             )
-            if not appointment.token_id:
-                blockers.add("token_missing")
-            else:
+            # Booked consultations without a queue token close on booking
+            # evidence alone (CONSULT_CLOSURE_PAPER.md).
+            if (
+                appointment.patient_id != encounter.patient_id
+                or appointment.associated_encounter_id != encounter.id
+            ):
+                raise Http404("Consult close context not found")
+            if appointment.token_id:
                 token = (
                     Token._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .select_related("queue__resource", "category")
@@ -483,9 +477,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                     .order_by("pk")
                 )
                 if (
-                    appointment.patient_id != encounter.patient_id
-                    or appointment.associated_encounter_id != encounter.id
-                    or token.patient_id != encounter.patient_id
+                    token.patient_id != encounter.patient_id
                     or token.booking_id != appointment.id
                     or token.facility_id != encounter.facility_id
                 ):
@@ -544,6 +536,15 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         }
         self._authorize_close_context(close_context)
 
+        policy_id = (
+            CONSULT_CLOSE_POLICY_ID
+            if appointment
+            else (
+                EMERGENCY_CLOSE_POLICY_ID
+                if encounter.encounter_class == "emer"
+                else UNSCHEDULED_CONSULT_CLOSE_POLICY_ID
+            )
+        )
         candidate = {
             "encounter": encounter.external_id,
             "patient": encounter.patient.external_id,
@@ -563,13 +564,11 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             "expected_booking_modified_at": appointment.modified_date
             if appointment
             else None,
-            "policy_id": CONSULT_CLOSE_POLICY_ID
-            if appointment
-            else EMERGENCY_CLOSE_POLICY_ID,
+            "policy_id": policy_id,
             "policy_version": CONSULT_CLOSE_POLICY_VERSION,
             "policy_hash": consult_close_policy_hash(
                 required_forms,
-                CONSULT_CLOSE_POLICY_ID if appointment else EMERGENCY_CLOSE_POLICY_ID,
+                policy_id,
             ),
             "preflight_version": CONSULT_CLOSE_PREFLIGHT_VERSION,
             "form_submission": source.external_id,
@@ -657,7 +656,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             blockers.add("medication_incomplete")
         return actions
 
-    def _correspondence_evidence(  # noqa: PLR0911, PLR0912
+    def _correspondence_evidence(  # noqa: PLR0911, PLR0912, PLR0915
         self, source, encounter, spec, blockers
     ):
         empty = {
@@ -703,12 +702,31 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 .filter(source_head__series_id=source.series_id, deleted=False)
                 .order_by("pk")
             )
-            if (
-                compilations
-                or cases
-                or any(item.status != "completed" for item in outboxes)
-                or (corrections and len(outboxes) != len(corrections))
-            ):
+            reviews = list(
+                CorrespondenceReview._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                )
+                .filter(compilation__in=compilations, deleted=False)
+                .order_by("pk")
+            )
+            revisions = list(
+                CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                )
+                .filter(
+                    letter__review__compilation__in=compilations,
+                    deleted=False,
+                )
+                .order_by("pk")
+            )
+            deliveries = list(
+                CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                )
+                .filter(review__compilation__in=compilations, deleted=False)
+                .order_by("pk")
+            )
+            if reviews or revisions or deliveries or corrections or outboxes or cases:
                 blockers.add("correspondence_incomplete")
             return empty
 
@@ -784,12 +802,43 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             )
             return empty
 
-        compilation = get_object_or_404(
+        compilation_query = (
             CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
                 of=("self",)
-            ).select_related("form_submission", "form_artifact"),
-            external_id=spec.correspondence_compilation,
+            )
+            .select_related("form_submission", "form_artifact")
+            .filter(deleted=False)
         )
+        prepared_revision = None
+        if spec.correspondence_outcome == "paper_prepared":
+            prepared_revision = (
+                CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
+                    of=("self",)
+                )
+                .select_related("letter__review__compilation")
+                .filter(
+                    letter__review__compilation__form_submission=source,
+                    letter__review__compilation__deleted=False,
+                    letter__review__deleted=False,
+                    letter__deleted=False,
+                    status="finalized",
+                    deleted=False,
+                    final_artifacts__deleted=False,
+                    final_artifacts__is_archived=False,
+                    final_artifacts__upload_completed=True,
+                )
+                .order_by("-finalized_at", "-pk")
+                .first()
+            )
+            if not prepared_revision:
+                blockers.add("correspondence_incomplete")
+                return empty
+            compilation = prepared_revision.letter.review.compilation
+        else:
+            compilation = get_object_or_404(
+                compilation_query,
+                external_id=spec.correspondence_compilation,
+            )
         if (
             compilation.encounter_id != encounter.id
             or compilation.patient_id != encounter.patient_id
@@ -821,6 +870,18 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             .filter(compilation=compilation, deleted=False)
             .first()
         )
+        if spec.correspondence_outcome == "paper_prepared":
+            if (
+                not review
+                or not review_frozen_integrity_valid(review)
+                or prepared_revision is None
+                or prepared_revision.letter.review_id != review.id
+                or not correspondence_revision_frozen_integrity_valid(prepared_revision)
+                or correspondence_revision_artifact_status(prepared_revision)
+                != "available"
+            ):
+                blockers.add("correspondence_incomplete")
+            return empty
         delivery = None
         if review:
             delivery = (
@@ -1167,8 +1228,16 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 all(self._recovery_integrity_valid(item) for item in recoveries),
                 encounter.status == StatusChoices.completed.value,
                 (
-                    closure.policy_id == EMERGENCY_CLOSE_POLICY_ID
-                    and encounter.encounter_class == "emer"
+                    (
+                        (
+                            closure.policy_id == EMERGENCY_CLOSE_POLICY_ID
+                            and encounter.encounter_class == "emer"
+                        )
+                        or (
+                            closure.policy_id == UNSCHEDULED_CONSULT_CLOSE_POLICY_ID
+                            and encounter.encounter_class != "emer"
+                        )
+                    )
                     and encounter.appointment_id is None
                     and closure.appointment_id is None
                     and closure.token_id is None
@@ -1177,15 +1246,11 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 )
                 if appointment is None
                 else (
-                    token is not None
-                    and closure.policy_id == CONSULT_CLOSE_POLICY_ID
+                    closure.policy_id == CONSULT_CLOSE_POLICY_ID
                     and encounter.appointment_id == appointment.id
                     and appointment.status == BookingStatusChoices.fulfilled.value
-                    and appointment.token_id == token.id
                     and appointment.associated_encounter_id == encounter.id
-                    and token.status == TokenStatusOptions.FULFILLED.value
-                    and token.booking_id == appointment.id
-                    and token.patient_id == encounter.patient_id
+                    and self._closure_token_healthy(closure, appointment, token)
                 ),
                 encounter.current_location_id is None,
                 not subqueue_points_to_token,
@@ -1284,6 +1349,24 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             "correspondence_case_hash": closure.correspondence_case_hash,
         }
         return not blockers and evidence == expected
+
+    @staticmethod
+    def _closure_token_healthy(closure, appointment, token):
+        """Queue tokens are optional for booked consults (CONSULT_CLOSURE_PAPER.md)."""
+        if closure.token_id is None:
+            return (
+                token is None
+                and appointment.token_id is None
+                and closure.token_status == "not_required"
+            )
+        return (
+            token is not None
+            and appointment.token_id == token.id
+            and token.status == TokenStatusOptions.FULFILLED.value
+            and token.booking_id == appointment.id
+            and token.patient_id == closure.patient_id
+            and closure.token_status == TokenStatusOptions.FULFILLED.value
+        )
 
     def _closure_history_integrity_valid(self, closures):
         previous = None

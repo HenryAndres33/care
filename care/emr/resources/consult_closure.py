@@ -20,6 +20,7 @@ Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 CONSULT_CLOSE_POLICY_ID = "care.standard.consult-close"
 EMERGENCY_CLOSE_POLICY_ID = "care.standard.emergency-close"
+UNSCHEDULED_CONSULT_CLOSE_POLICY_ID = "care.standard.unscheduled-consult-close"
 CONSULT_CLOSE_POLICY_VERSION = 1
 CONSULT_CLOSE_PREFLIGHT_VERSION = 1
 CONSULT_CLOSE_POLICY_HASH = canonical_sha256(
@@ -40,6 +41,7 @@ CONSULT_CLOSE_POLICY_HASH = canonical_sha256(
 MedicationOutcome = Literal["completed", "not_required"]
 CorrespondenceOutcome = Literal[
     "not_required",
+    "paper_prepared",
     "delivery_acknowledged",
     "correction_resolved",
 ]
@@ -58,11 +60,23 @@ class ConsultClosePreflightSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate_correspondence_shape(self):
-        needs_compilation = self.correspondence_outcome == "delivery_acknowledged"
-        if needs_compilation != (self.correspondence_compilation is not None):
+        has_compilation = self.correspondence_compilation is not None
+        if (
+            self.correspondence_outcome == "delivery_acknowledged"
+            and not has_compilation
+        ):
             raise ValueError(
-                "correspondence_compilation is required only for acknowledged delivery"
+                "correspondence_compilation is required for acknowledged delivery"
             )
+        if (
+            self.correspondence_outcome
+            not in {
+                "delivery_acknowledged",
+                "paper_prepared",
+            }
+            and has_compilation
+        ):
+            raise ValueError("correspondence_compilation is not valid for this outcome")
         return self
 
 
@@ -90,6 +104,11 @@ class CorrespondenceCloseEvidenceSpec(BaseModel):
                 raise ValueError(
                     "delivery_acknowledged requires exact delivery evidence"
                 )
+        elif self.outcome == "paper_prepared":
+            if self.compilation is None or any(delivery_fields) or any(case_fields):
+                raise ValueError(
+                    "paper_prepared requires compilation without delivery evidence"
+                )
         elif self.outcome == "correction_resolved" and (
             self.compilation is None or not all(case_fields) or any(delivery_fields)
         ):
@@ -112,7 +131,11 @@ class ConsultCloseCommandCandidateSpec(BaseModel):
     expected_token_modified_at: datetime | None
     expected_booking_status: Literal["in_consultation"] | None
     expected_booking_modified_at: datetime | None
-    policy_id: Literal[CONSULT_CLOSE_POLICY_ID, EMERGENCY_CLOSE_POLICY_ID]
+    policy_id: Literal[
+        CONSULT_CLOSE_POLICY_ID,
+        EMERGENCY_CLOSE_POLICY_ID,
+        UNSCHEDULED_CONSULT_CLOSE_POLICY_ID,
+    ]
     policy_version: Literal[CONSULT_CLOSE_POLICY_VERSION]
     policy_hash: Sha256
     preflight_version: Literal[CONSULT_CLOSE_PREFLIGHT_VERSION]
@@ -135,21 +158,32 @@ class ConsultCloseCommandCandidateSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate_policy_and_medication_shape(self):
-        scheduling = [
-            self.token,
+        booking = [
             self.appointment,
-            self.expected_token_status,
-            self.expected_token_modified_at,
             self.expected_booking_status,
             self.expected_booking_modified_at,
         ]
-        if self.policy_id == EMERGENCY_CLOSE_POLICY_ID:
-            if any(value is not None for value in scheduling):
+        queue = [
+            self.token,
+            self.expected_token_status,
+            self.expected_token_modified_at,
+        ]
+        if self.policy_id in {
+            EMERGENCY_CLOSE_POLICY_ID,
+            UNSCHEDULED_CONSULT_CLOSE_POLICY_ID,
+        }:
+            if any(value is not None for value in booking + queue):
                 raise ValueError(
-                    "Unscheduled emergency must not contain queue evidence"
+                    "Unscheduled encounter must not contain queue evidence"
                 )
-        elif any(value is None for value in scheduling):
-            raise ValueError("Booked consultation requires complete queue evidence")
+        elif any(value is None for value in booking):
+            raise ValueError("Booked consultation requires complete booking evidence")
+        elif any(value is None for value in queue) and any(
+            value is not None for value in queue
+        ):
+            # A queue token is optional (CONSULT_CLOSURE_PAPER.md); when one
+            # exists its evidence must be complete.
+            raise ValueError("Queue token evidence must be complete or absent")
         has_actions = bool(self.medication_actions)
         if (self.medication_outcome == "completed") != has_actions:
             raise ValueError("medication outcome does not match medication actions")
@@ -281,12 +315,17 @@ def consult_close_policy_hash(
             "required_questionnaire_slugs": sorted(required_questionnaire_slugs),
         }
     )
-    if policy_id == EMERGENCY_CLOSE_POLICY_ID:
+    if policy_id in {
+        EMERGENCY_CLOSE_POLICY_ID,
+        UNSCHEDULED_CONSULT_CLOSE_POLICY_ID,
+    }:
+        contract = (
+            "unscheduled-emergency-close-v1"
+            if policy_id == EMERGENCY_CLOSE_POLICY_ID
+            else "unscheduled-consult-close-v1"
+        )
         return canonical_sha256(
-            {
-                "booked_evidence_policy": booked_hash,
-                "contract": "unscheduled-emergency-close-v1",
-            }
+            {"booked_evidence_policy": booked_hash, "contract": contract}
         )
     return booked_hash
 

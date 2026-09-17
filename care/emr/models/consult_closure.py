@@ -114,7 +114,21 @@ class ConsultClosure(EMRBaseModel):
                             booking_status="fulfilled",
                         )
                         | models.Q(
+                            policy_id="care.standard.consult-close",
+                            token__isnull=True,
+                            appointment__isnull=False,
+                            token_status="not_required",
+                            booking_status="fulfilled",
+                        )
+                        | models.Q(
                             policy_id="care.standard.emergency-close",
+                            token__isnull=True,
+                            appointment__isnull=True,
+                            token_status="not_required",
+                            booking_status="not_required",
+                        )
+                        | models.Q(
+                            policy_id="care.standard.unscheduled-consult-close",
                             token__isnull=True,
                             appointment__isnull=True,
                             token_status="not_required",

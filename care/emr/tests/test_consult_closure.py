@@ -1,4 +1,5 @@
 import io
+from copy import copy
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -267,14 +268,62 @@ class ConsultClosureWorkflowTests(
         self.assertEqual(self.token.status, "IN_PROGRESS")
         self.assertEqual(ConsultClosure.objects.count(), 1)
 
-    def test_unbooked_ambulatory_still_requires_appointment(self):
+    def test_unbooked_ambulatory_uses_unscheduled_consult_policy(self):
         self._unscheduled_emergency()
         self.encounter.encounter_class = "amb"
         self.encounter.save()
+
+        candidate = self._ready_candidate()
+
+        self.assertEqual(
+            candidate["policy_id"], "care.standard.unscheduled-consult-close"
+        )
+        self.assertIsNone(candidate["appointment"])
+        self.assertIsNone(candidate["token"])
+
+        response, _payload = self._close(candidate)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.encounter.refresh_from_db()
+        self.assertEqual(self.encounter.status, "completed")
+
+    def test_booked_consult_without_queue_token_closes_on_booking_evidence(self):
+        self.subqueue.current_token = None
+        self.subqueue.save(update_fields=["current_token", "modified_date"])
+        self.booking.token = None
+        self.booking.save(update_fields=["token", "modified_date"])
+        self.token.delete()
+
+        candidate = self._ready_candidate()
+
+        self.assertEqual(candidate["policy_id"], "care.standard.consult-close")
+        self.assertEqual(candidate["appointment"], self.booking.external_id)
+        self.assertEqual(candidate["expected_booking_status"], "in_consultation")
+        self.assertIsNone(candidate["token"])
+        self.assertIsNone(candidate["expected_token_status"])
+        self.assertIsNone(candidate["expected_token_modified_at"])
+
+        response, payload = self._close(candidate)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["closure"]["token_status"], "not_required")
+        self.assertEqual(response.data["closure"]["booking_status"], "fulfilled")
+        replay = self.client.post(self.close_url, payload, format="json")
+        self.assertEqual(replay.status_code, 200, replay.data)
+        self.assertTrue(replay.data["replayed"])
+        self.encounter.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.encounter.status, "completed")
+        self.assertEqual(self.booking.status, "fulfilled")
+        self.assertEqual(ConsultClosure.objects.count(), 1)
+
+    def test_booked_consult_with_stale_booking_still_blocks(self):
+        self.booking.token = None
+        self.booking.status = "booked"
+        self.booking.save(update_fields=["token", "status", "modified_date"])
         response = self.client.post(
             self.preflight_url, self._preflight_body(), format="json"
         )
-        self.assertIn("appointment_missing", response.data["blocker_codes"])
+        self.assertIn("booking_state_stale", response.data["blocker_codes"])
+        self.assertNotIn("token_missing", response.data["blocker_codes"])
 
     def test_booked_emergency_retains_queue_checks(self):
         self.encounter.encounter_class = "emer"
@@ -687,6 +736,25 @@ class ConsultClosureWorkflowTests(
         self.assertFalse(incomplete.data["ready"])
         self.assertIn("medication_incomplete", incomplete.data["blocker_codes"])
 
+    def test_preflight_allows_selected_final_note_among_multiple_note_series(self):
+        other_submission = self._finalized_submission(
+            response_dump={"assessment": "Earlier finalized note"}
+        )
+        self._artifact(other_submission)
+
+        response = self.client.post(
+            self.preflight_url,
+            self._preflight_body(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["ready"], response.data)
+        self.assertEqual(
+            str(response.data["command_candidate"]["form_submission"]),
+            str(self.submission.external_id),
+        )
+
     def test_close_rolls_back_every_state_when_ledger_insert_fails(self):
         candidate = self._ready_candidate()
         with patch.object(ConsultClosure, "save", side_effect=IntegrityError("forced")):
@@ -747,6 +815,107 @@ class ConsultClosureWorkflowTests(
         )
         self.assertEqual(restarted.status_code, 400, restarted.data)
         self.assertIn("consult-closure", str(restarted.data).lower())
+
+    def test_paper_prepared_closes_with_final_pdf_without_delivery_claim(self):
+        compiled = self.client.post(self.url, self._payload(), format="json")
+        self.assertEqual(compiled.status_code, 201, compiled.data)
+        compilation = CorrespondenceCompilation.objects.get()
+        self.review_url = reverse("correspondence-review-idempotent-bind")
+        recipient = CorrespondenceReviewTestMixin._recipient(  # noqa: SLF001
+            self,
+            source_type="synthetic_test_fixture",
+            channel_identifier="synthetic:paper",
+            source_provenance={
+                "governance": "synthetic-test-only",
+                "evidence_reference": "SYNTHETIC-PAPER-1",
+            },
+        )
+        bound = CorrespondenceReviewTestMixin._bind(  # noqa: SLF001
+            self,
+            {
+                "client_request_id": str(uuid4()),
+                "compilation": str(compilation.external_id),
+                "compilation_hash": compilation.compiled_hash,
+                "patient": str(self.patient.external_id),
+                "encounter": str(self.encounter.external_id),
+                "facility": str(self.facility.external_id),
+                "department": str(self.organization.external_id),
+                "author": str(self.user.external_id),
+                "recipient": str(recipient.external_id),
+                "recipient_version": recipient.resource_version,
+                "recipient_hash": recipient.content_hash,
+            },
+        )
+        self.assertEqual(bound.status_code, 201, bound.data)
+        self.review = CorrespondenceReview.objects.get()
+        self.compilation = compilation
+        with (
+            patch.object(ReportUpload.files_manager, "put_object", return_value={}),
+            patch.object(
+                ReportUpload.files_manager,
+                "get_object",
+                side_effect=self._synthetic_artifact_response,
+            ),
+            patch(
+                "care.emr.api.viewsets.correspondence_letter."
+                "render_correspondence_letter_pdf",
+                return_value=SYNTHETIC_PDF,
+            ),
+        ):
+            self._finalized_letter_revision()
+            newer_unreviewed = copy(compilation)
+            newer_unreviewed.pk = None
+            newer_unreviewed.external_id = uuid4()
+            newer_unreviewed.source_fingerprint = "d" * 64
+            newer_unreviewed.save(force_insert=True)
+            preflight = self.client.post(
+                self.preflight_url,
+                self._preflight_body(
+                    correspondence_outcome="paper_prepared",
+                    correspondence_compilation=None,
+                ),
+                format="json",
+            )
+        self.assertEqual(preflight.status_code, 200, preflight.data)
+        self.assertTrue(preflight.data["ready"], preflight.data)
+        candidate = preflight.data["command_candidate"]
+        self.assertEqual(
+            str(candidate["correspondence_compilation"]),
+            str(compilation.external_id),
+        )
+        self.assertIsNone(candidate["correspondence_delivery"])
+        closed, _payload = self._close(candidate)
+        self.assertEqual(closed.status_code, 201, closed.data)
+        closure = closed.data["closure"]
+        self.assertEqual(closure["correspondence_outcome"], "paper_prepared")
+        self.assertIsNone(closure["correspondence_delivery"])
+
+    def test_not_required_allows_unreviewed_compilation_without_deleting_it(self):
+        compiled = self.client.post(self.url, self._payload(), format="json")
+        self.assertEqual(compiled.status_code, 201, compiled.data)
+        compilation = CorrespondenceCompilation.objects.get()
+
+        preflight = self.client.post(
+            self.preflight_url,
+            self._preflight_body(correspondence_outcome="not_required"),
+            format="json",
+        )
+
+        self.assertEqual(preflight.status_code, 200, preflight.data)
+        self.assertTrue(preflight.data["ready"], preflight.data)
+        self.assertNotIn("correspondence_incomplete", preflight.data["blocker_codes"])
+        candidate = preflight.data["command_candidate"]
+        self.assertIsNone(candidate["correspondence_compilation"])
+        closed, _payload = self._close(candidate)
+        self.assertEqual(closed.status_code, 201, closed.data)
+        self.assertEqual(
+            closed.data["closure"]["correspondence_outcome"], "not_required"
+        )
+        self.assertTrue(
+            CorrespondenceCompilation._base_manager.filter(  # noqa: SLF001
+                pk=compilation.pk, deleted=False
+            ).exists()
+        )
 
     def test_correspondence_series_blocks_not_required_and_derives_resolved_lineage(
         self,
