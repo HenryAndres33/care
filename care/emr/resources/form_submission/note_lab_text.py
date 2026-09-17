@@ -19,6 +19,14 @@ TESTS = {
     "PSA initieel": ("2857-1", "PSA totaal", "ug/L", "µg/L"),
     "PSA actueel": ("2857-1", "PSA totaal", "ug/L", "µg/L"),
     "Testosteron actueel": ("14913-8", "Testosteron", "nmol/L", "nmol/L"),
+    "Creatinine": ("14682-9", "Creatinine", "umol/L", "µmol/L"),
+    "Ureum": ("22664-7", "Ureum", "mmol/L", "mmol/L"),
+    "Hemoglobine": ("718-7", "Hemoglobine", "g/dL", "g/dL"),
+    "CRP": ("1988-5", "CRP", "mg/L", "mg/L"),
+    "D-dimeer FEU": ("48065-7", "D-dimeer FEU", "mg{FEU}/L", "mg/L FEU"),
+    "Glucose": ("14749-6", "Glucose", "mmol/L", "mmol/L"),
+    "Natrium": ("2951-2", "Natrium", "mmol/L", "mmol/L"),
+    "Kalium": ("2823-3", "Kalium", "mmol/L", "mmol/L"),
 }
 
 

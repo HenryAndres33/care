@@ -43,3 +43,15 @@ frontend parsers together before the source-free native SmartText update.
 No migration or extra persistence model. On rollback keep optional-source reading
 until all saved source-free notes can still be reopened/finalized; do not rewrite
 clinical notes/results or substitute a fictitious laboratory.
+
+## Multi-test catalog — 17 September 2026
+
+Added explicit numeric variants: creatinine 14682-9 / umol/L, urea 22664-7 /
+mmol/L, hemoglobin 718-7 / g/dL, CRP 1988-5 / mg/L, D-dimer FEU 48065-7 /
+mg{FEU}/L, serum/plasma glucose 14749-6 / mmol/L, sodium 2951-2 / mmol/L,
+potassium 2823-3 / mmol/L. Codes/specimens checked against official loinc.org
+pages. See frontend note-labs/NOTE_ENTRY_DESIGN.md for links and exact text labels.
+No unit conversion, eGFR calculation, reference intervals or clinical inference.
+Deploy the additive frontend/backend catalogs together. Existing rows and links
+remain unchanged. Once new rows exist, retain support on rollback so saved notes
+remain readable/finalizable. No migration is required.
