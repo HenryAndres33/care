@@ -1,4 +1,5 @@
 import re
+from html import escape
 
 _HISTORY_HEADINGS = {
     "algemene voorgeschiedenis:",
@@ -7,6 +8,10 @@ _HISTORY_HEADINGS = {
 _EM_DASH = "\N{EM DASH}"
 _EN_DASH = "\N{EN DASH}"
 _SECTION_HEADING = re.compile(r"^[^:\n]{1,80}:$")
+_EMPHASIZED_HEADING = re.compile(
+    r"^(?:conclusie(?:\s*(?:&|en)\s*bespreking)?|beleid)\s*:?[ \t]*$",
+    re.IGNORECASE,
+)
 _INLINE_HISTORY_DETAIL = re.compile(
     rf"^(?P<prefix>\s*-\s+)(?P<label>.+?)\s+[{_EM_DASH}{_EN_DASH}]"
     r"\s+(?P<detail>\S.*)$"
@@ -88,3 +93,18 @@ def _next_line_is_detail(lines: list[str], index: int) -> bool:
 
 def _replace_history_dashes(value: str) -> str:
     return value.replace(f" {_EM_DASH} ", ": ").replace(f" {_EN_DASH} ", ": ")
+
+
+def render_clinical_narrative_html(narrative: str) -> str:
+    """Escape narrative text and retain semantic emphasis for key decisions."""
+
+    normalized = normalize_diagnosis_history_layout(narrative)
+    rendered_lines = []
+    for line in normalized.split("\n"):
+        safe_line = escape(line)
+        rendered_lines.append(
+            f'<strong class="clinical-heading">{safe_line}</strong>'
+            if _EMPHASIZED_HEADING.fullmatch(line.strip())
+            else safe_line
+        )
+    return "\n".join(rendered_lines)

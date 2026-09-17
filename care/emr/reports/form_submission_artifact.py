@@ -2,16 +2,25 @@ from __future__ import annotations
 
 import json
 import math
-import re
 from datetime import datetime
 from html import escape
 from typing import Any
 
-from django.utils import timezone
-from django.utils.dateparse import parse_datetime
-
-from care.emr.reports.clinical_narrative import (
-    normalize_diagnosis_history_layout,
+from care.emr.reports.form_submission_artifact_metadata import (
+    date_of_birth,
+    encounter_date,
+    encounter_date_label,
+    user_name,
+)
+from care.emr.reports.form_submission_artifact_metadata import (
+    document_title as build_document_title,
+)
+from care.emr.reports.form_submission_clinical_content import (
+    render_clinical_content,
+)
+from care.emr.reports.patient_pdf_header import (
+    RUNNING_PATIENT_CSS,
+    render_running_patient_header,
 )
 from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
@@ -21,21 +30,6 @@ from care.emr.reports.renderer.generators.weasyprint_generator import (
 MAX_SNAPSHOT_BYTES = 1024 * 1024
 MAX_SNAPSHOT_DEPTH = 20
 MAX_SNAPSHOT_NODES = 10_000
-
-_TECHNICAL_KEYS = {
-    "artifact",
-    "artifact_id",
-    "clinicalactions",
-    "customformdefinition",
-    "external_id",
-    "finalized_snapshot_hash",
-    "identity",
-    "resource_version",
-    "source_snapshot_hash",
-    "source_version",
-    "version",
-}
-_NARRATIVE_KEYS = ("noteText", "narrativePreview", "narrative", "note")
 
 
 class MalformedFinalizedSnapshotError(ValueError):
@@ -110,7 +104,7 @@ def build_form_submission_artifact_html(
     patient = submission.patient
     encounter = submission.encounter
     questionnaire = submission.questionnaire
-    document_title = _document_title(submission, questionnaire)
+    document_title = build_document_title(submission, questionnaire)
     author = submission.created_by
     finalizer = submission.workflow_finalized_by
     if (
@@ -128,9 +122,9 @@ def build_form_submission_artifact_html(
     _ = artifact_id, generated_at
     patient_rows = [
         ("Patient", patient.name),
-        ("Geboortedatum", _date_of_birth(patient)),
-        (_encounter_date_label(encounter), _encounter_date(encounter.period)),
-        ("Behandelaar", _user_name(finalizer)),
+        ("Geboortedatum", date_of_birth(patient)),
+        (encounter_date_label(encounter), encounter_date(encounter.period)),
+        ("Behandelaar", user_name(finalizer)),
     ]
     patient_details = "".join(
         '<div class="patient-field">'
@@ -139,7 +133,10 @@ def build_form_submission_artifact_html(
         "</div>"
         for label, value in patient_rows
     )
-    clinical_content = _render_clinical_content(submission.response_dump)
+    clinical_content = render_clinical_content(submission.response_dump)
+    running_patient = render_running_patient_header(
+        name=patient.name, date_of_birth=date_of_birth(patient)
+    )
 
     return f"""<!doctype html>
 <html lang="nl">
@@ -147,9 +144,10 @@ def build_form_submission_artifact_html(
   <meta charset="utf-8">
   <title>{escape(document_title)}</title>
   <style>
+    {RUNNING_PATIENT_CSS}
     @page {{
       size: A4;
-      margin: 18mm 16mm 18mm;
+      margin: 24mm 16mm 18mm;
       @bottom-left {{
         content: "{escape(document_title)}";
         color: #64748b;
@@ -199,12 +197,14 @@ def build_form_submission_artifact_html(
     .patient-label {{ color: #64748b; font-size: 8pt; font-weight: 700; text-transform: uppercase; }}
     .patient-value {{ color: #0f172a; font-size: 10.5pt; font-weight: 600; }}
     h2 {{
+      break-after: avoid;
       border-bottom: 1px solid #cbd5e1;
       font-size: 14pt;
       margin: 0 0 12px;
       padding-bottom: 6px;
     }}
-    .narrative {{ margin: 0; white-space: pre-wrap; word-break: normal; }}
+    .narrative {{ margin: 0; orphans: 3; white-space: pre-wrap; widows: 3; word-break: normal; }}
+    .clinical-heading {{ font-weight: 700; }}
     .clinical-table {{ border-collapse: collapse; margin-top: 16px; width: 100%; }}
     .clinical-table th, .clinical-table td {{
       border-bottom: 1px solid #e2e8f0;
@@ -225,6 +225,7 @@ def build_form_submission_artifact_html(
   </style>
 </head>
 <body>
+  {running_patient}
   <header class="header">
     <p class="eyebrow">Urologie</p>
     <h1>{escape(document_title)}</h1>
@@ -245,159 +246,3 @@ def render_form_submission_artifact_pdf(html: str) -> bytes:
         html,
         WeasyPrintGeneratorOptions(page_size="A4", margin="0"),
     )
-
-
-def _render_clinical_content(response_dump: dict[str, Any]) -> str:
-    content = response_dump.get("content")
-    if isinstance(content, dict):
-        narrative = _first_text(content, _NARRATIVE_KEYS)
-        if narrative:
-            narrative = normalize_diagnosis_history_layout(narrative)
-            return f'<p class="narrative">{escape(narrative)}</p>'
-
-        values = content.get("values")
-        if isinstance(values, dict):
-            return _render_clinical_fields(values)
-
-    narrative = _first_text(response_dump, _NARRATIVE_KEYS)
-    excluded = set(_NARRATIVE_KEYS)
-    fields = {
-        key: value
-        for key, value in response_dump.items()
-        if key not in excluded and not _is_technical_key(key)
-    }
-    parts = []
-    if narrative:
-        narrative = normalize_diagnosis_history_layout(narrative)
-        parts.append(f'<p class="narrative">{escape(narrative)}</p>')
-    if fields:
-        parts.append(_render_clinical_fields(fields))
-    return "".join(parts) or '<p class="empty">Geen gegevens vastgelegd.</p>'
-
-
-def _render_clinical_fields(values: dict[str, Any]) -> str:
-    rows = []
-    for key in sorted(values):
-        if _is_technical_key(key):
-            continue
-        value = values[key]
-        if value in (None, "", [], {}):
-            continue
-        rows.append(
-            "<tr>"
-            f"<th>{escape(_humanize_key(key))}</th>"
-            f"<td>{_render_clinical_value(value)}</td>"
-            "</tr>"
-        )
-    if not rows:
-        return '<p class="empty">Geen gegevens vastgelegd.</p>'
-    return f'<table class="clinical-table"><tbody>{"".join(rows)}</tbody></table>'
-
-
-def _render_clinical_value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "Ja" if value else "Nee"
-    if isinstance(value, list):
-        items = [item for item in value if item not in (None, "", [], {})]
-        return (
-            "<ul>"
-            + "".join(f"<li>{_render_clinical_value(item)}</li>" for item in items)
-            + "</ul>"
-        )
-    if isinstance(value, dict):
-        visible = {
-            key: child
-            for key, child in value.items()
-            if not _is_technical_key(key) and child not in (None, "", [], {})
-        }
-        if not visible:
-            return "-"
-        return _render_clinical_fields(visible)
-    return escape(str(value))
-
-
-def _first_text(values: dict[str, Any], keys: tuple[str, ...]) -> str | None:
-    for key in keys:
-        value = values.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def _is_technical_key(key: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9]", "", key.lower())
-    return normalized in _TECHNICAL_KEYS or normalized.endswith("sha256")
-
-
-def _humanize_key(key: str) -> str:
-    label = key.rsplit(".", maxsplit=1)[-1].replace("_", " ").replace("-", " ")
-    label = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", label)
-    return label[:1].upper() + label[1:]
-
-
-# Titles for admission-owned notes; the slot kind is stored with the admission
-# reservation, so the printout only says what the database already knows.
-_ADMISSION_SLOT_TITLES = {
-    "admission": "Opnamenotitie",
-    "visit": "Visitenotitie",
-    "discharge": "Ontslagsamenvatting",
-}
-
-
-def _document_title(submission, questionnaire) -> str:
-    if questionnaire.slug == "urology-operaties":
-        return "Operatieverslag"
-    slot = _admission_slot(submission)
-    # Visit slots are stored as "visit:<Suriname day>"; the kind is the prefix.
-    kind = slot.split(":", 1)[0] if slot else None
-    return _ADMISSION_SLOT_TITLES.get(kind, "Medisch dossier")
-
-
-def _admission_slot(submission) -> str | None:
-    from care.emr.models.admission_documentation import AdmissionDocumentation
-    from care.emr.models.questionnaire import FormSubmission
-
-    if not submission.encounter_id:
-        return None
-    series_ids = FormSubmission.objects.filter(series_id=submission.series_id).values(
-        "external_id"
-    )
-    reservation = (
-        AdmissionDocumentation.objects.filter(
-            admission_id=submission.encounter_id, form_instance_id__in=series_ids
-        )
-        .only("slot")
-        .first()
-    )
-    return reservation.slot if reservation else None
-
-
-def _encounter_date_label(encounter) -> str:
-    return "Opnamedatum" if encounter.encounter_class == "imp" else "Consultdatum"
-
-
-def _date_of_birth(patient) -> str:
-    if patient.date_of_birth:
-        return patient.date_of_birth.strftime("%d-%m-%Y")
-    if patient.year_of_birth:
-        return str(patient.year_of_birth)
-    return "Niet geregistreerd"
-
-
-def _encounter_date(period) -> str:
-    if not isinstance(period, dict):
-        return "Niet geregistreerd"
-    raw_value = period.get("start") or period.get("end")
-    if not raw_value:
-        return "Niet geregistreerd"
-    parsed = parse_datetime(str(raw_value))
-    if not parsed:
-        return escape(str(raw_value))
-    if timezone.is_aware(parsed):
-        parsed = timezone.localtime(parsed)
-    return parsed.strftime("%d-%m-%Y %H:%M")
-
-
-def _user_name(user) -> str:
-    name = " ".join(part for part in [user.first_name, user.last_name] if part).strip()
-    return name or user.username

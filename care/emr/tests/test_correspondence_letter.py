@@ -625,6 +625,8 @@ class TestCorrespondenceLetterAPI(
         )
         self.assertNotIn("<script>", html)
         self.assertIn("&lt;script&gt;", html)
+        self.assertIn("running-patient-header", html)
+        self.assertIn("counter(pages)", html)
 
         placeholder_payload = self._revision_payload(
             draft,
@@ -678,6 +680,26 @@ class TestCorrespondenceLetterAPI(
         self.assertIn("POLIKLINIEK UROLOGIE", html)
         self.assertNotIn("SPECIALISTENBRIEF", html)
         self.assertIn('class="specialty-name"', html)
+
+    def test_azp_pdf_has_one_branded_letterhead_with_contact_details(self):
+        draft = self._created_revision()
+        compilation = draft.letter.review.compilation
+        compilation.facility.name = "Academisch Ziekenhuis Paramaribo"
+        compilation.template.options = {"letterhead_title": "Afdeling Urologie"}
+
+        html = build_correspondence_letter_html(
+            artifact_id=uuid4(),
+            revision=draft,
+            generated_at=draft.created_date,
+        )
+
+        self.assertIn('class="letterhead-logo"', html)
+        self.assertIn('src="data:image/png;base64,', html)
+        self.assertEqual(html.count("Academisch Ziekenhuis Paramaribo"), 1)
+        self.assertIn("Flustraat 1 · Paramaribo, Suriname", html)
+        self.assertIn("Centraal: +597 442222", html)
+        self.assertIn("Polikliniek Urologie: +597 8629846 · toestel 251", html)
+        self.assertIn("Afdeling Urologie", html)
 
     def test_final_pdf_formats_clinical_sections_and_normalizes_reason_heading(self):
         draft = self._created_revision()

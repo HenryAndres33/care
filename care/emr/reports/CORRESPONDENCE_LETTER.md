@@ -139,3 +139,30 @@ correspondence compilations or artifacts.
 
 Tests: `tests/test_correspondence_letter.py` (four new). Rollback: revert the
 file; no data or schema change.
+
+## AZP PDF letterhead — 13 September 2026
+
+The final server-rendered PDF owns the visual letterhead; editable native
+template content owns only the salutation and clinical prose. For Academisch
+Ziekenhuis Paramaribo, `correspondence_letter_branding.py` supplies the accepted
+AZP logo, Flustraat 1 address, central number and Urology clinic number. The
+hospital name appears once, while the frozen clinician and department remain in
+the sign-off. Other facilities keep the same generic layout without AZP assets.
+
+The profile is presentation-only: no clinical snapshot, recipient, identifier,
+delivery, or database schema changes. Rollback is the branding module plus the
+letterhead/style integration in `correspondence_letter.py` and
+`correspondence_letter_styles.py`.
+
+## Legacy native-template normalization — 13 September 2026
+
+The final renderer owns the letterhead, patient metadata and frozen signature.
+`correspondence_template_body.py` therefore recognizes the exact old AZP
+full-document prefix and removes its server-owned prefix/footer during new
+compilation. The match requires the hospital name, Flustraat 1, Urology letter
+title, patient-number label and Dutch salutation; partial or ordinary clinical
+text is left unchanged. This prevents a phone identifier from reappearing in
+the editable body even though the official metadata already rejects it.
+
+Existing compilations and finalized PDFs are immutable and are not rewritten.
+Rollback: remove the normalizer call/module; no schema or data migration exists.

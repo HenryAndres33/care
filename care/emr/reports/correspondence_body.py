@@ -19,6 +19,7 @@ CLINICAL_SECTION_LABELS = {
     "beeldvorming": "Beeldvorming",
     "lab uitslagen": "Lab uitslagen",
     "laboratoriumuitslagen": "Laboratoriumuitslagen",
+    "conclusie": "Conclusie",
     "conclusie & bespreking": "Conclusie & Bespreking",
     "conclusie en bespreking": "Conclusie & Bespreking",
     "beleid": "Beleid",

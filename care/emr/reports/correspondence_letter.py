@@ -3,7 +3,13 @@ from html import escape
 
 from care.emr.correspondence.presentation import correspondence_presentation_reason
 from care.emr.reports.correspondence_body import render_correspondence_body
+from care.emr.reports.correspondence_letter_branding import render_letterhead
+from care.emr.reports.correspondence_letter_metadata import patient_record_identifier
 from care.emr.reports.correspondence_letter_styles import LETTER_CSS
+from care.emr.reports.patient_pdf_header import (
+    RUNNING_PATIENT_CSS,
+    render_running_patient_header,
+)
 from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
     WeasyPrintGeneratorOptions,
@@ -45,10 +51,14 @@ def build_correspondence_letter_html(*, artifact_id, revision, generated_at):
         body_text=revision.body,
         author=author,
         author_details=author_details,
-        facility_name=facility_name,
         department_name=department_name,
     )
-    patient_identifier = _patient_identifiers(patient, encounter)
+    patient_identifier = patient_record_identifier(patient, encounter)
+    running_patient = render_running_patient_header(
+        name=patient.name,
+        date_of_birth=_display_date(patient.date_of_birth or patient.year_of_birth),
+        identifier=patient_identifier,
+    )
     subject = _encounter_reason(compilation)
     presentation_date = _presentation_date(compilation)
     letterhead_title = _template_option(
@@ -56,28 +66,26 @@ def build_correspondence_letter_html(*, artifact_id, revision, generated_at):
         "letterhead_title",
         str(department_name or "Medische correspondentie").upper(),
     )
+    letterhead = render_letterhead(
+        facility_name=str(facility_name), department_title=letterhead_title
+    )
     return f"""<!doctype html>
 <html lang="nl">
 <head>
   <meta charset="utf-8">
   <title>Medische brief</title>
-  <style>{LETTER_CSS}</style>
+  <style>{RUNNING_PATIENT_CSS}
+{LETTER_CSS}</style>
 </head>
 <body>
-  <header class="letterhead">
-    <div class="letterhead-identity">
-      <div class="specialty-name">{escape(letterhead_title)}</div>
-      <div class="facility-name">{escape(str(facility_name))}</div>
-    </div>
-  </header>
-
+  {running_patient}
+  {letterhead}
   <section class="recipient-block">
     <strong>{escape(str(recipient.get("display_name") or ""))}</strong>
     <div>{escape(str(recipient.get("professional_role") or ""))}</div>
     <div>{escape(str(recipient.get("organization_name") or ""))}</div>
     {recipient_address}
   </section>
-
   <section class="letter-meta">
     <div><span>Briefdatum</span><strong>{_display_date(generated_at)}</strong></div>
     <div><span>Presentatiedatum</span><strong>{_display_date(presentation_date)}</strong></div>
@@ -92,7 +100,7 @@ def build_correspondence_letter_html(*, artifact_id, revision, generated_at):
 
   <footer>
     <span>Vertrouwelijk medisch document</span>
-    <span>{escape(str(facility_name))}</span>
+    <span>{escape(str(department_name or letterhead_title))}</span>
     <span>Versie {revision.resource_version}</span>
   </footer>
 </body>
@@ -163,46 +171,6 @@ def _postal_address_lines(recipient):
     return list(dict.fromkeys(values))
 
 
-# Identifier systems that are contact details or names, never a record number.
-_NON_RECORD_IDENTIFIER_SYSTEMS = ("phone", "email", "patient-name", "/name")
-
-
-def _identifier_config(config_id):
-    from care.emr.models.patient import PatientIdentifierConfigCache
-
-    try:
-        return PatientIdentifierConfigCache.get_config(str(config_id)) or {}
-    except Exception:  # a missing config must not break the PDF
-        return {}
-
-
-def _patient_identifiers(patient, encounter):
-    """Return the patient's record number for the paper file.
-
-    Only identifiers whose configuration is a record number are eligible;
-    phone numbers, e-mail addresses and name identifiers are never printed
-    as "Patiëntnummer". Identifiers marked usual/official rank first.
-    """
-    identifiers = list(patient.instance_identifiers or [])
-    facility_identifiers = patient.facility_identifiers or {}
-    identifiers.extend(
-        facility_identifiers.get(str(encounter.facility_id), [])
-        or facility_identifiers.get(encounter.facility_id, [])
-    )
-    ranked = []
-    for item in identifiers:
-        if not isinstance(item, dict) or not item.get("value"):
-            continue
-        config = _identifier_config(item.get("config")).get("config") or {}
-        system = str(config.get("system") or "").casefold()
-        if any(marker in system for marker in _NON_RECORD_IDENTIFIER_SYSTEMS):
-            continue
-        use = str(config.get("use") or "").casefold()
-        ranked.append((0 if use in ("usual", "official") else 1, str(item["value"])))
-    ranked.sort(key=lambda entry: entry[0])
-    return ranked[0][1] if ranked else "Niet vastgelegd"
-
-
 def _encounter_reason(compilation):
     fallback = str(
         getattr(compilation.encounter_reason, "display", "")
@@ -264,9 +232,7 @@ def professional_role_label(role):
     return _ROLE_LABELS.get(text.casefold(), text)
 
 
-def _signature_html(
-    *, body_text, author, author_details, facility_name, department_name
-):
+def _signature_html(*, body_text, author, author_details, department_name):
     """Exactly one closing per letter; the author identity always comes from
     the frozen server snapshot, never from the typed body."""
     author_display = str(author.get("display") or "").strip()
@@ -278,16 +244,14 @@ def _signature_html(
         and body_has_closing
     ):
         return ""
-    facility_line = escape(str(facility_name))
-    if department_name:
-        facility_line += f" · {escape(str(department_name))}"
     greeting = "" if body_has_closing else "<div>Met vriendelijke groet,</div>"
+    department = f"<div>{escape(str(department_name))}</div>" if department_name else ""
     return (
         '<section class="signature">'
         f"{greeting}"
         f"<strong>{escape(author_display)}</strong>"
         f"<div>{escape(author_details)}</div>"
-        f"<div>{facility_line}</div>"
+        f"{department}"
         "</section>"
     )
 

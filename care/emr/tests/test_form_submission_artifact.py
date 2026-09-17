@@ -37,6 +37,7 @@ from care.emr.signals.patient.phone_number_identifier import (
 )
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
+from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.security.permissions.template import TemplatePermissions
 from care.utils.tests.base import CareAPITestBase
 
@@ -58,11 +59,19 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.encounter.save(
             update_fields=["period", "external_identifier", "modified_date"]
         )
+        self.questionnaire_organization = CareAPITestBase.create_organization(self)
         self.questionnaire = baker.make(
             Questionnaire,
+            organization_cache=[self.questionnaire_organization.id],
             slug="generic-printable-form",
             title="Generic Printable Form",
             version="2026.1",
+        )
+        questionnaire_role = CareAPITestBase.create_role_with_permissions(
+            self, [QuestionnairePermissions.can_submit_questionnaire.name]
+        )
+        CareAPITestBase.attach_role_organization_user(
+            self, self.questionnaire_organization, self.user, questionnaire_role
         )
         self.role = self.create_role_with_permissions(
             [
@@ -222,6 +231,9 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.assertNotIn(self.submission.finalized_snapshot_hash, html)
         self.assertIn("Medisch dossier", html)
         self.assertIn("Synthetic Patient", html)
+        self.assertIn("running-patient-header", html)
+        self.assertIn("Geb. ", html)
+        self.assertIn("counter(pages)", html)
         self.assertNotIn("ENC-SYNTHETIC-01", html)
         self.assertIn("20-07-2026", html)
         self.assertIn("Generic Printable Form", html)
@@ -709,6 +721,34 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.assertNotIn(str(self.patient.external_id), html)
         self.assertNotIn("source_snapshot_hash", html)
 
+    def test_renderer_bolds_decision_headings_and_escapes_narrative(self):
+        self.submission.response_dump = {
+            "content": {
+                "noteText": (
+                    "Anamnese:\nMacroscopische hematurie <acuut>\n"
+                    "Conclusie & Bespreking:\nMultipele blaastumoren\n"
+                    "Beleid:\nTURT"
+                ),
+            },
+        }
+
+        html = build_form_submission_artifact_html(
+            artifact_id=uuid4(),
+            submission=self.submission,
+            generated_at=timezone.now(),
+        )
+
+        self.assertIn(
+            '<strong class="clinical-heading">Conclusie &amp; Bespreking:</strong>',
+            html,
+        )
+        self.assertIn(
+            '<strong class="clinical-heading">Beleid:</strong>',
+            html,
+        )
+        self.assertIn("Macroscopische hematurie &lt;acuut&gt;", html)
+        self.assertNotIn('<strong class="clinical-heading">Anamnese:</strong>', html)
+
     def test_renderer_normalizes_generated_diagnosis_history_layout(self):
         self.submission.response_dump = {
             "content": {
@@ -777,11 +817,19 @@ class TestFormSubmissionArtifactConcurrency(TransactionTestCase):
             facility=self.facility,
             organization=self.organization,
         )
+        self.questionnaire_organization = CareAPITestBase.create_organization(self)
         self.questionnaire = baker.make(
             Questionnaire,
+            organization_cache=[self.questionnaire_organization.id],
             slug="concurrent-printable-form",
             title="Concurrent Printable Form",
             version="1",
+        )
+        questionnaire_role = CareAPITestBase.create_role_with_permissions(
+            self, [QuestionnairePermissions.can_submit_questionnaire.name]
+        )
+        CareAPITestBase.attach_role_organization_user(
+            self, self.questionnaire_organization, self.user, questionnaire_role
         )
         role = CareAPITestBase.create_role_with_permissions(
             self,

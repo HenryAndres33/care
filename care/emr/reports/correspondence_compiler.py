@@ -13,6 +13,10 @@ from markupsafe import Markup
 from care.emr.reports.clinical_narrative import (
     normalize_diagnosis_history_layout,
 )
+from care.emr.reports.correspondence_template_body import (
+    correspondence_text_as_html,
+    normalize_correspondence_template_body,
+)
 from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
 
 
@@ -96,13 +100,20 @@ def compile_correspondence_html(
         raise CorrespondenceCompilationError(
             "Sanitized correspondence template exceeds the rendering limit"
         )
-    if not _html_to_text(sanitized_template):
+    template_text = _html_to_text(sanitized_template)
+    if not template_text:
         raise CorrespondenceCompilationError("Correspondence template rendered empty")
+    normalized_template_text, removed_legacy_chrome = (
+        normalize_correspondence_template_body(template_text)
+    )
+    template_contains_clinical_note = 'class="clinical-note"' in sanitized_template
+    if removed_legacy_chrome:
+        sanitized_template = correspondence_text_as_html(normalized_template_text)
     # Provenance remains frozen in CorrespondenceCompilation.source_provenance.
     # It is deliberately not rendered into the clinician-facing letter body.
     clinical_note = str(context["form"]["readable_html"])
     clinical_attachment = (
-        "" if 'class="clinical-note"' in sanitized_template else clinical_note
+        "" if template_contains_clinical_note else clinical_note
     )
     compiled_html = sanitize_correspondence_html(
         f"<article>{sanitized_template}{clinical_attachment}</article>"

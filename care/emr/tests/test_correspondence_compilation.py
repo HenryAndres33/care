@@ -53,6 +53,7 @@ from care.emr.signals.patient.phone_number_identifier import (
 )
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
+from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.security.permissions.template import TemplatePermissions
 from care.utils.tests.base import CareAPITestBase
 
@@ -111,11 +112,19 @@ class CorrespondenceCompilationTestMixin:
                 encounter=self.encounter,
                 organization=self.organization,
             )
+        self.questionnaire_organization = CareAPITestBase.create_organization(self)
         self.questionnaire = baker.make(
             Questionnaire,
+            organization_cache=[self.questionnaire_organization.id],
             slug="generic-correspondence-form",
             title="Generic Correspondence Form",
             version="2026.1",
+        )
+        questionnaire_role = CareAPITestBase.create_role_with_permissions(
+            self, [QuestionnairePermissions.can_submit_questionnaire.name]
+        )
+        CareAPITestBase.attach_role_organization_user(
+            self, self.questionnaire_organization, self.user, questionnaire_role
         )
         self.role = CareAPITestBase.create_role_with_permissions(
             self,
@@ -528,7 +537,8 @@ class TestCorrespondenceCompilationAPI(
 
         self.assertEqual(replay.status_code, HTTPStatus.OK)
         self.assertEqual(replay.json()["compilation"], original)
-        self.assertIn("Ada Clinician", replay.json()["compilation"]["compiled_text"])
+        frozen = CorrespondenceCompilation.objects.get(external_id=original["id"])
+        self.assertEqual(frozen.source_provenance["author"]["display"], "Ada Clinician")
         self.assertNotIn(
             "Changed template", replay.json()["compilation"]["compiled_text"]
         )
@@ -1038,6 +1048,76 @@ class TestCorrespondenceCompilationAPI(
 
         self.assertEqual(first, second)
         self.assertIn("Patient", first[1])
+
+    def test_compiler_removes_known_azp_full_document_template_chrome(self):
+        context = {
+            "patient": {
+                "name": "DEMO Patient",
+                "date_of_birth": "1970-01-02",
+                "identifiers": [{"value": "+597000000"}],
+            },
+            "encounter": {"date": "2026-09-13", "reason": "Urineretentie"},
+            "author": {"display": "Synthetic Clinician"},
+            "form": {
+                "readable_html": readable_form_html(
+                    {"content": {"noteText": "Klinische notitie"}}
+                )
+            },
+        }
+        template_data = """
+            <div>AZP</div>
+            <div>moving lives forward</div>
+            <div>Academisch Ziekenhuis Paramaribo</div>
+            <div>Afdeling Urologie</div>
+            <div>Flustraat 1 · Paramaribo, Suriname</div>
+            <div>Centraal: +597 442222</div>
+            <div>Polikliniek Urologie: +597 8629846 · toestel 251</div>
+            <h1>Correspondentiebrief Urologie</h1>
+            <div>Patiënt</div>
+            <div>{{ patient.name }}</div>
+            <div>Geboortedatum</div>
+            <div>{{ patient.date_of_birth }}</div>
+            <div>Patiëntnummer</div>
+            <div>{{ patient.identifiers[0].value }}</div>
+            <div>Datum</div>
+            <div>{{ encounter.date }}</div>
+            <p>Geachte collega,</p>
+            <p>Bovengenoemde patiënt werd op de polikliniek beoordeeld.</p>
+            <h2>Reden van komst</h2>
+            <p>{{ encounter.reason }}</p>
+            <h2>Samenvatting van de notitie</h2>
+            {{ form.readable_html }}
+            <p>Met collegiale groet,</p>
+            <div>{{ author.display }}</div>
+            <div>Doctor · Urologie</div>
+            <div>AZP</div>
+            <div>Correspondentiebrief · Afdeling Urologie</div>
+            <div>Vertrouwelijke medische informatie</div>
+        """
+
+        compiled_html, compiled_text = compile_correspondence_html(
+            compilation_id=uuid4(),
+            compiled_at=timezone.now(),
+            template_data=template_data,
+            context=context,
+            provenance={"contract": "test"},
+        )
+
+        self.assertTrue(compiled_text.startswith("Geachte collega,"))
+        self.assertIn("Bovengenoemde patiënt", compiled_text)
+        self.assertIn("Urineretentie", compiled_text)
+        self.assertEqual(compiled_text.count("Klinische notitie"), 1)
+        self.assertIn("Met collegiale groet,", compiled_text)
+        for server_owned_value in (
+            "Academisch Ziekenhuis Paramaribo",
+            "Flustraat 1",
+            "Patiëntnummer",
+            "+597000000",
+            "Synthetic Clinician",
+            "Vertrouwelijke medische informatie",
+        ):
+            self.assertNotIn(server_owned_value, compiled_text)
+            self.assertNotIn(server_owned_value, compiled_html)
 
     def test_readable_form_prefers_the_final_clinical_note_without_identifiers(self):
         rendered = str(
