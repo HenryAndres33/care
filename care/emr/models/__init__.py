@@ -45,3 +45,5 @@ from .tag_config import *  # noqa F403
 from .valueset import *  # noqa F403
 from care.emr.models.emergency_admission import EmergencyAdmission
 from care.emr.models.operation_plan import OperationPlan
+
+from care.emr.models.form_submission_lab import FormSubmissionLabLink

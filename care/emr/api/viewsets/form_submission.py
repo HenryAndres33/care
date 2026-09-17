@@ -69,6 +69,7 @@ from care.emr.resources.form_submission.commands import (
     canonical_form_submission_create_hash,
     finalized_form_submission_snapshot_hash,
 )
+from care.emr.resources.form_submission.note_labs import register_note_labs
 from care.emr.resources.form_submission.spec import (
     FormSubmissionReadSpec,
     FormSubmissionStatusChoices,
@@ -320,6 +321,7 @@ class FormSubmissionViewSet(
                     updated_by=request.user,
                 )
                 submission.save(force_insert=True)
+                register_note_labs(submission, request.user)
                 FormSubmissionCommand.objects.create(
                     client_request_id=request_spec.client_request_id,
                     payload_hash=payload_hash,
@@ -717,6 +719,7 @@ class FormSubmissionViewSet(
         if target.status != FormSubmissionStatusChoices.draft.value:
             return self._raise_non_draft_conflict()
         target.response_dump = request_spec.response_dump
+        register_note_labs(target, self.request.user)
         target.resource_version += 1
         target.updated_by = self.request.user
         target.save(
@@ -1188,6 +1191,7 @@ class FormSubmissionViewSet(
             return self._raise_immutable_conflict()
         if target.status != FormSubmissionStatusChoices.draft.value:
             return self._raise_non_draft_conflict()
+        register_note_labs(target, self.request.user, finalize=True)
         target.status = FormSubmissionStatusChoices.submitted.value
         target.resource_version += 1
         target.workflow_finalized_at = timezone.now()
@@ -1234,6 +1238,7 @@ class FormSubmissionViewSet(
         )
         result.finalized_snapshot_hash = finalized_form_submission_snapshot_hash(result)
         result.save(force_insert=True)
+        register_note_labs(result, self.request.user, finalize=True)
         try:
             clone_structured_clinical_action_links(
                 source=target,

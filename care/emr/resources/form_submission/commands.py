@@ -15,6 +15,7 @@ from care.emr.resources.form_submission.spec import FormSubmissionReadSpec
 class FormSubmissionCommandSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    note_lab_contract: Literal["v1"] | None = None
     client_request_id: UUID4
     expected_version: PositiveInt
     patient: UUID4
@@ -25,6 +26,7 @@ class FormSubmissionCommandSpec(BaseModel):
 class CreateDraftFormSubmissionSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    note_lab_contract: Literal["v1"] | None = None
     client_request_id: UUID4
     encounter: UUID4 | None = None
     form_instance_id: UUID4
@@ -75,7 +77,13 @@ def canonical_form_submission_command_hash(
         "command": command_type,
         "contract": "form-submission-command-v1",
         "payload": request_spec.model_dump(
-            mode="python", exclude={"client_request_id"}
+            mode="python",
+            exclude={"client_request_id"}
+            | (
+                {"note_lab_contract"}
+                if request_spec.note_lab_contract is None
+                else set()
+            ),
         ),
         "target": target_id,
     }
@@ -92,7 +100,13 @@ def canonical_form_submission_create_hash(
         "command": "create_draft",
         "contract": "form-submission-create-draft-v1",
         "payload": request_spec.model_dump(
-            mode="python", exclude={"client_request_id"}
+            mode="python",
+            exclude={"client_request_id"}
+            | (
+                {"note_lab_contract"}
+                if request_spec.note_lab_contract is None
+                else set()
+            ),
         ),
     }
     return _sha256(canonical_input)
