@@ -83,7 +83,14 @@ class ClinicalTextResourceViewSet(
         return serialize_clinical_text_resource(obj)
 
     def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
+        # Resolve by id and authorize on the stored facility, like update():
+        # single reads carry no ?facility, and get_object() would demand one.
+        instance = get_object_or_404(
+            ClinicalTextResource.objects.select_related(
+                "facility", "created_by", "updated_by"
+            ),
+            external_id=self.kwargs["external_id"],
+        )
         self._authorize_read(instance.facility)
         return Response(serialize_clinical_text_resource(instance))
 

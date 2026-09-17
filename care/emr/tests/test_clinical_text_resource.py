@@ -118,3 +118,24 @@ class TestClinicalTextResourceAPI(CareAPITestBase):
                 external_id=created["id"], deleted=False
             ).exists()
         )
+
+    def test_retrieve_needs_no_facility_query_parameter(self):
+        """The plugin reads a single resource by id before archiving it; that
+        read used to answer 400 "Facility is required" (17 September 2026)."""
+        created = self.client.post(
+            "/api/v1/clinical_text_resource/",
+            self.template_payload(),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        resource_id = created.data["id"]
+
+        fetched = self.client.get(f"/api/v1/clinical_text_resource/{resource_id}/")
+        self.assertEqual(fetched.status_code, 200, fetched.data)
+        self.assertEqual(fetched.data["key"], ".turp")
+        self.assertEqual(fetched.data["facility"], str(self.facility.external_id))
+
+        unknown = self.client.get(
+            "/api/v1/clinical_text_resource/00000000-0000-4000-8000-000000000000/"
+        )
+        self.assertEqual(unknown.status_code, 404)
