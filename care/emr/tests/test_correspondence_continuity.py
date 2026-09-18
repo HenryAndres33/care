@@ -472,9 +472,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
         self.addCleanup(self.refresh_patcher.stop)
         self.addCleanup(self.replacement_refresh_patcher.stop)
         self.revision = self._finalized_revision()
-        self.letter_artifact = ReportUpload.objects.get(
-            correspondence_revision=self.revision
-        )
+        self.letter_artifact = ReportUpload.objects.get(letter_revision=self.revision)
         sent = self.client.post(
             reverse("correspondence-delivery-idempotent-send"),
             self._send_payload(),

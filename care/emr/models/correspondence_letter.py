@@ -58,6 +58,16 @@ class CorrespondenceLetterRevision(EMRBaseModel):
     body_hash = models.CharField(max_length=64)
     revision_hash = models.CharField(max_length=64)
     finalized_at = models.DateTimeField(null=True, blank=True)
+    # The generated PDF for this revision, stored as a CARE ReportUpload. The
+    # link lives here (custom → core) so no core table points at a plug model;
+    # see docs/development/plug-app.md, Phase 2 step 1.
+    final_artifact = models.OneToOneField(
+        "emr.ReportUpload",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="letter_revision",
+    )
     finalized_by = models.ForeignKey(
         "users.User",
         on_delete=models.PROTECT,

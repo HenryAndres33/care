@@ -32,7 +32,6 @@ class ReportUploadListSpec(ReportUploadBaseSpec):
     patient: UUID4 | None = None
     encounter: UUID4 | None = None
     form_submission: UUID4 | None = None
-    correspondence_revision: UUID4 | None = None
     source_version: int | None = None
     source_snapshot_hash: str = ""
     artifact_sha256: str = ""
@@ -52,8 +51,6 @@ class ReportUploadListSpec(ReportUploadBaseSpec):
             mapping["encounter"] = obj.encounter.external_id
         if obj.form_submission_id:
             mapping["form_submission"] = obj.form_submission.external_id
-        if obj.correspondence_revision_id:
-            mapping["correspondence_revision"] = obj.correspondence_revision.external_id
         if obj.generated_by_id:
             mapping["generated_by"] = UserSpec.serialize(obj.generated_by).to_json()
         cls.serialize_audit_users(mapping, obj)

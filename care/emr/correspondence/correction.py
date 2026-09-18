@@ -704,7 +704,7 @@ def paper_attestation_integrity_valid(attestation) -> bool:
     try:
         attempt = attestation.replacement_attempt
         artifact = attestation.controlled_copy_artifact
-        revision = artifact.correspondence_revision
+        revision = getattr(artifact, "letter_revision", None)
         return all(
             [
                 not attestation.deleted,
@@ -740,7 +740,7 @@ def _historical_attestations_integrity_valid(case, attempt_ids, commands) -> boo
         ).select_related(
             "case",
             "replacement_attempt__review",
-            "controlled_copy_artifact__correspondence_revision__letter__review",
+            "controlled_copy_artifact__letter_revision__letter__review",
             "attested_by",
             "created_by",
             "updated_by",
@@ -1058,7 +1058,7 @@ def _materialize_compilation_correction(
         return
     artifact = (
         ReportUpload._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-        .filter(correspondence_revision=revision)
+        .filter(letter_revision=revision)
         .first()
     )
     if not final_revision_frozen_integrity_valid(revision, artifact):
@@ -1400,7 +1400,7 @@ def refresh_correction_case_for_delivery(  # noqa: PLR0912, PLR0915
     )
     artifact = (
         ReportUpload._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-        .filter(correspondence_revision=revision)
+        .filter(letter_revision=revision)
         .first()
     )
     if not final_revision_frozen_integrity_valid(revision, artifact):

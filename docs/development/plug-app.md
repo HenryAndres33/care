@@ -38,11 +38,45 @@ Candidate upstream PR.
 
 ## What deliberately stays in core (this phase)
 
-- **Models and migrations.** All tables stay in `care.emr`; no schema change.
-  Moving them is Phase 2 (plan: keep `db_table`, state-only migrations, relabel
-  content types, rehearse on the isolated test stack first). Blocked until the
-  generated-PDF artifacts get a plug-owned table, because `ReportUpload` has a
-  foreign key to the custom letter-revision model.
+- **Models and migrations.** All tables stay in `care.emr` for now. Moving them
+  is Phase 2 step 2 (keep `db_table`, state-only migrations, relabel content
+  types in place, rehearse on the isolated test stack from a restored dump *and*
+  from an empty database before any real database).
+
+## Phase 2 step 1 (18 September 2026): the artifact link now points custom → core
+
+`ReportUpload.correspondence_revision` (a core table pointing at a plug model)
+is gone. The link is `CorrespondenceLetterRevision.final_artifact`, a one-to-one
+field on the custom revision table pointing at CARE's `ReportUpload`, which
+remains the artifact store: same rows, same IDs, same download endpoints, so the
+frontend is unchanged. Migration `emr.0107_letter_artifact_link_on_revision`
+adds the column, copies the 33 existing links, drops the old column and its
+unique constraint, and merges the two "generated artifact" branches of the
+provenance check constraint (a generated artifact is now recognised by
+`generated_at`, which also drives the immutability guard and the archive
+refusal). It is reversible; the reverse path copies the links back before the
+old constraints are re-created.
+
+Because revisions are append-only, a finalized revision is inserted *after* its
+artifact row, already carrying the link (`_create_revision(commit=False)` +
+`_insert_revision_with_artifact` in the letter viewset; the correction viewset
+uses the same pair).
+
+Rehearsal tooling: `scripts/phase2/rehearse-migration.sh restored <dump>` and
+`... empty` against the isolated test stack, with `scripts/phase2/verify_state.py`
+asserting column presence, 33/33 links, no dangling or duplicate links,
+provenance equality and constraint names. Both passed on 18 September 2026 with
+the pre-phase2 dump (forward, back, forward) and from an empty database.
+
+Test fix in passing: `test_correspondence_correction_migration` pinned "latest"
+to migration 0090 and left the shared test database there for every test that
+ran after it (the cause of the "relation does not exist" noise seen in `make
+test`); it now returns to the graph's real leaf, and its fixture grants the
+questionnaire-submit permission the tightened authorization requires.
+
+**Caution for the laptop dev stack:** `scripts/celery-dev.sh` runs `migrate` on
+start, so restarting the `celery` service applies pending migrations without
+asking.
 - **Mixins that core viewsets import** (`admission_documentation`,
   `emergency_admission`, `doctor_activation`, `clinical_no_store`,
   `operation_plan`): they are part of core patches and move with them or not at all.

@@ -27,6 +27,7 @@ from care.emr.signals.patient.phone_number_identifier import (
 )
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
+from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
 
 
@@ -34,15 +35,22 @@ class TestCorrespondenceCorrectionMigration(TransactionTestCase):
     fake = CareAPITestBase.fake
     migrate_from = ("emr", "0085_correspondence_delivery_ledger")
     migrate_to = ("emr", "0086_correspondence_source_correction")
-    migrate_latest = ("emr", "0090_consult_closure_recovery_resolution")
     reset_sequences = True
+
+    @staticmethod
+    def _migrate_to_latest():
+        # The real leaf of the graph, not a pinned name: pinning 0090 here left
+        # the shared test database at 0090 for every test that ran afterwards
+        # (found 18 September 2026 while adding emr 0107).
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def setUp(self):
         cache.clear()
         FacilityPatientNameIdentifierConfig.CACHED_CONFIG.clear()
         NameIdentifierConfig.CACHED_CONFIG.clear()
         PhoneNumberIdentifierConfig.CACHED_CONFIG.clear()
-        MigrationExecutor(connection).migrate([self.migrate_latest])
+        self._migrate_to_latest()
         self.user = CareAPITestBase.create_user(self)
         self.facility = CareAPITestBase.create_facility(self, user=self.user)
         self.organization = CareAPITestBase.create_facility_organization(
@@ -55,8 +63,13 @@ class TestCorrespondenceCorrectionMigration(TransactionTestCase):
             facility=self.facility,
             organization=self.organization,
         )
+        # Since the form-submission authorization tightening, submitting also
+        # needs `can_submit_questionnaire` in one of the questionnaire's
+        # organizations (same fixture shape as test_form_submission_api).
+        self.questionnaire_organization = CareAPITestBase.create_organization(self)
         self.questionnaire = baker.make(
             Questionnaire,
+            organization_cache=[self.questionnaire_organization.id],
             slug=f"migration-correction-{uuid4()}",
             title="Migration Correction Fixture",
         )
@@ -66,10 +79,14 @@ class TestCorrespondenceCorrectionMigration(TransactionTestCase):
                 PatientPermissions.can_view_clinical_data.name,
                 EncounterPermissions.can_read_encounter_clinical_data.name,
                 EncounterPermissions.can_submit_encounter_questionnaire.name,
+                QuestionnairePermissions.can_submit_questionnaire.name,
             ],
         )
         CareAPITestBase.attach_role_facility_organization_user(
             self, self.organization, self.user, role
+        )
+        CareAPITestBase.attach_role_organization_user(
+            self, self.questionnaire_organization, self.user, role
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -125,7 +142,7 @@ class TestCorrespondenceCorrectionMigration(TransactionTestCase):
         self.command = FormSubmissionCommand.objects.get(command_type="amend")
 
     def tearDown(self):
-        MigrationExecutor(connection).migrate([self.migrate_latest])
+        self._migrate_to_latest()
         super().tearDown()
 
     def _reverse(self):

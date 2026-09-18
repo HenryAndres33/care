@@ -176,9 +176,7 @@ class DischargeDocumentationTests(CorrespondenceReviewTestMixin, CareAPITestBase
         preflight = self.discharge(preflight=True)
         self.assertTrue(preflight.data["ready"])
         self.assertEqual(preflight.data["warning_codes"], [])
-        ReportUpload.objects.filter(correspondence_revision=revision).update(
-            is_archived=True
-        )
+        ReportUpload.objects.filter(letter_revision=revision).update(is_archived=True)
         response = self.discharge()
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(

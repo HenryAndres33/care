@@ -487,9 +487,11 @@ class CorrespondenceCorrectionCaseViewSet(ClinicalNoStoreResponseMixin, EMRBaseV
             version=target.resource_version + 1,
             previous=target,
             status_value="finalized",
+            commit=False,
         )
         artifact = self._build_controlled_copy(case, attempt, revision)
         artifact.save(force_insert=True, skip_internal_name=True)
+        letter_builder._insert_revision_with_artifact(revision, artifact)  # noqa: SLF001
         case.replacement_revision = revision
         case.replacement_artifact = artifact
         case.replacement_status = "finalized"
@@ -936,7 +938,6 @@ class CorrespondenceCorrectionCaseViewSet(ClinicalNoStoreResponseMixin, EMRBaseV
             report_type="encounter_report",
             patient=revision.letter.patient,
             encounter=revision.letter.encounter,
-            correspondence_revision=revision,
             source_version=revision.resource_version,
             source_snapshot_hash=revision.revision_hash,
             generated_at=generated_at,

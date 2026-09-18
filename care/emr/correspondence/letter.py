@@ -39,8 +39,7 @@ def correspondence_revision_frozen_integrity_valid(revision) -> bool:
                 letter.department_id == review.department_id,
                 letter.author_id == review.author_id,
                 correspondence_letter_body_hash(revision.body) == revision.body_hash,
-                correspondence_letter_revision_hash(revision)
-                == revision.revision_hash,
+                correspondence_letter_revision_hash(revision) == revision.revision_hash,
                 audit_valid,
             ]
         )
@@ -91,7 +90,7 @@ def correspondence_revision_actionable(revision, *, expected_status: str) -> boo
 def correspondence_artifact_frozen_integrity_valid(artifact, revision) -> bool:
     return bool(
         artifact
-        and artifact.correspondence_revision_id == revision.id
+        and revision.final_artifact_id == artifact.id
         and artifact.patient_id == revision.letter.patient_id
         and artifact.encounter_id == revision.letter.encounter_id
         and artifact.source_version == revision.resource_version
@@ -104,6 +103,6 @@ def correspondence_artifact_frozen_integrity_valid(artifact, revision) -> bool:
 def _artifact_for_revision(revision):
     return (
         ReportUpload._base_manager.select_related("generated_by")  # noqa: SLF001
-        .filter(correspondence_revision=revision)
+        .filter(letter_revision=revision)
         .first()
     )

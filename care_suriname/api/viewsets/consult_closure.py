@@ -823,9 +823,9 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                     letter__deleted=False,
                     status="finalized",
                     deleted=False,
-                    final_artifacts__deleted=False,
-                    final_artifacts__is_archived=False,
-                    final_artifacts__upload_completed=True,
+                    final_artifact__deleted=False,
+                    final_artifact__is_archived=False,
+                    final_artifact__upload_completed=True,
                 )
                 .order_by("-finalized_at", "-pk")
                 .first()

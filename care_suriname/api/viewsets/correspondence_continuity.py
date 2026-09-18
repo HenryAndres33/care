@@ -379,7 +379,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
         if revision:
             artifact = (
                 ReportUpload._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-                .filter(correspondence_revision=revision)
+                .filter(letter_revision=revision)
                 .first()
             )
             if (

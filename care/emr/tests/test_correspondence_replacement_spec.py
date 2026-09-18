@@ -143,15 +143,15 @@ class TestCorrespondenceCorrectionCommandSpec(TestCase):
             CorrespondenceCorrectionCommandSpec.model_validate(payload)
 
     def test_existing_case_is_locked_before_downstream_correspondence_resources(self):
-        from care_suriname.api.viewsets.correspondence_continuity import (
-            CorrespondenceContinuityViewSet,
-        )
         from care.emr.correspondence.correction import (
             materialize_claimed_correction_outbox,
             refresh_correction_case_for_delivery,
         )
         from care.emr.correspondence.replacement import (
             refresh_replacement_case_for_delivery,
+        )
+        from care_suriname.api.viewsets.correspondence_continuity import (
+            CorrespondenceContinuityViewSet,
         )
 
         continuity = inspect.getsource(

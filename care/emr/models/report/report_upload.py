@@ -12,7 +12,6 @@ from care.utils.models.validators import parse_file_extension
 
 FORM_ARTIFACT_SOURCE_CONSTRAINT = "formartifact_source_version_uniq"
 FORM_ARTIFACT_COMMAND_IDEMPOTENCY_CONSTRAINT = "formartifact_cmd_request_id_uniq"
-CORRESPONDENCE_ARTIFACT_REVISION_CONSTRAINT = "corrartifact_revision_uniq"
 
 
 class ReportUpload(EMRBaseModel):
@@ -50,13 +49,6 @@ class ReportUpload(EMRBaseModel):
         blank=True,
         related_name="printable_artifacts",
     )
-    correspondence_revision = models.ForeignKey(
-        "emr.CorrespondenceLetterRevision",
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="final_artifacts",
-    )
     source_version = models.PositiveIntegerField(null=True, blank=True)
     source_snapshot_hash = models.CharField(max_length=64, default="", blank=True)
     artifact_sha256 = models.CharField(max_length=64, default="", blank=True)
@@ -89,15 +81,11 @@ class ReportUpload(EMRBaseModel):
                 fields=["form_submission", "source_version"],
                 name=FORM_ARTIFACT_SOURCE_CONSTRAINT,
             ),
-            models.UniqueConstraint(
-                fields=["correspondence_revision"],
-                name=CORRESPONDENCE_ARTIFACT_REVISION_CONSTRAINT,
-            ),
             models.CheckConstraint(
                 condition=(
+                    # Plain template report: no provenance at all.
                     models.Q(
                         form_submission__isnull=True,
-                        correspondence_revision__isnull=True,
                         patient__isnull=True,
                         encounter__isnull=True,
                         source_version__isnull=True,
@@ -107,26 +95,11 @@ class ReportUpload(EMRBaseModel):
                         generated_by__isnull=True,
                         template__isnull=False,
                     )
+                    # Generated clinical artifact (finalized form PDF, or a
+                    # correspondence letter PDF linked from
+                    # CorrespondenceLetterRevision.final_artifact).
                     | (
                         models.Q(
-                            form_submission__isnull=False,
-                            correspondence_revision__isnull=True,
-                            patient__isnull=False,
-                            encounter__isnull=False,
-                            source_version__isnull=False,
-                            generated_at__isnull=False,
-                            generated_by__isnull=False,
-                            template__isnull=True,
-                            upload_completed=True,
-                            report_type="encounter_report",
-                        )
-                        & ~models.Q(source_snapshot_hash="")
-                        & ~models.Q(artifact_sha256="")
-                    )
-                    | (
-                        models.Q(
-                            form_submission__isnull=True,
-                            correspondence_revision__isnull=False,
                             patient__isnull=False,
                             encounter__isnull=False,
                             source_version__isnull=False,
@@ -162,20 +135,10 @@ class ReportUpload(EMRBaseModel):
         if self.pk:
             persisted = (
                 self.__class__._base_manager.filter(pk=self.pk)  # noqa: SLF001
-                .only(
-                    "form_submission",
-                    "correspondence_revision",
-                    "upload_completed",
-                )
+                .only("generated_at", "upload_completed")
                 .first()
             )
-            if (
-                persisted
-                and (
-                    persisted.form_submission_id or persisted.correspondence_revision_id
-                )
-                and persisted.upload_completed
-            ):
+            if persisted and persisted.generated_at and persisted.upload_completed:
                 raise ValidationError("Generated clinical artifacts are immutable")
         if (not self.internal_name or not self.id) and not skip_internal_name:
             internal_name = str(uuid4()) + str(int(time.time()))

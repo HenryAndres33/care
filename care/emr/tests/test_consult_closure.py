@@ -12,7 +12,6 @@ from django.utils import timezone
 from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
-from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
 from care.emr.api.viewsets.encounter import EncounterViewSet
 from care.emr.api.viewsets.form_submission import FormSubmissionViewSet
 from care.emr.api.viewsets.location import FacilityLocationEncounterViewSet
@@ -56,6 +55,7 @@ from care.emr.tests.test_correspondence_compilation import (
 )
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
 
 SYNTHETIC_PDF = b"%PDF-1.7\nconsult-closure-correspondence"
 REQUIRED_FORMS = {"urology department": ["generic-correspondence-form"]}
@@ -521,7 +521,7 @@ class ConsultClosureWorkflowTests(
             ),
         ):
             revision = self._finalized_letter_revision()
-            letter_artifact = ReportUpload.objects.get(correspondence_revision=revision)
+            letter_artifact = ReportUpload.objects.get(letter_revision=revision)
             sent = self.client.post(
                 reverse("correspondence-delivery-idempotent-send"),
                 {

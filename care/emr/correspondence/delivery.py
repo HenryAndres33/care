@@ -100,7 +100,7 @@ def lock_and_assert_correspondence_dispatch_current(
     recipient = _lock_instance(CorrespondenceRecipient, review.recipient_id)
     artifact = (
         ReportUpload._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-        .filter(correspondence_revision=revision)
+        .filter(letter_revision=revision)
         .first()
     )
     if not artifact:
@@ -278,7 +278,7 @@ def _delivery_frozen_snapshot_valid(delivery):
             correspondence_letter_body_hash(revision.body) != revision.body_hash,
             correspondence_letter_revision_hash(revision) != revision.revision_hash,
             correspondence_review_hash(review) != review.review_hash,
-            delivery.revision_id != artifact.correspondence_revision_id,
+            revision.final_artifact_id != artifact.id,
             delivery.revision_id != revision.id,
             delivery.review_id != letter.review_id,
             delivery.review_hash != review.review_hash,
@@ -400,7 +400,7 @@ def _assert_revision_current(revision, artifact, review):
             artifact.deleted,
             artifact.is_archived,
             not artifact.upload_completed,
-            artifact.correspondence_revision_id != revision.id,
+            revision.final_artifact_id != artifact.id,
             artifact.patient_id != letter.patient_id,
             artifact.encounter_id != letter.encounter_id,
             artifact.source_version != revision.resource_version,

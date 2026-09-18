@@ -414,7 +414,7 @@ class TestCorrespondenceLetterAPI(
         self.assertEqual(response.status_code, HTTPStatus.CREATED, response.json())
         data = response.json()["correspondence"]
         final = CorrespondenceLetterRevision.objects.get(external_id=data["id"])
-        artifact = ReportUpload.objects.get(correspondence_revision=final)
+        artifact = ReportUpload.objects.get(letter_revision=final)
         self.assertEqual(final.status, "finalized")
         self.assertEqual(final.previous_revision, draft)
         self.assertEqual(final.resource_version, 2)
@@ -446,7 +446,7 @@ class TestCorrespondenceLetterAPI(
             replay.json()["correspondence"]["artifact"]["id"],
         )
         self.assertEqual(
-            ReportUpload.objects.filter(correspondence_revision__isnull=False).count(),
+            ReportUpload.objects.filter(letter_revision__isnull=False).count(),
             1,
         )
         self.assertEqual(CorrespondenceLetterRevision.objects.count(), 2)
@@ -598,7 +598,7 @@ class TestCorrespondenceLetterAPI(
         draft = self._created_revision()
         payload = self._revision_payload(draft)
         self.assertEqual(self._finalize(draft, payload).status_code, HTTPStatus.CREATED)
-        artifact = ReportUpload.objects.get(correspondence_revision__isnull=False)
+        artifact = ReportUpload.objects.get(letter_revision__isnull=False)
         ReportUpload._base_manager.filter(pk=artifact.pk).update(deleted=True)  # noqa: SLF001
 
         replay = self._finalize(draft, payload)
@@ -639,7 +639,7 @@ class TestCorrespondenceLetterAPI(
         blocked = self._finalize(placeholder)
         self.assertEqual(blocked.status_code, HTTPStatus.UNPROCESSABLE_ENTITY)
         self.assertEqual(
-            ReportUpload.objects.filter(correspondence_revision__isnull=False).count(),
+            ReportUpload.objects.filter(letter_revision__isnull=False).count(),
             0,
         )
 
@@ -913,7 +913,7 @@ class TestCorrespondenceLetterAPI(
             0,
         )
         self.assertEqual(
-            ReportUpload.objects.filter(correspondence_revision__isnull=False).count(),
+            ReportUpload.objects.filter(letter_revision__isnull=False).count(),
             0,
         )
 

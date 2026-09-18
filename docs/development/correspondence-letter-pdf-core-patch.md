@@ -18,6 +18,13 @@ authoritative boundaries. It separates clinician-facing content from technical
 audit provenance: revision immutability, hashes, authorization, recipient
 binding, atomic storage and audit records remain unchanged.
 
+## Update 18 September 2026
+
+The artifact link moved: `ReportUpload.correspondence_revision` was replaced by
+`CorrespondenceLetterRevision.final_artifact` (emr 0107), see
+`docs/development/plug-app.md`, Phase 2 step 1. `ReportUpload` remains the
+artifact store; only the direction of the link changed.
+
 ## Touched backend files
 
 - `care/emr/reports/correspondence_letter.py`

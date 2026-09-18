@@ -76,7 +76,6 @@ class ReportUploadViewSet(
                 "patient",
                 "encounter",
                 "form_submission",
-                "correspondence_revision",
                 "generated_by",
                 "created_by",
                 "updated_by",
@@ -179,7 +178,7 @@ class ReportUploadViewSet(
     @action(detail=True, methods=["POST"])
     def archive(self, request, *args, **kwargs):
         obj = self.get_object()
-        if obj.form_submission_id or obj.correspondence_revision_id:
+        if obj.generated_at:
             return Response(
                 {
                     "errors": [

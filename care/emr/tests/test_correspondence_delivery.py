@@ -120,7 +120,7 @@ class TestCorrespondenceDeliveryAPI(
         self.addCleanup(self.get_patcher.stop)
         self.addCleanup(self.enqueue_patcher.stop)
         self.revision = self._finalized_revision()
-        self.artifact = ReportUpload.objects.get(correspondence_revision=self.revision)
+        self.artifact = ReportUpload.objects.get(letter_revision=self.revision)
         self.send_url = reverse("correspondence-delivery-idempotent-send")
 
     def _context(self):
@@ -751,7 +751,7 @@ class TestCorrespondenceDeliveryConcurrency(
             patcher.start()
             self.addCleanup(patcher.stop)
         self.revision = self._finalize_letter()
-        self.artifact = ReportUpload.objects.get(correspondence_revision=self.revision)
+        self.artifact = ReportUpload.objects.get(letter_revision=self.revision)
         self.send_url = reverse("correspondence-delivery-idempotent-send")
 
     def _context(self):
@@ -1044,10 +1044,14 @@ class TestCorrespondenceDeliveryConcurrency(
         self.assertIn(latest.event_type, {"acknowledged", "failed_terminal"})
         if latest.event_type == "acknowledged":
             self.assertEqual(latest.safe_code, "synthetic_ack")
-            self.assertEqual(CorrespondenceSyntheticProviderInvocation.objects.count(), 1)
+            self.assertEqual(
+                CorrespondenceSyntheticProviderInvocation.objects.count(), 1
+            )
         else:
             self.assertEqual(latest.safe_code, "source_not_current")
-            self.assertEqual(CorrespondenceSyntheticProviderInvocation.objects.count(), 0)
+            self.assertEqual(
+                CorrespondenceSyntheticProviderInvocation.objects.count(), 0
+            )
 
     def test_amendment_and_idempotent_send_have_only_two_safe_serial_outcomes(self):
         barrier = Barrier(2)

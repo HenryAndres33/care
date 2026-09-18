@@ -5,9 +5,6 @@ from django.utils import timezone
 from model_bakery import baker
 from rest_framework import status
 
-from care_suriname.extensions.encounter_admission_note import (
-    ADMISSION_NOTE_EXTENSION_NAME,
-)
 from care.emr.models import EncounterOrganization
 from care.emr.models.device import Device, DeviceEncounterHistory
 from care.emr.models.location import FacilityLocation, FacilityLocationEncounter
@@ -20,6 +17,9 @@ from care.emr.resources.location.spec import (
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.extensions.encounter_admission_note import (
+    ADMISSION_NOTE_EXTENSION_NAME,
+)
 
 
 class EncounterAdmissionNoteCommandTests(CareAPITestBase):

@@ -1,12 +1,12 @@
 from django.urls import reverse
 from rest_framework import status
 
+from care.emr.registries.extensions.registry import ExtensionRegistry
+from care.utils.tests.base import CareAPITestBase
 from care_suriname.extensions.encounter_admission_note import (
     ADMISSION_NOTE_EXTENSION_NAME,
     EncounterAdmissionNoteExtension,
 )
-from care.emr.registries.extensions.registry import ExtensionRegistry
-from care.utils.tests.base import CareAPITestBase
 
 
 class EncounterAdmissionNoteExtensionTests(CareAPITestBase):

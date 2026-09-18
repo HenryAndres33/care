@@ -360,9 +360,11 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                         version=target.resource_version + 1,
                         previous=target,
                         status_value="finalized",
+                        commit=False,
                     )
                     uploaded_artifact = self._build_and_upload_artifact(revision)
                     uploaded_artifact.save(force_insert=True, skip_internal_name=True)
+                    self._insert_revision_with_artifact(revision, uploaded_artifact)
                 self._create_command(
                     request_spec,
                     payload_hash,
@@ -533,7 +535,16 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         letter.save(force_insert=True)
         return letter
 
-    def _create_revision(self, letter, *, body, version, previous, status_value):
+    def _create_revision(
+        self, letter, *, body, version, previous, status_value, commit=True
+    ):
+        """Build (and by default insert) an immutable revision.
+
+        Revisions are append-only, so a finalized revision must carry its
+        `final_artifact` at insert time: callers pass `commit=False`, build and
+        save the artifact from the in-memory revision, then insert it with
+        `_insert_revision_with_artifact`.
+        """
         finalized_at = timezone.now() if status_value == "finalized" else None
         revision = CorrespondenceLetterRevision(
             letter=letter,
@@ -549,6 +560,13 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             updated_by=self.request.user,
         )
         revision.revision_hash = correspondence_letter_revision_hash(revision)
+        if commit:
+            revision.save(force_insert=True)
+        return revision
+
+    @staticmethod
+    def _insert_revision_with_artifact(revision, artifact):
+        revision.final_artifact = artifact
         revision.save(force_insert=True)
         return revision
 
@@ -563,7 +581,6 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             report_type="encounter_report",
             patient=revision.letter.patient,
             encounter=revision.letter.encounter,
-            correspondence_revision=revision,
             source_version=revision.resource_version,
             source_snapshot_hash=revision.revision_hash,
             generated_at=generated_at,
@@ -706,7 +723,7 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
     def _artifact_for_revision(revision):
         return (
             ReportUpload._base_manager.select_related("generated_by")  # noqa: SLF001
-            .filter(correspondence_revision=revision)
+            .filter(letter_revision=revision)
             .first()
         )
 
