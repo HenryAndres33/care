@@ -5,7 +5,7 @@ from django.utils import timezone
 from model_bakery import baker
 from rest_framework import status
 
-from care.emr.extensions.encounter_admission_note import (
+from care_suriname.extensions.encounter_admission_note import (
     ADMISSION_NOTE_EXTENSION_NAME,
 )
 from care.emr.models import EncounterOrganization

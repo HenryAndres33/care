@@ -29,7 +29,7 @@ class EncounterDischargeConcurrencyTests(APITransactionTestCase):
     def setUp(self):
         # Exercise command replay/bed locks separately from documentation validation.
         documentation = patch(
-            "care.emr.api.viewsets.encounter_discharge.lock_discharge_documentation",
+            "care_suriname.api.viewsets.encounter_discharge.lock_discharge_documentation",
             return_value=([], None),
         )
         documentation.start()

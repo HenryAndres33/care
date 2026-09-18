@@ -24,8 +24,8 @@ binding, atomic storage and audit records remain unchanged.
 - `care/emr/reports/correspondence_letter_styles.py`
 - `care/emr/reports/correspondence_compiler.py`
 - `care/emr/correspondence/presentation.py`
-- `care/emr/api/viewsets/correspondence.py`
-- `care/emr/api/viewsets/correspondence_review.py`
+- `care_suriname/api/viewsets/correspondence.py`
+- `care_suriname/api/viewsets/correspondence_review.py`
 - `care/emr/models/correspondence_review.py`
 - `care/emr/resources/correspondence.py`
 - `care/emr/resources/correspondence_review.py`
@@ -105,7 +105,7 @@ before replacing this patch. Never move final PDF generation to the browser.
 
 Review changes in:
 
-1. `care/emr/api/viewsets/correspondence_letter.py`;
+1. `care_suriname/api/viewsets/correspondence_letter.py`;
 2. `care/emr/reports/correspondence_letter.py`;
 3. `care/emr/reports/correspondence_compiler.py`;
 4. `care/emr/models/correspondence_letter.py`;
@@ -120,7 +120,7 @@ behoud de bevroren ontvangersnapshot van bestaande brieven.
 
 ```bash
 docker compose exec backend ruff check \
-  care/emr/api/viewsets/correspondence.py \
+  care_suriname/api/viewsets/correspondence.py \
   care/emr/correspondence/presentation.py \
   care/emr/reports/correspondence_compiler.py \
   care/emr/reports/correspondence_letter.py \

@@ -2,7 +2,7 @@
 
 ## Approved unscheduled-emergency extension — 11 September 2026
 
-Owner: CARE Suriname maintainers. Core patch scope: `api/viewsets/consult_closure.py`,
+Owner: CARE Suriname maintainers. Code: `care_suriname/api/viewsets/consult_closure.py` (plug app since 18 September 2026),
 `resources/consult_closure.py`, `models/consult_closure.py`, migration
 `0102_emergency_consult_closure.py`, and `tests/test_consult_closure.py`.
 The frontend's existing closure adapter/validator consumes the extended contract;
@@ -166,7 +166,7 @@ Run:
 
 ```bash
 python manage.py test care.emr.tests.test_consult_closure --keepdb
-ruff check care/emr/models/consult_closure.py care/emr/resources/consult_closure.py care/emr/api/viewsets/consult_closure.py care/emr/tests/test_consult_closure.py
+ruff check care/emr/models/consult_closure.py care/emr/resources/consult_closure.py care_suriname/api/viewsets/consult_closure.py care/emr/tests/test_consult_closure.py
 python manage.py makemigrations --check --dry-run
 python manage.py check
 ```

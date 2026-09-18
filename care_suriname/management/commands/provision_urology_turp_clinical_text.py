@@ -98,7 +98,7 @@ class Command(BaseCommand):
                 )
             )
             return
-        raise CommandError(
+        message = (
             f"Refusing to seed database '{db_name}'.\n\n"
             "This command writes a test fixture. The live Smart Text catalog is "
             "authored through the UI and is the source of truth, so seeding here "
@@ -107,6 +107,7 @@ class Command(BaseCommand):
             f"Permitted databases: {', '.join(sorted(SEEDABLE_DATABASE_NAMES))}.\n"
             "Override deliberately with --allow-non-test-database."
         )
+        raise CommandError(message)
 
     @staticmethod
     def _resolve_facilities(options):

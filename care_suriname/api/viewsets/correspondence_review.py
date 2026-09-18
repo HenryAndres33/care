@@ -104,9 +104,7 @@ class CorrespondenceRecipientViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSe
 
         try:
             with transaction.atomic():
-                if response := self._manual_command_replay(
-                    request_spec, payload_hash
-                ):
+                if response := self._manual_command_replay(request_spec, payload_hash):
                     return response
                 locked_patient = get_object_or_404(
                     Patient._base_manager.select_for_update(of=("self",)),  # noqa: SLF001
@@ -128,9 +126,7 @@ class CorrespondenceRecipientViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSe
                     CorrespondenceRecipient._base_manager.select_for_update(  # noqa: SLF001
                         of=("self",)
                     )
-                    .select_related(
-                        "patient", "facility", "verified_by"
-                    )
+                    .select_related("patient", "facility", "verified_by")
                     .filter(
                         patient=locked_patient,
                         facility=locked_facility,
@@ -187,9 +183,7 @@ class CorrespondenceRecipientViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSe
                 _constraint_name(exc)
                 == CorrespondenceRecipientCommand.IDEMPOTENCY_CONSTRAINT_NAME
             ):
-                if response := self._manual_command_replay(
-                    request_spec, payload_hash
-                ):
+                if response := self._manual_command_replay(request_spec, payload_hash):
                     return response
                 return self._manual_idempotency_conflict()
             raise

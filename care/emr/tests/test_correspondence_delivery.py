@@ -99,7 +99,7 @@ class TestCorrespondenceDeliveryAPI(
             ReportUpload.files_manager, "put_object", return_value={}
         )
         self.render_patcher = patch(
-            "care.emr.api.viewsets.correspondence_letter.render_correspondence_letter_pdf",
+            "care_suriname.api.viewsets.correspondence_letter.render_correspondence_letter_pdf",
             return_value=SYNTHETIC_PDF,
         )
         self.get_patcher = patch.object(
@@ -108,7 +108,7 @@ class TestCorrespondenceDeliveryAPI(
             side_effect=synthetic_artifact_response,
         )
         self.enqueue_patcher = patch(
-            "care.emr.api.viewsets.correspondence_delivery."
+            "care_suriname.api.viewsets.correspondence_delivery."
             "dispatch_correspondence_delivery_attempt.delay"
         )
         self.put_patcher.start()
@@ -636,7 +636,7 @@ class TestCorrespondenceDeliveryAPI(
 
     def test_transaction_rolls_back_if_ledger_creation_fails(self):
         with patch(
-            "care.emr.api.viewsets.correspondence_delivery."
+            "care_suriname.api.viewsets.correspondence_delivery."
             "CorrespondenceDeliveryViewSet._create_attempt",
             side_effect=RuntimeError("synthetic failure"),
         ):
@@ -648,7 +648,7 @@ class TestCorrespondenceDeliveryAPI(
 
     def test_write_authorization_failure_creates_no_delivery(self):
         with patch(
-            "care.emr.api.viewsets.correspondence_delivery.write_report_authorizer",
+            "care_suriname.api.viewsets.correspondence_delivery.write_report_authorizer",
             side_effect=PermissionDenied("denied"),
         ):
             response = self._send()
@@ -733,7 +733,7 @@ class TestCorrespondenceDeliveryConcurrency(
         patches = [
             patch.object(ReportUpload.files_manager, "put_object", return_value={}),
             patch(
-                "care.emr.api.viewsets.correspondence_letter."
+                "care_suriname.api.viewsets.correspondence_letter."
                 "render_correspondence_letter_pdf",
                 return_value=SYNTHETIC_PDF,
             ),
@@ -743,7 +743,7 @@ class TestCorrespondenceDeliveryConcurrency(
                 side_effect=synthetic_artifact_response,
             ),
             patch(
-                "care.emr.api.viewsets.correspondence_delivery."
+                "care_suriname.api.viewsets.correspondence_delivery."
                 "dispatch_correspondence_delivery_attempt.delay"
             ),
         ]

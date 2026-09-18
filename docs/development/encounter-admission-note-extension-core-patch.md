@@ -55,9 +55,9 @@ the registry first would make later writes silently omit the unknown key.
 ## Touched files and upstream review points
 
 - `care/emr/extensions/__init__.py`: startup registration import.
-- `care/emr/extensions/encounter_admission_note.py`: schema and governance metadata.
+- `care_suriname/extensions/encounter_admission_note.py`: schema and governance metadata.
 - `care/emr/resources/encounter/admission_note.py`: exact command request contract.
-- `care/emr/api/viewsets/encounter_admission_note.py`: locked, extension-only
+- `care_suriname/api/viewsets/encounter_admission_note.py`: locked, extension-only
   command implementation.
 - `care/emr/resources/encounter/spec.py`: native list rendering through the
   existing `ExtensionListRenderer` pattern.
@@ -74,7 +74,7 @@ whether unknown extension keys have changed from omission to rejection.
 ## Verification
 
 ```bash
-/.venv/bin/ruff check care/emr/extensions/encounter_admission_note.py \
+/.venv/bin/ruff check care_suriname/extensions/encounter_admission_note.py \
   care/emr/tests/test_encounter_admission_note_extension.py
 /.venv/bin/python manage.py test \
   care.emr.tests.test_encounter_admission_note_extension \

@@ -59,7 +59,7 @@ class DischargeDocumentationTests(CorrespondenceReviewTestMixin, CareAPITestBase
             mock.start()
             self.addCleanup(mock.stop)
         render = patch(
-            "care.emr.api.viewsets.correspondence_letter.render_correspondence_letter_pdf",
+            "care_suriname.api.viewsets.correspondence_letter.render_correspondence_letter_pdf",
             return_value=b"%PDF-1.7\nsynthetic-discharge-letter",
         )
         render.start()

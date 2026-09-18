@@ -7,9 +7,6 @@ from rest_framework.response import Response
 from care.emr.api.viewsets.base import EMRBaseViewSet
 from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.extensions.base import ExtensionResource
-from care.emr.extensions.encounter_admission_note import (
-    ADMISSION_NOTE_EXTENSION_NAME,
-)
 from care.emr.models import Encounter
 from care.emr.registries.extensions.registry import ExtensionRegistry
 from care.emr.resources.encounter.admission_note import (
@@ -20,6 +17,9 @@ from care.emr.resources.encounter.spec import EncounterRetrieveSpec
 from care.emr.workflow_capabilities import WorkflowCapabilityDisabled
 from care.security.authorization import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.extensions.encounter_admission_note import (
+    ADMISSION_NOTE_EXTENSION_NAME,
+)
 
 
 class EncounterAdmissionNoteViewSet(

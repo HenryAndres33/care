@@ -2,7 +2,7 @@ from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 
 from care.audit_log.helpers import exclude_model
-from care.emr.checks import clinical_workflow_deployment_checks
+from care_suriname.checks import clinical_workflow_deployment_checks
 
 
 class TestProductionGate(SimpleTestCase):

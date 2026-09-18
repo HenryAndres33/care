@@ -12,8 +12,6 @@ from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
 from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.api.viewsets.correspondence import CorrespondenceCompilationViewSet
-from care.emr.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
 from care.emr.correspondence.correction import (
     CorrespondenceCorrectionIntegrityError,
     correction_case_integrity_valid,
@@ -99,6 +97,8 @@ from care.emr.workflow_capabilities import (
 )
 from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.correspondence import CorrespondenceCompilationViewSet
+from care_suriname.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
 
 logger = logging.getLogger(__name__)
 

@@ -54,7 +54,7 @@ projection therefore cannot bypass a concurrent discharge.
 - `care/emr/api/viewsets/location.py`
 - `care/emr/api/viewsets/device.py`
 - `care/emr/api/viewsets/form_submission.py`
-- `care/emr/api/viewsets/consult_closure.py`
+- `care_suriname/api/viewsets/consult_closure.py`
 - `care/emr/tests/test_encounter_clinical_closure.py`
 - `care/emr/tests/test_encounter_discharge.py`
 - `care/emr/tests/test_location_api.py`
@@ -105,7 +105,7 @@ docker compose -f docker-compose.yaml -f docker-compose.local.yaml exec -T \
   care/emr/api/viewsets/location.py \
   care/emr/api/viewsets/device.py \
   care/emr/api/viewsets/form_submission.py \
-  care/emr/api/viewsets/consult_closure.py \
+  care_suriname/api/viewsets/consult_closure.py \
   care/emr/tests/test_encounter_clinical_closure.py
 
 docker compose -f docker-compose.yaml -f docker-compose.local.yaml exec -T \

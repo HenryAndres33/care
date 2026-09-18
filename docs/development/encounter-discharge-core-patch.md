@@ -83,7 +83,7 @@ queryable command evidence and may contain clinical advice.
 
 ## Files
 
-- `care/emr/api/viewsets/encounter_discharge.py`
+- `care_suriname/api/viewsets/encounter_discharge.py`
 - `care/emr/resources/encounter/discharge.py`
 - `care/emr/resources/encounter/discharge_state.py`
 - `care/emr/models/encounter_discharge.py`
@@ -96,7 +96,7 @@ queryable command evidence and may contain clinical advice.
 - `care/emr/api/viewsets/location.py`
 - `care/emr/api/viewsets/device.py`
 - `care/emr/api/viewsets/form_submission.py`
-- `care/emr/api/viewsets/consult_closure.py`
+- `care_suriname/api/viewsets/consult_closure.py`
 - `care/emr/tests/test_encounter_clinical_closure.py`
 - `docs/development/encounter-clinical-closure-core-patch.md`
 - `care/emr/models/__init__.py`
@@ -142,7 +142,7 @@ Run from the canonical backend checkout:
 
 ```bash
 docker compose exec backend bash -c "/.venv/bin/ruff check \
-care/emr/api/viewsets/encounter_discharge.py \
+care_suriname/api/viewsets/encounter_discharge.py \
 care/emr/resources/encounter/discharge.py \
 care/emr/resources/encounter/discharge_state.py \
 care/emr/models/encounter_discharge.py \

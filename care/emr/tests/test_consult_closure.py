@@ -12,7 +12,7 @@ from django.utils import timezone
 from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
-from care.emr.api.viewsets.consult_closure import ConsultClosureViewSet
+from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
 from care.emr.api.viewsets.encounter import EncounterViewSet
 from care.emr.api.viewsets.form_submission import FormSubmissionViewSet
 from care.emr.api.viewsets.location import FacilityLocationEncounterViewSet
@@ -511,12 +511,12 @@ class ConsultClosureWorkflowTests(
                 side_effect=self._synthetic_artifact_response,
             ),
             patch(
-                "care.emr.api.viewsets.correspondence_letter."
+                "care_suriname.api.viewsets.correspondence_letter."
                 "render_correspondence_letter_pdf",
                 return_value=SYNTHETIC_PDF,
             ),
             patch(
-                "care.emr.api.viewsets.correspondence_delivery."
+                "care_suriname.api.viewsets.correspondence_delivery."
                 "dispatch_correspondence_delivery_attempt.delay"
             ),
         ):
@@ -857,7 +857,7 @@ class ConsultClosureWorkflowTests(
                 side_effect=self._synthetic_artifact_response,
             ),
             patch(
-                "care.emr.api.viewsets.correspondence_letter."
+                "care_suriname.api.viewsets.correspondence_letter."
                 "render_correspondence_letter_pdf",
                 return_value=SYNTHETIC_PDF,
             ),
@@ -945,11 +945,11 @@ class ConsultClosureWorkflowTests(
         case.refresh_from_db()
         with (
             patch(
-                "care.emr.api.viewsets.consult_closure.correction_case_integrity_valid",
+                "care_suriname.api.viewsets.consult_closure.correction_case_integrity_valid",
                 return_value=True,
             ),
             patch(
-                "care.emr.api.viewsets.consult_closure.latest_delivery_event",
+                "care_suriname.api.viewsets.consult_closure.latest_delivery_event",
                 return_value=SimpleNamespace(certainty="not_delivered"),
             ),
         ):

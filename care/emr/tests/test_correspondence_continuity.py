@@ -431,12 +431,12 @@ class TestCorrespondenceContinuityDeliveredBranch(
             return_value={},
         )
         self.render_patcher = patch(
-            "care.emr.api.viewsets.correspondence_letter."
+            "care_suriname.api.viewsets.correspondence_letter."
             "render_correspondence_letter_pdf",
             return_value=SYNTHETIC_PDF,
         )
         self.correction_render_patcher = patch(
-            "care.emr.api.viewsets.correspondence_correction_case."
+            "care_suriname.api.viewsets.correspondence_correction_case."
             "render_correspondence_letter_pdf",
             return_value=SYNTHETIC_PDF,
         )
@@ -446,7 +446,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
             side_effect=synthetic_artifact_response,
         )
         self.enqueue_patcher = patch(
-            "care.emr.api.viewsets.correspondence_delivery."
+            "care_suriname.api.viewsets.correspondence_delivery."
             "dispatch_correspondence_delivery_attempt.delay"
         )
         self.refresh_patcher = patch(

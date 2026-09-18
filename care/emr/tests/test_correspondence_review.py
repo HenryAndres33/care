@@ -328,7 +328,7 @@ class TestCorrespondenceReviewAPI(
         payload = self._review_payload()
         self.assertEqual(self._bind(payload).status_code, HTTPStatus.CREATED)
         with patch(
-            "care.emr.api.viewsets.correspondence_review.write_report_authorizer",
+            "care_suriname.api.viewsets.correspondence_review.write_report_authorizer",
             side_effect=PermissionDenied("encounter is no longer writable"),
         ):
             exact = self._bind(payload)
@@ -572,7 +572,7 @@ class TestCorrespondenceReviewAPI(
 
         self.client.force_authenticate(user=self.user)
         with patch(
-            "care.emr.api.viewsets.correspondence_review.write_report_authorizer",
+            "care_suriname.api.viewsets.correspondence_review.write_report_authorizer",
             side_effect=PermissionDenied("encounter is not writable"),
         ):
             denied = self._bind()

@@ -584,7 +584,7 @@ class TestCorrespondenceCompilationAPI(
         self.assertEqual(self._compile(payload).status_code, HTTPStatus.CREATED)
 
         with patch(
-            "care.emr.api.viewsets.correspondence.write_report_authorizer",
+            "care_suriname.api.viewsets.correspondence.write_report_authorizer",
             side_effect=PermissionDenied("encounter is no longer writable"),
         ):
             exact = self._compile(payload)

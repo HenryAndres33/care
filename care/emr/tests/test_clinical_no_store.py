@@ -5,19 +5,19 @@ from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 
 from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.api.viewsets.consult_closure import ConsultClosureViewSet
-from care.emr.api.viewsets.correspondence import CorrespondenceCompilationViewSet
-from care.emr.api.viewsets.correspondence_continuity import (
+from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
+from care_suriname.api.viewsets.correspondence import CorrespondenceCompilationViewSet
+from care_suriname.api.viewsets.correspondence_continuity import (
     CorrespondenceContinuityViewSet,
 )
-from care.emr.api.viewsets.correspondence_correction_case import (
+from care_suriname.api.viewsets.correspondence_correction_case import (
     CorrespondenceCorrectionCaseViewSet,
 )
-from care.emr.api.viewsets.correspondence_delivery import (
+from care_suriname.api.viewsets.correspondence_delivery import (
     CorrespondenceDeliveryViewSet,
 )
-from care.emr.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
-from care.emr.api.viewsets.correspondence_review import (
+from care_suriname.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
+from care_suriname.api.viewsets.correspondence_review import (
     CorrespondenceRecipientViewSet,
     CorrespondenceReviewViewSet,
 )

@@ -6,18 +6,6 @@ from care.security.permissions.questionnaire_response_template import (
 
 
 class QuestionnaireResponseTemplateAccess(AuthorizationHandler):
-    def can_read_questionnaire_response_template(self, user, facility=None):
-        permissions = [
-            QuestionnaireResponseTemplatePermissions.can_read_questionnaire_response_template.name
-        ]
-        if facility:
-            return self.check_permission_in_facility_organization(
-                permissions,
-                user,
-                facility=facility,
-            )
-        return self.check_permission_in_organization(permissions, user)
-
     def can_write_questionnaire_response_template(self, user, facility=None):
         """
         Check if the user has permission to write questionnaire response templates in the facility

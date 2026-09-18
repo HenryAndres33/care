@@ -1,3 +1,5 @@
+import importlib.util
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -11,7 +13,6 @@ from drf_spectacular.views import (
 )
 
 from care.users.api.viewsets.change_password import ChangePasswordView
-from care.users.draft_recovery.views import DraftRecoveryKeyView
 from care.users.reset_password_views import (
     ResetPasswordCheck,
     ResetPasswordConfirm,
@@ -63,16 +64,6 @@ urlpatterns = [
         ChangePasswordView.as_view(),
         name="change_password_view",
     ),
-    path(
-        "api/v1/users/me/draft-recovery-key/",
-        DraftRecoveryKeyView.as_view(),
-        name="draft-recovery-key",
-    ),
-    path(
-        "api/v1/users/me/draft-recovery-key/<uuid:key_id>/",
-        DraftRecoveryKeyView.as_view(),
-        name="draft-recovery-key-detail",
-    ),
     path("api/v1/", include(api_router.urlpatterns)),
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
 ]
@@ -121,3 +112,8 @@ if settings.DEBUG or not settings.IS_PRODUCTION:
 
 for plug in settings.PLUGIN_APPS:
     urlpatterns += [path(f"api/{plug}/", include(f"{plug}.urls"))]
+    # CARE Suriname seam (docs/development/plug-app.md): a plug that ships a
+    # `v1_urls` module extends the versioned API instead of `api/<plug>/`, so
+    # existing clients keep their URLs. Only paths core does not define.
+    if importlib.util.find_spec(f"{plug}.v1_urls"):
+        urlpatterns += [path("api/v1/", include(f"{plug}.v1_urls"))]

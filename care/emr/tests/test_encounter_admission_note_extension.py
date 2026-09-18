@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import status
 
-from care.emr.extensions.encounter_admission_note import (
+from care_suriname.extensions.encounter_admission_note import (
     ADMISSION_NOTE_EXTENSION_NAME,
     EncounterAdmissionNoteExtension,
 )

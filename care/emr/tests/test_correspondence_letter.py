@@ -62,7 +62,7 @@ class TestCorrespondenceLetterAPI(
             ReportUpload.files_manager, "delete_object", return_value={}
         )
         self.render_patcher = patch(
-            "care.emr.api.viewsets.correspondence_letter.render_correspondence_letter_pdf",
+            "care_suriname.api.viewsets.correspondence_letter.render_correspondence_letter_pdf",
             return_value=b"%PDF-1.7\nsynthetic-correspondence",
         )
         self.put_object = self.put_patcher.start()
@@ -397,7 +397,7 @@ class TestCorrespondenceLetterAPI(
         self.assertEqual(self._create(payload).status_code, HTTPStatus.CREATED)
 
         with patch(
-            "care.emr.api.viewsets.correspondence_letter.write_report_authorizer",
+            "care_suriname.api.viewsets.correspondence_letter.write_report_authorizer",
             side_effect=PermissionDenied("encounter is no longer writable"),
         ):
             replay = self._create(payload)
@@ -529,7 +529,7 @@ class TestCorrespondenceLetterAPI(
 
     def test_current_author_and_write_permission_are_rechecked_for_new_mutations(self):
         with patch(
-            "care.emr.api.viewsets.correspondence_letter.write_report_authorizer",
+            "care_suriname.api.viewsets.correspondence_letter.write_report_authorizer",
             side_effect=PermissionDenied("closed encounter"),
         ):
             denied = self._create()
