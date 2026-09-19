@@ -10,9 +10,6 @@ from django.test import SimpleTestCase
 # Audited at db5051c64368310fcf8622cb119a1d541e3ec513. Any change requires
 # reclassifying the dependency in the final backend separation audit.
 EXPECTED_IMPORTS = {
-    "care/emr/api/viewsets/condition.py": {
-        "care_suriname.resources.condition_idempotency"
-    },
     "care/emr/api/viewsets/encounter.py": {
         "care_suriname.api.viewsets.admission_documentation",
         "care_suriname.api.viewsets.emergency_admission",

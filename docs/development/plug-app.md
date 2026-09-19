@@ -7,12 +7,12 @@ tag `backup/pre-plug-app-2026-09-18`, `output/backups/care-pre-plug-app-2026-09-
 ## Current closure status — 19 September 2026
 
 **Custom model ownership is complete; full implementation separation is not.**
-After the directory/constants and policy batches, there are 35 plugin models,
-11 native production files importing the plugin (27 statements), and 37 modified
-non-test Python files under care/config. Diagnosis, form/artifact and medication
-command orchestration still contain custom implementation in native CARE.
-They are not all unavoidable safety hooks. Five/eight audited behavior clusters
-are implemented; this is not a claim that the backend is 100% separated.
+After the directory/constants, policy and diagnosis-command batches, there are
+35 plugin models, 10 native production files importing the plugin (26 statements),
+and 37 modified non-test Python files under care/config. Form/artifact and
+medication command orchestration still contain custom implementation in native
+CARE. Six/eight audited behavior clusters are implemented; this is not a claim
+that the backend is 100% separated.
 
 See the [final decision and verification](2026-09-19-final-backend-separation-audit.md)
 and [exact path/hunk inventory](2026-09-19-final-backend-separation-hunks.md).
@@ -395,3 +395,14 @@ authorization safeguards and deployment configuration still remain intentional.
 No additional native file became byte-identical to fork in this batch; eight
 previously restored files remain identical. Full backend behavior separation is
 still incomplete. See [exact evidence and limitations](2026-09-19-policy-ownership.md).
+
+## Diagnosis action contribution — 19 September 2026
+
+`plugs/viewset_actions.py` is a generic optional action contribution decorator.
+It allows a single lazy plain-class provider, forbids overriding host methods,
+rejects nonliteral action paths and duplicate/reserved reverse names, and leaves
+the native class identical when no provider exists. DRF owns the router ordering,
+parent parameters, authentication, schema and aliases. The diagnosis command
+uses this seam; its implementation no longer lives in native CARE. This is an
+upstream PR candidate, not a specialty-specific priority rule. See the
+[diagnosis report](2026-09-19-diagnosis-command-ownership.md).

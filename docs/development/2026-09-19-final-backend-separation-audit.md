@@ -299,3 +299,19 @@ viewsets. Five/eight explicit backlog clusters are closed (62.5% of that backlog
 outside care/config is separately accounted in the
 [policy batch report](2026-09-19-policy-ownership.md), including the reproduced
 baseline permission-test failure and synthetic browser audit artifact.
+
+## Subsequent diagnosis-command correction — 19 September 2026
+
+The command action and replay helper moved from native condition.py to plugin
+ownership without changing their ASTs. The native host retains a generic action
+decorator plus its existing CRUD/auth/write-safety methods. Native plugin imports
+are now 10 files/26 statements. Native care/config non-test Python remains 37
+files (config/settings/test.py is excluded consistently); current hunk metrics
+and verification are in the [batch report](2026-09-19-diagnosis-command-ownership.md).
+The earlier inventories remain historical evidence.
+
+F implementation incidence is now two native viewsets: medication_request and
+form_submission. Six/eight finite backlog clusters are closed (75% of that
+backlog, not a weighted whole-backend percentage). Full separation remains
+incomplete. The reproduced native diagnosis/symptom authorization failures are
+unresolved and must not be read as certified safe by this extraction.

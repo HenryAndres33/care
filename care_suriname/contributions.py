@@ -12,7 +12,14 @@ def expand_valueset(valueset, request_params):
     return expand(valueset, request_params)
 
 
+def diagnosis_actions():
+    from care_suriname.api.viewsets.diagnosis_commands import DiagnosisCommandActions
+
+    return DiagnosisCommandActions
+
+
 CONTRIBUTIONS = {
+    "viewset_actions:diagnosis": diagnosis_actions,
     "valueset_expand": expand_valueset,
     "condition_clinical_domain": ClinicalDomainChoices,
     "preference_schemas": PREFERENCE_SCHEMAS,

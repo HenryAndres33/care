@@ -125,3 +125,13 @@ fallbacks; no native file directly imports these policies. Condition's existing
 column/default and all API schemas remain unchanged, with zero migration drift.
 Core command orchestration remains a separate batch; see the
 [policy verification and handoff](../docs/development/2026-09-19-policy-ownership.md).
+
+## Diagnosis command ownership — 19 September 2026
+
+The plugin now owns the diagnosis idempotent-create action and replay helper in
+`api/viewsets/diagnosis_commands.py`. The native nested router still registers
+the action through the generic `plugs.viewset_actions.with_contributed_actions`
+seam; native CRUD, authorization and write safety remain inherited unchanged.
+No broader route priority or plugin-specific native import is needed. See the
+[command contract](resources/DIAGNOSIS_COMMANDS.md) and
+[verification report](../docs/development/2026-09-19-diagnosis-command-ownership.md).
