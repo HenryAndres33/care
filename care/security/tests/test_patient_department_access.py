@@ -11,7 +11,8 @@ class PatientDepartmentAccessTest(CareAPITestBase):
 
     def setUp(self):
         self.user = self.create_user()
-        self.facility = self.create_facility(user=self.user)
+        # Grant actor permissions explicitly; facility creation grants admin.
+        self.facility = self.create_facility(user=self.create_user())
         self.department = self.create_facility_organization(facility=self.facility)
         self.other_department = self.create_facility_organization(
             facility=self.facility

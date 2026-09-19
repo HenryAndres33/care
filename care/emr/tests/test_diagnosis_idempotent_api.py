@@ -10,7 +10,8 @@ from care.utils.tests.base import CareAPITestBase
 class TestDiagnosisUpdateAuthorizationRegression(CareAPITestBase):
     def test_read_only_user_cannot_update_chronic_condition(self):
         user = self.create_user()
-        facility = self.create_facility(user=user)
+        # The actor must not inherit the facility creator's admin role.
+        facility = self.create_facility(user=self.create_user())
         organization = self.create_facility_organization(facility=facility)
         patient = self.create_patient()
         encounter = self.create_encounter(

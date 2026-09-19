@@ -1,5 +1,12 @@
 # Final backend separation audit — 19 September 2026
 
+> **SUPERSEDED HISTORICAL AUDIT — not the current ownership decision.**
+> Final source `0ed1b6e10ac1a7692f6114cc8647306ce2a43d9d` reached 100% source
+> ownership under the documented exception definition. Use the
+> [final patient-access closure report](2026-09-19-patient-access-ownership.md) and
+> [current complete hunk inventory](2026-09-19-ownership-closure-hunks.md).
+> Remaining-work statements and counts below apply only to the audited revision.
+
 ## Decision
 
 **Not 100% complete under the full implementation-separation definition.** The

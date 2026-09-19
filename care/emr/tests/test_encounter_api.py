@@ -34,7 +34,8 @@ class EncounterAPITests(CareAPITestBase):
         super().setUp()
         self.user = self.create_user()
         self.superuser = self.create_super_user()
-        self.facility = self.create_facility(user=self.user)
+        # Grant actor permissions explicitly; facility creation grants admin.
+        self.facility = self.create_facility(user=self.create_user())
         self.patient = self.create_patient(name="John Doe", phone_number="123-465-7890")
         self.facility_organization = self.create_facility_organization(
             facility=self.facility
@@ -704,7 +705,8 @@ class EncounterOrganizationAPITests(CareAPITestBase):
     def setUp(self):
         super().setUp()
         self.user = self.create_user()
-        self.facility = self.create_facility(user=self.user)
+        # Grant actor permissions explicitly; facility creation grants admin.
+        self.facility = self.create_facility(user=self.create_user())
         self.patient = self.create_patient()
         self.facility_organization = self.create_facility_organization(
             facility=self.facility
@@ -881,6 +883,12 @@ class EncounterOrganizationAPITests(CareAPITestBase):
     def test_add_care_team_member_with_permissions(self):
         self.get_role_with_permissions()
         new_user = self.create_user()
+        nominee_role = self.create_role_with_permissions(
+            permissions=[EncounterPermissions.can_read_encounter.name]
+        )
+        self.attach_role_facility_organization_user(
+            self.facility_organization, new_user, nominee_role
+        )
         path = "set_care_team_members"
         response = self.client.post(
             self._get_detail_url(path),
@@ -919,6 +927,12 @@ class EncounterOrganizationAPITests(CareAPITestBase):
     def test_add_duplicate_user_care_team_member(self):
         self.get_role_with_permissions()
         new_user = self.create_user()
+        nominee_role = self.create_role_with_permissions(
+            permissions=[EncounterPermissions.can_read_encounter.name]
+        )
+        self.attach_role_facility_organization_user(
+            self.facility_organization, new_user, nominee_role
+        )
         path = "set_care_team_members"
         response = self.client.post(
             self._get_detail_url(path),
@@ -945,6 +959,7 @@ class EncounterOrganizationAPITests(CareAPITestBase):
         role = self.create_role_with_permissions(
             permissions=[
                 EncounterPermissions.can_write_encounter.name,
+                EncounterPermissions.can_read_encounter.name,
                 PatientPermissions.can_view_clinical_data.name,
             ]
         )

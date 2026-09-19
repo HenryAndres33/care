@@ -2,20 +2,25 @@
 
 `care_suriname` contains backend behavior that belongs to the Suriname deployment rather than native CARE. It is loaded through CARE's plug mechanism and is the backend companion to `care_fe/src/Plugins/urology/`.
 
-## Current state
+## Current state — 19 September 2026
 
-The extraction baseline is backend commit `5d79daccc` (Phase 2 step 3).
+Final source: `0ed1b6e10ac1a7692f6114cc8647306ce2a43d9d`.
+**Backend source ownership is 100% under the documented definition.** All 35
+custom models and all identified custom workflow and policy implementations are
+plugin-owned, including completed-department patient scope. Native source retains
+individually documented native-table/write safeguards, small integration calls,
+generic seams/fixes, configuration and immutable applied migration history.
 
-It includes:
+This does not mean unmodified upstream, zero plugin imports, independent packaging,
+deployment, clinical acceptance or authorization certification. The frozen native
+allowlist contains twelve imports in ten files. The final source gate had 16
+baseline failures; their [current triage](../docs/development/2026-09-19-backend-cleanup-triage.md)
+is separate from the ownership conclusion.
 
-- custom API endpoints while retaining their existing `/api/v1/` addresses;
-- correspondence and admission-note extensions;
-- periodic correspondence tasks and management commands;
-- deployment checks;
-- Suriname-specific authorization methods; and
-- migration `emr 0107`, which reverses the letter-artifact relationship so no native CARE model points at a custom model.
-
-Phase 2 step 2 (`572771c63`) moved the 34 custom models with pinned tables and state-only migrations; step 3 moved the custom code modules. The final held note-lab modules now live in `resources/form_submission/`, with their contract in [NOTE_LABS.md](resources/form_submission/NOTE_LABS.md). This code-only move requires no migration. Deployment remains a separate action; see the dated extraction evidence in the development documentation.
+Use the [final closure report](../docs/development/2026-09-19-patient-access-ownership.md),
+[current hunk inventory](../docs/development/2026-09-19-ownership-closure-hunks.md)
+and [operational guide](../docs/development/plug-app.md). Phase 1/2 implementation
+chronology is preserved in the [history archive](../docs/development/plug-app-implementation-history.md).
 
 ## Boundary rules
 
@@ -42,8 +47,8 @@ Registration must happen through the plug's `AppConfig` and documented CARE exte
 The main areas are:
 
 - `api/` — Suriname API viewsets, serializers, and URL registration;
-- `authorization/` — additional permission methods;
-- `checks/` — deployment and configuration checks;
+- `authorization.py` — additional permission methods;
+- `checks.py` — deployment and configuration checks;
 - `extensions/` — CARE extension registrations;
 - `draft_recovery/` — owner-bound encrypted-draft key release and authentication proof;
 - `management/commands/` — operational commands;
@@ -91,7 +96,12 @@ The known serial concurrency-test failure must only be treated as pre-existing w
 
 Operational details and the migration rehearsal procedure are in [`docs/development/plug-app.md`](../docs/development/plug-app.md). The exact frontend/backend compatibility baseline and deployment state are recorded in [`care_fe/docs/plugin-compatibility.md`](../../care_fe/docs/plugin-compatibility.md).
 
-## Patient directory and command constants — 19 September 2026
+## Historical extraction notes — 19 September 2026
+
+The following dated entries describe successive intermediate revisions. Their
+remaining-work statements are superseded by the current state above.
+
+### Patient directory and command constants
 
 The existing read-only `/api/v1/patient/directory/` now belongs to
 `api/viewsets/patient_directory.py`, with request/identity types in
@@ -115,7 +125,7 @@ this code-only batch as a unit (route registration, plugin implementation and
 native removals), never by adding a second directory. No database rollback.
 See [verification and remaining work](../docs/development/2026-09-19-directory-and-constraint-ownership.md).
 
-## Policy ownership — 19 September 2026
+### Policy ownership
 
 Dutch terminology expansion, the recent-patient preference schema, required-form
 department maps and diagnosis-domain vocabulary now live in
@@ -126,7 +136,7 @@ column/default and all API schemas remain unchanged, with zero migration drift.
 Core command orchestration remains a separate batch; see the
 [policy verification and handoff](../docs/development/2026-09-19-policy-ownership.md).
 
-## Diagnosis command ownership — 19 September 2026
+### Diagnosis command ownership
 
 The plugin now owns the diagnosis idempotent-create action and replay helper in
 `api/viewsets/diagnosis_commands.py`. The native nested router still registers
@@ -136,7 +146,7 @@ No broader route priority or plugin-specific native import is needed. See the
 [command contract](resources/DIAGNOSIS_COMMANDS.md) and
 [verification report](../docs/development/2026-09-19-diagnosis-command-ownership.md).
 
-## Medication command ownership — 19 September 2026
+### Medication command ownership
 
 The create/reconcile actions now live in `api/viewsets/medication_commands.py`,
 registered by a lazy contribution through the existing generic action seam.
@@ -145,7 +155,7 @@ are retained. URLs, schema, command identity/hash and side effects are unchanged
 See the [contract](resources/MEDICATION_COMMANDS.md) and
 [verification](../docs/development/2026-09-19-medication-command-ownership.md).
 
-## Form/artifact command ownership — 19 September 2026
+### Form/artifact command ownership
 
 All six form commands now live in [api/viewsets/form_commands](api/viewsets/form_commands/README.md).
 The generic action contribution supports collision-checked method parts and
@@ -156,7 +166,7 @@ compensation semantics are unchanged. See the [batch evidence](../docs/developme
 Completing the eight-item backlog requires a fresh whole-core audit before any
 100% source-separation claim.
 
-## Fresh ownership audit after group 8
+### Historical audit after group 8 (superseded)
 
 The eight planned extractions are complete, including all six form/artifact
 commands. Full source ownership is not yet 100%: native PatientAccess retains
@@ -164,7 +174,7 @@ the custom completed-department role policy. All 35 custom models and command
 engines are plugin-owned; ten native files retain 12 direct integration imports.
 See [fresh decision and remaining work](../docs/development/2026-09-19-post-extraction-ownership-audit.md).
 
-## Source-ownership closure — 19 September 2026
+### Source-ownership closure
 
 The final confirmed custom policy, completed-department patient access, now lives
 in policies/patient_access.py and contributes candidate organizations to native

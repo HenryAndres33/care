@@ -524,7 +524,7 @@ class EncounterViewSet(
                 raise ValidationError({"user": "repeats are not allowed"})
             users.append(user_obj.id)
             if not AuthorizationController.call(
-                "can_view_encounter_obj", request.user, encounter
+                "can_view_encounter_obj", user_obj, encounter
             ):
                 raise PermissionDenied(
                     "Treating doctor does not have permission on encounter"

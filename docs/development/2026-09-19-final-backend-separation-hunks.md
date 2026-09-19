@@ -1,5 +1,12 @@
 # Final backend separation audit: exact diff inventory
 
+> **SUPERSEDED HISTORICAL AUDIT — not the current ownership decision.**
+> Final source `0ed1b6e10ac1a7692f6114cc8647306ce2a43d9d` reached 100% source
+> ownership under the documented exception definition. Use the
+> [final patient-access closure report](2026-09-19-patient-access-ownership.md) and
+> [current complete hunk inventory](2026-09-19-ownership-closure-hunks.md).
+> Remaining-work statements and counts below apply only to the audited revision.
+
 Audited base `ece71a878b3764a476d713a163a2f5515db57581` → HEAD `db5051c64368310fcf8622cb119a1d541e3ec513` on 19 September 2026.
 
 This appendix records every native Python production hunk plus test settings and root plugin wiring. Hunk headers use Git unified-zero old/new coordinates; counts are added/deleted lines, not whole-file ownership. See the [decision report](2026-09-19-final-backend-separation-audit.md) for findings and verification.

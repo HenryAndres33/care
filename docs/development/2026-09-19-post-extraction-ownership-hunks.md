@@ -1,5 +1,12 @@
 # Post-extraction backend ownership: exact hunk inventory
 
+> **SUPERSEDED HISTORICAL AUDIT — not the current ownership decision.**
+> Final source `0ed1b6e10ac1a7692f6114cc8647306ce2a43d9d` reached 100% source
+> ownership under the documented exception definition. Use the
+> [final patient-access closure report](2026-09-19-patient-access-ownership.md) and
+> [current complete hunk inventory](2026-09-19-ownership-closure-hunks.md).
+> Remaining-work statements and counts below apply only to the audited revision.
+
 Pinned fork `ece71a878b3764a476d713a163a2f5515db57581` → audited HEAD `347517ddb34fc1a8170885e4b6b12af3f381114a` (19 September 2026).
 This is the fresh inventory after all eight extraction groups. The earlier
 [inventory](2026-09-19-final-backend-separation-hunks.md) remains historical.

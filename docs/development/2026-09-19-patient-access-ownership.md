@@ -9,8 +9,10 @@ individually documented native-table/write safeguards, small integration calls,
 generic seams/fixes, configuration and immutable applied migration history.
 It does not mean unmodified upstream, zero plugin imports, independently packaged
 release, deployment, clinical acceptance or certification of authorization safety.
-Known baseline permission failures remain unresolved and the browser negative-case
-gap below is explicit.
+The 16 baseline permission failures were later traced to unintended facility-admin
+fixture grants and corrected without changing their assertions. A separate
+care-team nominee authorization defect found during that cleanup is now fixed and
+covered. The browser negative-case gap below remains explicit.
 
 Parent baseline: e6424e8d6f6c679afdd3a1cd5ef9f65bfdb6e583, clean and pushed.
 Fork: ece71a878b3764a476d713a163a2f5515db57581, verified with git merge-base
@@ -130,10 +132,11 @@ No port-4000/shared-service restart, migration or deployment occurred.
 Every remaining native production hunk was reconciled with the prior full review;
 unclaimed runtime hashes prove only the PatientAccess hunk changed in native
 care/config. The [current complete inventory](2026-09-19-ownership-closure-hunks.md)
-records **37 files, 174 hunks, +1,313/−248** versus fork. Test settings, root wiring
+records **37 files, 175 hunks, +1,314/−249** versus fork. Test settings, root wiring
 and four generic plugs modules are separately listed. No unclassified native
 hunk remains. PatientAccess is reclassified from B/F to B/C (generic integration).
-No remaining F implementation was found. Added native classes remain only four
+No remaining F implementation was found. The additional hunk is a generic
+care-team nominee authorization correction suitable for upstream. Added native classes remain only four
 nested model Meta classes and the native FormSubmissionMutableSpec table/API
 contract. No standalone custom production module/model/action engine remains.
 Eight previously restored core paths remain byte-identical to fork.

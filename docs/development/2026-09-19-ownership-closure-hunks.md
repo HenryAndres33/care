@@ -10,8 +10,8 @@ A: native safety/table contract; B: plugin integration; C: generic upstream
 candidate; D: configuration/non-production/history; E: possible redundancy;
 F: embedded custom implementation. Categories overlap and are not percentages.
 
-Native non-test care/config Python: 37 files, 174 hunks,
-+1313/−248. Test settings, root wiring and four generic
+Native non-test care/config Python: 37 files, 175 hunks,
++1314/−249. Test settings, root wiring and four generic
 plugs modules appear separately in the same table. No environment values shown.
 
 ## Source classification
@@ -21,7 +21,7 @@ plugs modules appear separately in the same table. No environment values shown.
 | `care/audit_log/helpers.py` | 6 / 0 | A/C/E | Domain-ledger audit exclusion before normal filters. Existing AUDIT_LOG.models.exclude.models supports equivalent scopes; candidate redundant branch only after configuration/secret-exclusion parity tests. |
 | `care/emr/api/viewsets/condition.py` | 15 / 8 | A/C | Generic additive action registration; native update/retrieve authorization delta remains. Diagnosis command implementation is plugin-owned. |
 | `care/emr/api/viewsets/device.py` | 37 / 26 | A/C | Atomic encounter/device association locks; closed-encounter veto; disassociation end handling. Keep native write protection; upstream transaction/transition hook candidate. |
-| `care/emr/api/viewsets/encounter.py` | 140 / 28 | A/B | Closed encounter filters, locked update/restart/booking and active-inpatient uniqueness; plugin admission mixins and ConsultClosure restart veto. New mixin actions may be remounted; native legacy-write guards cannot simply disappear. |
+| `care/emr/api/viewsets/encounter.py` | 141 / 29 | A/B/C | Closed encounter filters, locked update/restart/booking and active-inpatient uniqueness; plugin admission mixins and ConsultClosure restart veto; generic care-team nominee authorization fix. New mixin actions may be remounted; native legacy-write guards cannot simply disappear. |
 | `care/emr/api/viewsets/form_submission.py` | 186 / 16 | A/B/C | Generic six-action contribution; native draft-only CRUD, read/write authorization, version/immutability guards and locks; plugin no-store integration. No command/ledger/artifact/Urology engine remains. |
 | `care/emr/api/viewsets/location.py` | 78 / 24 | A/C | Lock encounter/location/association before validation and mutation; closed encounter veto and discharge closing. Native safety patch, upstream atomicity candidate. |
 | `care/emr/api/viewsets/medication_request.py` | 68 / 3 | A/B/C | Generic two-action registration; native CRUD encounter locks, authorization and closed-write veto; plugin no-store. Command/prescription orchestration is plugin-owned; native shared prescription helper remains. |
@@ -98,7 +98,7 @@ plugs modules appear separately in the same table. No environment values shown.
 
 ### `care/emr/api/viewsets/encounter.py`
 
-+140/−28; 17 hunks; 549 source lines.
++141/−29; 18 hunks; 549 source lines.
 
 ```diff
 @@ -4 +4 @@ from django.conf import settings
@@ -118,6 +118,7 @@ plugs modules appear separately in the same table. No environment values shown.
 @@ -179,2 +273,0 @@ class EncounterViewSet(
 @@ -261,5 +354,9 @@ class EncounterViewSet(
 @@ -267,10 +364,25 @@ class EncounterViewSet(
+@@ -415 +527 @@ class EncounterViewSet(
 ```
 
 ### `care/emr/api/viewsets/form_submission.py`
