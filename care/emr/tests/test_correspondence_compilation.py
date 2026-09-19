@@ -26,9 +26,6 @@ from care.emr.models.questionnaire import (
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.models.report.template import Template
 from care.emr.models.tag_config import TagConfig
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
@@ -55,6 +52,9 @@ from care_suriname.reports.correspondence_compiler import (
 from care_suriname.resources.correspondence import (
     CompileCorrespondenceSpec,
     canonical_correspondence_command_hash_v1,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 

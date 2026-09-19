@@ -1,8 +1,5 @@
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import FacilityOrganizationUser
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
 from care_suriname.correspondence.author import (
     InvalidVerifiedAuthorError,
@@ -13,6 +10,9 @@ from care_suriname.reports.template_versioning import calculate_template_content
 from care_suriname.resources.correspondence import canonical_sha256
 from care_suriname.resources.correspondence_correction import (
     form_submission_series_head_hash,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 SHA256_LENGTH = 64

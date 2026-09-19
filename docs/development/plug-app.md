@@ -212,3 +212,36 @@ Deliberately left in core, with the reason:
 
 After step 3 the custom code under `care/` is those two exceptions plus the
 core patches documented in `docs/development/*-core-patch.md`.
+
+
+## Final note-lab extraction — 19 September 2026
+
+The step-3 held-file exception above is historical and is now closed. The four
+files moved with `git mv` to `care_suriname/resources/form_submission/`:
+`commands.py`, `note_labs.py`, `note_lab_text.py`, `NOTE_LABS.md`. Three custom
+note-lab test modules also moved to `care_suriname/tests/`. Existing dirty v3
+compact/unknown-date changes were preserved; two reproduced parser defects were
+fixed to match frontend `f6b8953c` (legacy heading and malformed-row rejection).
+
+The core `care/emr/api/viewsets/form_submission.py` remains an intentional safety
+patch. Its two imports now resolve directly to the plug; the transaction,
+authorization, expected-version and command call sites are unchanged. There is
+no safe registration hook that can enforce these atomic invariants outside that
+native command transaction. A future generic transactional hook is an upstream
+candidate, not an implemented seam. The set of exceptional native production
+files has not expanded. Plugin callers and adjacent core tests import the new
+paths directly; no compatibility module remains at the old paths.
+
+No migration, model, content type, Celery task name, API URL or draft-recovery
+change. The users-app draft-recovery decision and the enumerated native safety
+patches remain separate. Verification, limitations and handoff:
+[2026-09-19-note-lab-extraction.md](2026-09-19-note-lab-extraction.md).
+
+Inventory correction: the abbreviated step-3 list omitted the already-existing
+`care/emr/api/viewsets/report/report_upload.py` import of the clinical no-store
+mixin. The complete unchanged production-core import file set is ten:
+`api/viewsets/{condition,encounter,form_submission,medication_request,user,valueset}.py`,
+`api/viewsets/scheduling/{booking,schedule}.py`,
+`api/viewsets/report/report_upload.py`, and `models/report/template.py`
+(all under `care/emr/`). The report no-store safeguard is an existing patch,
+not a dependency introduced by the note-lab extraction.

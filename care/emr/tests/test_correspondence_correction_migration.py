@@ -13,9 +13,6 @@ from care.emr.models.questionnaire import (
     FormSubmission,
     Questionnaire,
 )
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
@@ -30,6 +27,9 @@ from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
 from care_suriname.models.form_submission_command import (
     FormSubmissionCommand,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 

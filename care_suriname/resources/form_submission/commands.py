@@ -15,7 +15,7 @@ from care.emr.resources.form_submission.spec import FormSubmissionReadSpec
 class FormSubmissionCommandSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    note_lab_contract: Literal["v1"] | None = None
+    note_lab_contract: Literal["v1", "v2", "v3"] | None = None
     client_request_id: UUID4
     expected_version: PositiveInt
     patient: UUID4
@@ -26,7 +26,7 @@ class FormSubmissionCommandSpec(BaseModel):
 class CreateDraftFormSubmissionSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    note_lab_contract: Literal["v1"] | None = None
+    note_lab_contract: Literal["v1", "v2", "v3"] | None = None
     client_request_id: UUID4
     encounter: UUID4 | None = None
     form_instance_id: UUID4

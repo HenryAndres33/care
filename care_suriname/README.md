@@ -4,7 +4,7 @@
 
 ## Current state
 
-The committed baseline is backend commit `799c8bb84`.
+The extraction baseline is backend commit `5d79daccc` (Phase 2 step 3).
 
 It includes:
 
@@ -15,7 +15,7 @@ It includes:
 - Suriname-specific authorization methods; and
 - migration `emr 0107`, which reverses the letter-artifact relationship so no native CARE model points at a custom model.
 
-The model extraction in Phase 2 step 2 is currently being developed in the working tree. Until that work is committed and its migration is deliberately applied, the 34 custom model classes and their database state must be treated as transitional. Do not infer deployment state from files visible in an uncommitted worktree.
+Phase 2 step 2 (`572771c63`) moved the 34 custom models with pinned tables and state-only migrations; step 3 moved the custom code modules. The final held note-lab modules now live in `resources/form_submission/`, with their contract in [NOTE_LABS.md](resources/form_submission/NOTE_LABS.md). This code-only move requires no migration. Deployment remains a separate action; see the dated extraction evidence in the development documentation.
 
 ## Boundary rules
 
@@ -46,11 +46,12 @@ The main areas are:
 - `checks/` — deployment and configuration checks;
 - `extensions/` — CARE extension registrations;
 - `management/commands/` — operational commands;
-- `migrations/` — plug-owned migration state when the model move is complete;
-- `models/` — plug-owned models when the model move is complete; and
+- `migrations/` — plug-owned migration state;
+- `models/` — plug-owned models;
+- `resources/form_submission/` — custom command contracts and note-lab parsing/registration; and
 - `tasks/` — Celery tasks and periodic scans.
 
-Some paths may be transitional while Phase 2 is uncommitted. Use Git history and the migration plan rather than moving or deleting those files independently.
+The documented native safety patches and users-app draft-recovery decision remain separate. Use Git history and the migration plan rather than moving or deleting those files independently.
 
 ## Database and migration rules
 

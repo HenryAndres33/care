@@ -32,18 +32,6 @@ from care.emr.reports.authorizers.utils import (
     write_report_authorizer,
 )
 from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
-from care.emr.resources.form_submission.commands import (
-    AmendFormSubmissionSpec,
-    CreateDraftFormSubmissionSpec,
-    EnterFormSubmissionInErrorSpec,
-    FinalizeFormSubmissionSpec,
-    FormSubmissionCommandResponseSpec,
-    UpdateDraftFormSubmissionSpec,
-    canonical_form_submission_command_hash,
-    canonical_form_submission_create_hash,
-    finalized_form_submission_snapshot_hash,
-)
-from care.emr.resources.form_submission.note_labs import register_note_labs
 from care.emr.resources.form_submission.spec import (
     FormSubmissionReadSpec,
     FormSubmissionStatusChoices,
@@ -84,6 +72,18 @@ from care_suriname.resources.form_submission.artifact import (
     canonical_artifact_command_hash,
     has_unresolved_placeholder,
 )
+from care_suriname.resources.form_submission.commands import (
+    AmendFormSubmissionSpec,
+    CreateDraftFormSubmissionSpec,
+    EnterFormSubmissionInErrorSpec,
+    FinalizeFormSubmissionSpec,
+    FormSubmissionCommandResponseSpec,
+    UpdateDraftFormSubmissionSpec,
+    canonical_form_submission_command_hash,
+    canonical_form_submission_create_hash,
+    finalized_form_submission_snapshot_hash,
+)
+from care_suriname.resources.form_submission.note_labs import register_note_labs
 from care_suriname.resources.form_submission.structured_actions import (
     InvalidStructuredClinicalActionLink,
     clone_structured_clinical_action_links,

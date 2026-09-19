@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from care.emr.models.diagnostic_report import DiagnosticReport
 from care.emr.models.observation import Observation
-from care.emr.tests.test_form_submission_note_labs import TEXT, NoteLabCommandTests
+from care_suriname.tests.test_form_submission_note_labs import TEXT, NoteLabCommandTests
 
 
 class NoteLabStressTests(NoteLabCommandTests):

@@ -1,10 +1,11 @@
 # Notes to native laboratory results (17 September 2026)
 
 Owner-approved additive extension. FormSubmission command transactions register
-explicit, opt-in `Gekoppeld laboratorium:` rows on manual save or finalization.
+explicit, opt-in `Labuitslagen:` rows on manual save or finalization.
 Ordinary prose is never mined for results. Autosave (`register_note_labs=false`)
-preserves input only. New clients send `note_lab_contract=v1`; old servers reject
-that unknown command field, preventing a false success with note-only persistence.
+preserves input only. New clients send `note_lab_contract=v3`; the server still
+accepts v1/v2 for saved legacy and transitional notes. Old servers reject that unknown command field,
+preventing a false success with note-only persistence.
 The optional marker is omitted from legacy command hashes when absent.
 
 Clinical storage remains native ServiceRequest → DiagnosticReport → Observation.
@@ -15,8 +16,9 @@ and diagnostic-report write permissions are required. No privilege is added.
 
 Content starts with initial/current total PSA (LOINC 2857-1, UCUM ug/L) and total
 testosterone (LOINC 14913-8, UCUM nmol/L; https://loinc.org/14913-8/).
-Unknown/not measured creates no observation. Numeric rows require an explicit
-measurement date; source is optional and defaults to manual-note provenance; no reference ranges or interpretation are
+Unknown/not measured values create no observation. Numeric rows require a declared
+measurement date (v3 also permits an explicit unknown date); source is optional
+and defaults to manual-note provenance. No reference ranges or interpretation are
 invented. Native effective_datetime uses midnight America/Paramaribo solely as a
 date carrier, explicitly annotated “tijd onbekend”. The chart uses that date.
 
@@ -55,3 +57,39 @@ No unit conversion, eGFR calculation, reference intervals or clinical inference.
 Deploy the additive frontend/backend catalogs together. Existing rows and links
 remain unchanged. Once new rows exist, retain support on rollback so saved notes
 remain readable/finalizable. No migration is required.
+
+## Compact group date — 17 September 2026
+
+V3 notes use a natural `Labuitslagen:` heading, one group-level
+`Afnamedatum: JJJJ-MM-DD`, and consecutive
+supported value/unit rows. The parser stops at the first non-lab line, so no
+technical start or end marker is visible. V1 end-delimited rows and v2 compact
+rows with the technical start marker remain supported for already saved notes
+and immutable link verification. Natural per-row-date rows remain supported for
+the existing PSA SmartText.
+
+`Afnamedatum: onbekend` is stored truthfully: ServiceRequest occurrence and
+Observation effective_datetime remain null, while native provenance states
+`Afnamedatum onbekend.`. Existing dossier projection renders its unknown-date
+label; graph code omits the undated point. No current date is substituted. Deploy
+the backend before or with the v3 frontend; older servers reject the v3 command
+field atomically.
+
+## Plugin ownership — 19 September 2026
+
+Commands, parser, registration and this contract live in
+`care_suriname/resources/form_submission/`; the three note-lab test modules live
+in `care_suriname/tests/`. No native compatibility shim remains. The existing
+native FormSubmission viewset imports this registration service inside its
+serialized create/update/finalize/amend commands: it is the already documented
+write-time safety exception, not a new routing or permission mechanism.
+
+Legacy descriptive `Labuitslagen: ...` headings before a technical block remain
+readable. A malformed supported row (for example `CRP:7.4 mg/L`) rejects the whole
+command instead of silently registering the preceding rows. Ordinary following
+prose still ends compact blocks. Regression tests cover both cases.
+
+PDF and correspondence paths use stored note text and the same finalized
+snapshot hash; they do not parse laboratory rows independently. URLs, command
+names, idempotency hashes, native identifiers and permission checks are unchanged.
+No task, model, schema or content-type changes are part of this extraction.

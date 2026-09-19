@@ -18,9 +18,6 @@ from care.emr.models.questionnaire import FormSubmission, Questionnaire
 from care.emr.models.report.report_upload import (
     ReportUpload,
 )
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
@@ -41,6 +38,9 @@ from care_suriname.models.form_submission_artifact_command import (
 from care_suriname.reports.form_submission_artifact import (
     build_form_submission_artifact_html,
     render_form_submission_artifact_pdf,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 

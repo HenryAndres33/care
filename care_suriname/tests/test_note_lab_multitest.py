@@ -1,21 +1,20 @@
 """Requested multi-analyte stress data uses the normal note command contract."""
 
 from care.emr.models.observation import Observation
-from care.emr.resources.form_submission.note_lab_text import TESTS
-from care.emr.tests.test_form_submission_note_labs import NoteLabCommandTests
+from care_suriname.resources.form_submission.note_lab_text import TESTS
+from care_suriname.tests.test_form_submission_note_labs import NoteLabCommandTests
 
 
 class MultiTestNoteLabs(NoteLabCommandTests):
     def test_multi_analyte_native_identity_units_and_repeat_saves(self):
         self.allow_labs()
         rows = [
-            f"{slot}: {index + 1},5 {spec[3]}; afnamedatum: 2025-01-01"
+            f"{slot}: {index + 1},5 {spec[3]}"
             for index, (slot, spec) in enumerate(TESTS.items())
         ]
         text = (
-            "Gekoppeld laboratorium:\n"
+            "Labuitslagen: alle ondersteunde testen\nAfnamedatum: 2025-01-01\n"
             + "\n".join(rows)
-            + "\nEinde gekoppeld laboratorium."
         )
         for _ in range(5):
             response = self.update(self.dump(text))
@@ -46,3 +45,15 @@ class MultiTestNoteLabs(NoteLabCommandTests):
             response = self.update(self.dump(text))
             self.assertEqual(response.status_code, 400, response.data)
             self.assertEqual(Observation.objects.count(), 0)
+
+    def test_malformed_compact_row_rolls_back_the_complete_command(self):
+        self.allow_labs()
+        response = self.update(
+            self.dump(
+                "Labuitslagen:\nAfnamedatum: 2026-09-17\nNatrium: 140 mmol/L\nCRP:7.4 mg/L"
+            )
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.resource_version, 1)
+        self.assertEqual(Observation.objects.count(), 0)

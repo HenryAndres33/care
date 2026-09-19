@@ -29,9 +29,6 @@ from care.emr.resources.encounter.constants import (
     CLINICALLY_CLOSED_CHOICES,
     StatusChoices,
 )
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.scheduling.slot.spec import BookingStatusChoices
 from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.security.authorization.base import AuthorizationController
@@ -92,6 +89,9 @@ from care_suriname.resources.consult_closure import (
     consult_closure_snapshot_hash,
 )
 from care_suriname.resources.form_submission.artifact import has_unresolved_placeholder
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
+)
 from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 logger = logging.getLogger(__name__)

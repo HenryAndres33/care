@@ -6,16 +6,16 @@ from zoneinfo import ZoneInfo
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from care.emr.models.diagnostic_report import DiagnosticReport
-from care_suriname.models.form_submission_lab import FormSubmissionLabLink
 from care.emr.models.observation import Observation
 from care.emr.models.service_request import ServiceRequest
-from care.emr.resources.form_submission.note_lab_text import (
+from care.security.authorization.base import AuthorizationController
+from care_suriname.models.form_submission_lab import FormSubmissionLabLink
+from care_suriname.resources.form_submission.note_lab_text import (
     DEFAULT_SOURCE,
     REGISTER_FIELD,
     TESTS,
     parse_note_labs,
 )
-from care.security.authorization.base import AuthorizationController
 
 LAB_CATEGORY = {
     "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
@@ -65,6 +65,13 @@ def register_note_labs(submission, actor, *, finalize=False):
             raise ValidationError("De gekoppelde labuitslag moet worden gecontroleerd.")
         observation = Observation.objects.filter(diagnostic_report=link.report).first()
         code, _, unit_code, _ = TESTS[row.slot]
+        observed_date = (
+            observation.effective_datetime.astimezone(
+                ZoneInfo("America/Paramaribo")
+            ).date()
+            if observation and observation.effective_datetime
+            else None
+        )
         if (
             not observation
             or observation.status != "final"
@@ -73,11 +80,7 @@ def register_note_labs(submission, actor, *, finalize=False):
             or observation.main_code.get("code") != code
             or observation.value.get("value") != row.value
             or observation.value.get("unit", {}).get("code") != unit_code
-            or not observation.effective_datetime
-            or observation.effective_datetime.astimezone(
-                ZoneInfo("America/Paramaribo")
-            ).date()
-            != row.measured
+            or observed_date != row.measured
         ):
             raise ValidationError(
                 "De native labuitslag wijkt af; controleer de koppeling."
@@ -92,12 +95,20 @@ def _create_result(submission, actor, row):
     encounter = submission.encounter
     code, display, unit_code, unit_display = TESTS[row.slot]
     coding = {"system": "http://loinc.org", "code": code, "display": display}
-    # Native CARE requires datetime; the visible provenance explicitly says date-only.
-    measured = datetime.combine(row.measured, time.min, ZoneInfo("America/Paramaribo"))
+    measured = (
+        datetime.combine(row.measured, time.min, ZoneInfo("America/Paramaribo"))
+        if row.measured
+        else None
+    )
+    measured_provenance = (
+        f"Afnamedatum: {row.measured.isoformat()} (tijd onbekend)."
+        if row.measured
+        else "Afnamedatum onbekend."
+    )
     provenance = (
         f"{row.slot}. "
         f"{row.source if row.source == DEFAULT_SOURCE else f'Externe uitslag; bron: {row.source}'}. "
-        f"Afnamedatum: {row.measured.isoformat()} (tijd onbekend). "
+        f"{measured_provenance} "
         f"Bronnotitie: {submission.external_id}."
     )
     request = ServiceRequest(

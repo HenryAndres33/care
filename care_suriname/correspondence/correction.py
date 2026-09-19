@@ -7,9 +7,6 @@ from django.utils import timezone
 
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
 from care_suriname.correspondence.letter import (
     correspondence_revision_artifact_status,
@@ -60,6 +57,9 @@ from care_suriname.resources.correspondence_replacement import (
     correspondence_correction_command_hash,
     correspondence_paper_attestation_hash,
     correspondence_replacement_attempt_hash,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 MAX_AFFECTED_CORRESPONDENCE_BRANCHES = 500

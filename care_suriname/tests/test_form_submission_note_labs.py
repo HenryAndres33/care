@@ -7,17 +7,17 @@ from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
 from care.emr.models.diagnostic_report import DiagnosticReport
-from care_suriname.models.form_submission_lab import FormSubmissionLabLink
 from care.emr.models.observation import Observation
 from care.emr.models.questionnaire import FormSubmission, Questionnaire
 from care.emr.models.service_request import ServiceRequest
-from care.emr.resources.form_submission.note_lab_text import parse_note_labs
 from care.security.permissions.diagnostic_report import DiagnosticReportPermissions
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.security.permissions.service_request import ServiceRequestPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.form_submission_lab import FormSubmissionLabLink
+from care_suriname.resources.form_submission.note_lab_text import parse_note_labs
 
 TEXT = """DEMO-SIM-NOTE-LABS; software simulation, not actual care.
 Gekoppeld laboratorium:
@@ -25,9 +25,28 @@ PSA initieel: 6 µg/L; afnamedatum: 2025-01-01; bron: DEMO extern lab
 PSA actueel: 8 µg/L; afnamedatum: 2025-02-01; bron: DEMO extern lab
 Testosteron actueel: 12,5 nmol/L; afnamedatum: 2025-02-01; bron: DEMO extern lab
 Einde gekoppeld laboratorium."""
+COMPACT_TEXT = """Labuitslagen: PSA actueel, Testosteron actueel
+Afnamedatum: 2025-02-01
+PSA actueel: 8 µg/L
+Testosteron actueel: 12,5 nmol/L
+
+Beleid:
+Controle."""
 
 
 class NoteLabTextTests(SimpleTestCase):
+    def test_legacy_descriptive_heading_preserves_rows_and_fingerprints(self):
+        self.assertEqual(
+            parse_note_labs("Labuitslagen: extern\n" + TEXT), parse_note_labs(TEXT)
+        )
+
+    def test_malformed_supported_row_never_partially_parses(self):
+        for prefix in ("", "Natrium: 140 mmol/L\n"):
+            with self.subTest(prefix=prefix), self.assertRaises(ValidationError):
+                parse_note_labs(
+                    "Labuitslagen:\nAfnamedatum: 2026-09-17\n" + prefix + "CRP:7.4 mg/L"
+                )
+
     def test_only_opted_in_rows_are_read(self):
         self.assertEqual(parse_note_labs("PSA was 8; follow up later"), [])
         rows = parse_note_labs(TEXT)
@@ -72,6 +91,31 @@ class NoteLabTextTests(SimpleTestCase):
             parse_note_labs(TEXT)[0].fingerprint,
             parse_note_labs(TEXT.replace("6 µg/L", "6,00 µg/L"))[0].fingerprint,
         )
+
+    def test_compact_block_reuses_group_date_and_stops_at_following_prose(self):
+        rows = parse_note_labs(COMPACT_TEXT)
+        self.assertEqual([row.value for row in rows], ["8", "12.5"])
+        self.assertTrue(all(row.measured.isoformat() == "2025-02-01" for row in rows))
+
+    def test_compact_block_allows_truthful_unknown_date(self):
+        [row] = parse_note_labs(
+            "Labuitslagen: CRP\nAfnamedatum: onbekend\nCRP: 7,4 mg/L"
+        )
+        self.assertIsNone(row.measured)
+
+    def test_natural_heading_supports_existing_per_row_psa_dates(self):
+        rows = parse_note_labs(
+            "Labuitslagen:\n"
+            "PSA actueel: 8 µg/L; afnamedatum: 2025-02-01\n\n"
+            "Beleid:\nControle"
+        )
+        self.assertEqual(rows[0].value, "8")
+
+    def test_transitional_compact_start_remains_readable(self):
+        [row] = parse_note_labs(
+            "Gekoppeld laboratorium:\nAfnamedatum: 2025-02-01\nCRP: 7 mg/L"
+        )
+        self.assertEqual(row.value, "7")
 
 
 class NoteLabCommandTests(CareAPITestBase):
@@ -188,6 +232,18 @@ class NoteLabCommandTests(CareAPITestBase):
         self.assertEqual(self.update(self.dump(text)).status_code, 200)
         self.assertEqual(Observation.objects.count(), 3)
 
+    def test_compact_unknown_date_is_native_and_remains_unknown(self):
+        self.allow_labs()
+        text = "Labuitslagen: CRP\nAfnamedatum: onbekend\nCRP: 7,4 mg/L"
+        response = self.update(self.dump(text))
+        self.assertEqual(response.status_code, 200, response.data)
+        observation = Observation.objects.get()
+        self.assertIsNone(observation.effective_datetime)
+        self.assertIn("Afnamedatum onbekend.", observation.note)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.update(self.dump(text)).status_code, 200)
+        self.assertEqual(Observation.objects.count(), 1)
+
     def test_removing_an_existing_explicit_source_is_rejected(self):
         self.allow_labs()
         self.assertEqual(self.update().status_code, 200)
@@ -266,7 +322,7 @@ class NoteLabCommandTests(CareAPITestBase):
         payload = self.command(
             response_dump=self.dump(),
             form_instance_id=str(uuid4()),
-            note_lab_contract="v1",
+            note_lab_contract="v3",
         )
         payload.pop("expected_version")
         url = reverse("form_submission-idempotent-create-draft")

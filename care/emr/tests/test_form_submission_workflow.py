@@ -25,9 +25,6 @@ from care.emr.registries.system_questionnaire.system_questionnaire import (
     InternalQuestionnaireRegistry,
 )
 from care.emr.resources.encounter.constants import StatusChoices
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
@@ -59,6 +56,9 @@ from care_suriname.reports.form_submission_artifact import (
     MAX_SNAPSHOT_NODES,
     MalformedFinalizedSnapshotError,
     validate_response_dump,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 

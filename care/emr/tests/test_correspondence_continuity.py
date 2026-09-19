@@ -9,9 +9,6 @@ from django.utils import timezone
 
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
 from care_suriname.correspondence.correction import (
@@ -37,6 +34,9 @@ from care_suriname.resources.correspondence_continuity import (
     correspondence_continuity_hash,
     correspondence_correction_case_hash,
     correspondence_correction_event_hash,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 from care_suriname.tasks.correspondence_correction import (
     _claim_correction_outbox,

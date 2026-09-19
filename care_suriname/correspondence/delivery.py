@@ -11,9 +11,6 @@ from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import FacilityOrganizationUser
 from care.emr.models.questionnaire import FormSubmission, QuestionnaireResponse
 from care.emr.models.report.report_upload import ReportUpload
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
 from care.security.models import RoleModel
 from care_suriname.correspondence.author import (
     InvalidVerifiedAuthorError,
@@ -50,6 +47,9 @@ from care_suriname.resources.correspondence_delivery import (
 from care_suriname.resources.correspondence_letter import (
     correspondence_letter_body_hash,
     correspondence_letter_revision_hash,
+)
+from care_suriname.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
 )
 
 MAX_DELIVERY_EVENTS = 100
