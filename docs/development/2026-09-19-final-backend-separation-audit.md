@@ -340,3 +340,15 @@ The [batch report](2026-09-19-form-command-ownership.md) records exact gates and
 baseline failures. All 8 finite backlog groups are addressed; a fresh audit of
 every current native delta is still required before a 100% claim. Historical
 inventories above remain evidence at their recorded revisions.
+
+## Fresh post-group-8 audit correction — 19 September 2026
+
+All eight enumerated extraction groups are complete at 347517ddb, but full source
+ownership is **not 100%**: the completed-encounter department role policy still
+lives in native PatientAccess. The earlier B-only classification understated this
+custom read-access implementation; it is now B/F. Current native source metrics:
+37 files, 174 hunks, +1,320/−249; direct plugin imports: ten files/12 statements.
+Four action-mixin imports may now use the existing generic seam; they are not
+proven unavoidable. Historical figures above remain revision-pinned evidence.
+See the [fresh decision](2026-09-19-post-extraction-ownership-audit.md) and
+[current exact inventory](2026-09-19-post-extraction-ownership-hunks.md).

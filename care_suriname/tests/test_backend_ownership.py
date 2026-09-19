@@ -7,7 +7,7 @@ from pathlib import Path
 from django.apps import apps
 from django.test import SimpleTestCase
 
-# Audited at db5051c64368310fcf8622cb119a1d541e3ec513. Any change requires
+# Audited after group 8 at 347517ddb34fc1a8170885e4b6b12af3f381114a. Any change requires
 # reclassifying the dependency in the final backend separation audit.
 EXPECTED_IMPORTS = {
     "care/emr/api/viewsets/encounter.py": {
@@ -86,3 +86,38 @@ class BackendOwnershipTests(SimpleTestCase):
                         "care_suriname",
                         f"{model._meta.label}.{field.name}",
                     )
+
+    def test_native_core_does_not_define_custom_idempotent_actions(self):
+        root = Path(__file__).resolve().parents[2]
+        for path in (root / "care").rglob("*.py"):
+            if {"tests", "migrations"}.intersection(path.parts):
+                continue
+            for node in ast.walk(ast.parse(path.read_text())):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for decorator in node.decorator_list:
+                    if not isinstance(decorator, ast.Call):
+                        continue
+                    for keyword in decorator.keywords:
+                        if keyword.arg == "url_path" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            self.assertFalse(
+                                str(keyword.value.value).startswith("idempotent-"),
+                                f"Custom command reintroduced at {path}:{node.lineno}",
+                            )
+
+    def test_residual_department_policy_is_explicit_and_does_not_spread(self):
+        # This is an acknowledged ownership gap, not a 100% completion claim.
+        root = Path(__file__).resolve().parents[2]
+        consumers = set()
+        for path in (root / "care").rglob("*.py"):
+            if {"tests", "migrations"}.intersection(path.parts):
+                continue
+            for node in ast.walk(ast.parse(path.read_text())):
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr == "PATIENT_DEPARTMENT_LONGITUDINAL_ACCESS_ENABLED"
+                ):
+                    consumers.add(path.relative_to(root).as_posix())
+        self.assertEqual(consumers, {"care/security/authorization/patient.py"})

@@ -155,3 +155,11 @@ no-store response safeguard. URLs, command ledgers, series order, PDF bytes and
 compensation semantics are unchanged. See the [batch evidence](../docs/development/2026-09-19-form-command-ownership.md).
 Completing the eight-item backlog requires a fresh whole-core audit before any
 100% source-separation claim.
+
+## Fresh ownership audit after group 8
+
+The eight planned extractions are complete, including all six form/artifact
+commands. Full source ownership is not yet 100%: native PatientAccess retains
+the custom completed-department role policy. All 35 custom models and command
+engines are plugin-owned; ten native files retain 12 direct integration imports.
+See [fresh decision and remaining work](../docs/development/2026-09-19-post-extraction-ownership-audit.md).

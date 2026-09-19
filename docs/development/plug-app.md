@@ -8,13 +8,14 @@ tag `backup/pre-plug-app-2026-09-18`, `output/backups/care-pre-plug-app-2026-09-
 
 **Custom model ownership is complete; full implementation separation is not.**
 The eight identified implementation groups have been extracted, including all
-six form/artifact commands. A fresh post-extraction ownership audit is required
-before claiming full source separation. There are 35 plugin models and 10 native
+six form/artifact commands. The fresh audit identifies one remaining custom
+implementation: completed-department role policy in native PatientAccess.
+There are 35 plugin models and 10 native
 production files importing the plugin (12 statements). Native safety, generic
 seams, configuration and immutable migration history remain documented.
 
-See the [final decision and verification](2026-09-19-final-backend-separation-audit.md)
-and [exact path/hunk inventory](2026-09-19-final-backend-separation-hunks.md).
+See the [current decision and verification](2026-09-19-post-extraction-ownership-audit.md)
+and [exact path/hunk inventory](2026-09-19-post-extraction-ownership-hunks.md).
 These supersede broad closure statements below without rewriting prior evidence.
 
 ## What it is
@@ -425,3 +426,15 @@ Native form viewset shrinks 1589→264 lines, retaining CRUD/auth/locking/versio
 immutability guards plus no-store. Direct imports fall 10 files/24 statements to
 10/12. See [evidence](2026-09-19-form-command-ownership.md). A fresh closure audit
 follows; backlog completion alone is not proof of full source separation.
+
+## Fresh post-group-8 audit correction — 19 September 2026
+
+All eight enumerated extraction groups are complete at 347517ddb, but full source
+ownership is **not 100%**: the completed-encounter department role policy still
+lives in native PatientAccess. The earlier B-only classification understated this
+custom read-access implementation; it is now B/F. Current native source metrics:
+37 files, 174 hunks, +1,320/−249; direct plugin imports: ten files/12 statements.
+Four action-mixin imports may now use the existing generic seam; they are not
+proven unavoidable. Historical figures above remain revision-pinned evidence.
+See the [fresh decision](2026-09-19-post-extraction-ownership-audit.md) and
+[current exact inventory](2026-09-19-post-extraction-ownership-hunks.md).
