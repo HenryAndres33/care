@@ -4,6 +4,20 @@
 tag `backup/pre-plug-app-2026-09-18`, `output/backups/care-pre-plug-app-2026-09-18/`
 (laptop database dump included).
 
+## Current closure status — 19 September 2026
+
+**Custom model ownership is complete; full implementation separation is not.**
+The final audit finds 35 plugin models, 12 native production files importing the
+plugin (28 statements), and 38 modified non-test Python files under care/config.
+The directory endpoint, custom command orchestration, terminology policy and
+preference schema still contain custom implementation in native CARE. They are
+not all unavoidable safety hooks. Do not interpret the historical phase notes
+below as a claim that the backend is 100% separated.
+
+See the [final decision and verification](2026-09-19-final-backend-separation-audit.md)
+and [exact path/hunk inventory](2026-09-19-final-backend-separation-hunks.md).
+These supersede broad closure statements below without rewriting prior evidence.
+
 ## What it is
 
 `care_suriname/` at the repository root is a Django app loaded through CARE's own
@@ -18,16 +32,17 @@ It carries the Suriname code that plugs into CARE's registration points:
 |---|---|
 | `api/viewsets/*` (clinical text, term translation, correspondence x7, consult closure, workflow capability, admission note, discharge) | `care/emr/api/viewsets/*` |
 | `v1_urls.py` (same prefixes, basenames and names) | `config/api_router.py`, `config/urls.py` |
-| `tasks.py` (four 60 s correspondence scans) | `care/emr/tasks/__init__.py` |
+| `tasks/__init__.py` (four 60 s correspondence scans) | `care/emr/tasks/__init__.py` |
 | `checks.py` (deploy checks E001 to E007) | `care_suriname/checks.py`, imported from `care/emr/apps.py` |
 | `extensions/encounter_admission_note.py` | `care/emr/extensions/` |
 | `authorization.py` (three `can_*` methods, registered as handlers) | `care/security/authorization/{patient,encounter,questionnaire_response_template}.py` |
 | `management/commands/*` (five commands, names unchanged) | `care/emr/management/commands`, `care/users/management/commands` |
 
-Six core files are byte-identical to the upstream fork point again:
+Seven core files are byte-identical to the upstream fork point again:
 `config/api_router.py`, `care/emr/apps.py`, `care/emr/extensions/__init__.py`,
 `care/emr/tasks/__init__.py`, `care/security/authorization/encounter.py`,
-`care/security/authorization/questionnaire_response_template.py`.
+`care/security/authorization/questionnaire_response_template.py`,
+`care/users/models.py`.
 
 ## The one seam (`config/urls.py`)
 
@@ -78,7 +93,10 @@ start, so restarting the `celery` service applies pending migrations without
 asking.
 - **Mixins that core viewsets import** (`admission_documentation`,
   `emergency_admission`, `doctor_activation`, `clinical_no_store`,
-  `operation_plan`): they are part of core patches and move with them or not at all.
+  `operation_plan`): implementation is plugin-owned, but core attaches these
+  mixins. The final audit supersedes the earlier all-or-nothing claim: explicit
+  plugin routes may replace custom action mixins using the existing v1 seam,
+  subject to route/lookup/permission proof. Native safety vetoes remain necessary.
 - **`PatientAccess.find_roles_on_patient`** (completed-encounter access): it cannot
   be a plug override because `care/emr/resources/permissions.py` instantiates
   `PatientAccess` directly.
@@ -300,3 +318,23 @@ Exact rehearsal, backup, laptop application, test and endpoint evidence:
 [2026-09-19-draft-recovery-ownership.md](2026-09-19-draft-recovery-ownership.md).
 No production VM or deployment change. Roll back code and migration state together
 as documented in [the module README](../../care_suriname/draft_recovery/README.md).
+
+
+## Final closure audit correction — 19 September 2026
+
+The [dated final audit](2026-09-19-final-backend-separation-audit.md) distinguishes
+native safety from remaining custom implementation. In particular the first ten
+imports are not uniformly unavoidable: several support separable custom actions,
+and form-submission/diagnosis/medication command orchestration still lives in
+native viewsets. The directory response/request types and endpoint, local
+terminology expansion policy, recent-patient schema, Urology clinical-domain
+vocabulary and two plugin-only constraint constants remain ownership work.
+No runtime patch was removed in the audit. Existing immutable native migrations
+remain historical; current custom model state and future custom model migrations
+belong to the plugin. Native-table changes still require native migrations.
+
+The new database-free `care_suriname.tests.test_backend_ownership` guard pins the
+reviewed import boundary and checks all 35 model/table identities and all native
+apps for forward model relations into the plugin. Together with registration,
+note-lab and draft-recovery ownership checks, the scoped gate has 16 tests. This
+is a bounded ownership gate, not proof that all remaining behavior is separated.
