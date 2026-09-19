@@ -144,3 +144,14 @@ Native medication CRUD, encounter locks, prescription helper and no-store safety
 are retained. URLs, schema, command identity/hash and side effects are unchanged.
 See the [contract](resources/MEDICATION_COMMANDS.md) and
 [verification](../docs/development/2026-09-19-medication-command-ownership.md).
+
+## Form/artifact command ownership — 19 September 2026
+
+All six form commands now live in [api/viewsets/form_commands](api/viewsets/form_commands/README.md).
+The generic action contribution supports collision-checked method parts and
+private static helpers, without replacing native CRUD or safety methods. Native
+form_submission.py retains only generic CRUD/auth/locking/immutability and the
+no-store response safeguard. URLs, command ledgers, series order, PDF bytes and
+compensation semantics are unchanged. See the [batch evidence](../docs/development/2026-09-19-form-command-ownership.md).
+Completing the eight-item backlog requires a fresh whole-core audit before any
+100% source-separation claim.

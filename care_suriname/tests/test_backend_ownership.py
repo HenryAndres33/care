@@ -17,18 +17,6 @@ EXPECTED_IMPORTS = {
     },
     "care/emr/api/viewsets/form_submission.py": {
         "care_suriname.api.viewsets.clinical_no_store",
-        "care_suriname.correspondence.correction",
-        "care_suriname.models.correspondence_correction",
-        "care_suriname.models.form_submission_artifact_command",
-        "care_suriname.models.form_submission_command",
-        "care_suriname.reports.form_submission_artifact",
-        "care_suriname.resources.form_submission.artifact",
-        "care_suriname.resources.form_submission.commands",
-        "care_suriname.resources.form_submission.note_labs",
-        "care_suriname.resources.form_submission.structured_actions",
-        "care_suriname.resources.form_submission.urology_operation",
-        "care_suriname.resources.scheduling.operation_plan",
-        "care_suriname.workflow_capabilities",
     },
     "care/emr/api/viewsets/medication_request.py": {
         "care_suriname.api.viewsets.clinical_no_store",

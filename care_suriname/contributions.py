@@ -24,7 +24,14 @@ def medication_actions():
     return MedicationCommandActions
 
 
+def form_actions():
+    from care_suriname.api.viewsets.form_commands import command_parts
+
+    return command_parts()
+
+
 CONTRIBUTIONS = {
+    "viewset_actions:form_submission": form_actions,
     "viewset_actions:medication_request": medication_actions,
     "viewset_actions:diagnosis": diagnosis_actions,
     "valueset_expand": expand_valueset,

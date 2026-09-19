@@ -11,8 +11,9 @@ from plugs.contributions import single
 def with_contributed_actions(key):
     """Decorate a host viewset with one optional, lazy action-method provider.
 
-    A provider returns a class containing only action methods and private helper
-    methods. Host attributes cannot be overridden. DRF retains responsibility for
+    A provider returns a plain class or tuple of plain classes containing only
+    action methods and private helpers (including static helpers). Host attributes
+    cannot be overridden. DRF retains responsibility for
     action ordering, nested lookup patterns, dispatch, format suffixes and schema.
     """
 
@@ -20,14 +21,17 @@ def with_contributed_actions(key):
         provider = single(f"viewset_actions:{key}", None)
         if provider is None:
             return host
-        methods = provider()
-        if not inspect.isclass(methods) or methods.__bases__ != (object,):
-            raise ImproperlyConfigured("Action provider must return a plain class")
+        provided = provider()
+        parts = provided if isinstance(provided, tuple) else (provided,)
+        if not parts or any(
+            not inspect.isclass(part) or part.__bases__ != (object,) for part in parts
+        ):
+            raise ImproperlyConfigured("Action provider must return plain classes")
         existing = host.get_extra_actions()
         paths = {(method.detail, method.url_path) for method in existing}
         names = {"list", "detail", *(method.url_name for method in existing)}
         additions = {}
-        for name, method in vars(methods).items():
+        for name, descriptor in (item for part in parts for item in vars(part).items()):
             if name in {
                 "__module__",
                 "__doc__",
@@ -38,10 +42,23 @@ def with_contributed_actions(key):
                 "__static_attributes__",
             }:
                 continue
-            if hasattr(host, name) or not inspect.isfunction(method):
+            method = (
+                descriptor.__func__
+                if isinstance(descriptor, staticmethod)
+                else descriptor
+            )
+            if (
+                name in additions
+                or hasattr(host, name)
+                or not inspect.isfunction(method)
+            ):
                 raise ImproperlyConfigured(
                     "Contributed actions cannot replace host attributes"
                 )
+            if isinstance(descriptor, staticmethod) and (
+                not name.startswith("_") or hasattr(method, "mapping")
+            ):
+                raise ImproperlyConfigured("Only private helpers may be static")
             if hasattr(method, "mapping"):
                 if not re.fullmatch(r"[\w-]+(?:/[\w-]+)*", method.url_path):
                     raise ImproperlyConfigured(
@@ -58,7 +75,7 @@ def with_contributed_actions(key):
                 raise ImproperlyConfigured(
                     "Only actions and private helpers may be contributed"
                 )
-            additions[name] = method
+            additions[name] = descriptor
         return type(
             host.__name__,
             (host,),

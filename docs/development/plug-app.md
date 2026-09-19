@@ -7,12 +7,11 @@ tag `backup/pre-plug-app-2026-09-18`, `output/backups/care-pre-plug-app-2026-09-
 ## Current closure status — 19 September 2026
 
 **Custom model ownership is complete; full implementation separation is not.**
-After the directory/constants, policy, diagnosis and medication command batches,
-there are 35 plugin models, 10 native production files importing the plugin
-(24 statements), and 37 modified non-test Python files under care/config.
-Form/artifact command orchestration still contains custom implementation in
-native CARE. Seven/eight audited behavior clusters are implemented; this is not
-a claim that the backend is 100% separated.
+The eight identified implementation groups have been extracted, including all
+six form/artifact commands. A fresh post-extraction ownership audit is required
+before claiming full source separation. There are 35 plugin models and 10 native
+production files importing the plugin (12 statements). Native safety, generic
+seams, configuration and immutable migration history remain documented.
 
 See the [final decision and verification](2026-09-19-final-backend-separation-audit.md)
 and [exact path/hunk inventory](2026-09-19-final-backend-separation-hunks.md).
@@ -415,3 +414,14 @@ legacy CRUD and remains generic. The native no-store mixin import remains an
 intentional response-safety exception, protecting native endpoints too. Direct
 plugin imports fall 10 files/26 statements to10/24. No model/migration/schema or
 route precedence change. See the [batch report](2026-09-19-medication-command-ownership.md).
+
+## Form/artifact action contribution — 19 September 2026
+
+Six commands now register from plugin-owned plain method classes. The generic
+seam accepts a class or nonempty tuple of plain classes and private static
+helpers; it rejects duplicate helper names as well as host overrides and route
+collisions. No provider still returns the original host class. No routing change.
+Native form viewset shrinks 1589→264 lines, retaining CRUD/auth/locking/version and
+immutability guards plus no-store. Direct imports fall 10 files/24 statements to
+10/12. See [evidence](2026-09-19-form-command-ownership.md). A fresh closure audit
+follows; backlog completion alone is not proof of full source separation.

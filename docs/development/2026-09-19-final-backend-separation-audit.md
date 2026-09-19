@@ -329,3 +329,14 @@ hunk inventories above remain pinned to their recorded revisions. The
 [medication report](2026-09-19-medication-command-ownership.md) records exact current
 metrics, baseline failures and verification. Ownership completion does not
 certify unresolved baseline authorization behavior.
+
+## Subsequent form/artifact extraction — 19 September 2026
+
+The final enumerated F group is extracted: all six commands and their series,
+ledger, specialty validation and artifact compensation now belong to
+care_suriname/api/viewsets/form_commands. The native viewset retains generic
+CRUD/write safety and no-store. Core imports are 10 files/12 statements.
+The [batch report](2026-09-19-form-command-ownership.md) records exact gates and
+baseline failures. All 8 finite backlog groups are addressed; a fresh audit of
+every current native delta is still required before a 100% claim. Historical
+inventories above remain evidence at their recorded revisions.

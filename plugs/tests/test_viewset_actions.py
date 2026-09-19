@@ -104,3 +104,33 @@ class ViewsetActionContributionTests(SimpleTestCase):
         for methods in (DuplicateActions, ReservedName):
             with self.assertRaises(ImproperlyConfigured):
                 self.compose(methods)
+
+    def test_multiple_parts_preserve_static_helpers_and_refuse_collisions(self):
+        class Helpers:
+            @staticmethod
+            def _constant():
+                return "unchanged"
+
+        composed = self.compose((ExtraActions, Helpers))
+        self.assertEqual(composed._constant(), "unchanged")  # noqa: SLF001
+        self.assertEqual(composed()._constant(), "unchanged")  # noqa: SLF001
+        self.assertEqual(composed().command(None), "native permission")
+        self.assertIs(composed.list, HostViewSet.list)
+        for parts in ((ExtraActions, ExtraActions), (Helpers, Helpers), (), (object,)):
+            with self.assertRaises(ImproperlyConfigured):
+                self.compose(parts)
+
+    def test_static_public_methods_and_non_method_descriptors_are_rejected(self):
+        class PublicStatic:
+            @staticmethod
+            def execute():
+                return None
+
+        class PropertyHelper:
+            @property
+            def _value(self):
+                return None
+
+        for methods in (PublicStatic, PropertyHelper):
+            with self.assertRaises(ImproperlyConfigured):
+                self.compose(methods)

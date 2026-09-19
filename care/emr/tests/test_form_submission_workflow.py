@@ -558,7 +558,9 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
         finalize_source = self._draft(response_dump=oversized_dump)
         finalize_request_id = str(uuid4())
 
-        with patch("care.emr.api.viewsets.form_submission.validate_response_dump"):
+        with patch(
+            "care_suriname.api.viewsets.form_commands.responses.validate_response_dump"
+        ):
             finalized = self._finalize(
                 finalize_source,
                 client_request_id=finalize_request_id,
@@ -583,7 +585,9 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
             response_dump=oversized_dump,
         )
         amend_url = self._url(amend_source, "idempotent-amend")
-        with patch("care.emr.api.viewsets.form_submission.validate_response_dump"):
+        with patch(
+            "care_suriname.api.viewsets.form_commands.responses.validate_response_dump"
+        ):
             amended = self.client.post(amend_url, amend_payload, format="json")
         amend_replay = self.client.post(amend_url, amend_payload, format="json")
 
@@ -824,7 +828,7 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
         error.__cause__ = cause
 
         with patch(
-            "care.emr.api.viewsets.form_submission.create_finalized_form_series_head",
+            "care_suriname.api.viewsets.form_commands.mutations.create_finalized_form_series_head",
             side_effect=error,
         ):
             response = self._finalize()

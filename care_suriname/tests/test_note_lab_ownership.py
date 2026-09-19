@@ -24,7 +24,7 @@ class NoteLabOwnershipTests(SimpleTestCase):
             (root / "care/emr/resources/form_submission/NOTE_LABS.md").exists()
         )
 
-    def test_only_existing_native_safety_hook_imports_these_modules(self):
+    def test_no_native_implementation_imports_these_modules(self):
         root = Path(__file__).resolve().parents[2]
         consumers = set()
         prefix = "care_suriname.resources.form_submission."
@@ -35,7 +35,7 @@ class NoteLabOwnershipTests(SimpleTestCase):
             for node in ast.walk(ast.parse(path.read_text())):
                 if isinstance(node, ast.ImportFrom) and node.module in names:
                     consumers.add(path.relative_to(root).as_posix())
-        self.assertEqual(consumers, {"care/emr/api/viewsets/form_submission.py"})
+        self.assertEqual(consumers, set())
 
     def test_command_contract_versions_are_preserved(self):
         for spec in (

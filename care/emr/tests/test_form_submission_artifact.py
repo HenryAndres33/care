@@ -102,7 +102,7 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
             ReportUpload.files_manager, "delete_object", return_value={}
         )
         self.render_patcher = patch(
-            "care.emr.api.viewsets.form_submission.render_form_submission_artifact_pdf",
+            "care_suriname.api.viewsets.form_commands.artifact_source.render_form_submission_artifact_pdf",
             return_value=b"%PDF-1.7\nsynthetic-finalized-form",
         )
         self.put_object = self.put_patcher.start()
@@ -869,7 +869,7 @@ class TestFormSubmissionArtifactConcurrency(TransactionTestCase):
             ),
             patch.object(ReportUpload.files_manager, "delete_object", return_value={}),
             patch(
-                "care.emr.api.viewsets.form_submission."
+                "care_suriname.api.viewsets.form_commands.artifact_source."
                 "render_form_submission_artifact_pdf",
                 return_value=b"%PDF-1.7\nconcurrent",
             ),
