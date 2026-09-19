@@ -8,7 +8,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
-from care.emr.management.commands import clinical_workflow_readiness as readiness
+from care_suriname.management.commands import clinical_workflow_readiness as readiness
 
 
 class ClinicalWorkflowReadinessCommandTests(SimpleTestCase):

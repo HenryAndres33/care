@@ -24,13 +24,13 @@ from care.emr.correspondence.delivery_adapters import (
     get_correspondence_delivery_adapter,
     synthetic_delivery_mode,
 )
-from care.emr.models.correspondence_delivery import (
+from care.emr.reports.authorizers.utils import write_report_authorizer
+from care.emr.workflow_capabilities import correspondence_delivery_enabled
+from care_suriname.models.correspondence_delivery import (
     CorrespondenceDelivery,
     CorrespondenceDeliveryAttempt,
     CorrespondenceDeliveryEvent,
 )
-from care.emr.reports.authorizers.utils import write_report_authorizer
-from care.emr.workflow_capabilities import correspondence_delivery_enabled
 
 logger: Logger = get_task_logger(__name__)
 OUTBOX_BATCH_SIZE = 100
@@ -148,9 +148,7 @@ def reconcile_correspondence_delivery_attempt(
     _finalize_reconciliation_lookup(prepared["attempt_id"], outcome=outcome)
 
 
-def _prepare_reconciliation_lookup(  # noqa: PLR0911
-    attempt_external_id, *, automatic
-):
+def _prepare_reconciliation_lookup(attempt_external_id, *, automatic):  # noqa: PLR0911
     with transaction.atomic():
         attempt = _locked_attempt(attempt_external_id)
         if not attempt:
@@ -211,9 +209,7 @@ def _prepare_reconciliation_lookup(  # noqa: PLR0911
 def _finalize_reconciliation_lookup(attempt_id, *, outcome):
     with transaction.atomic():
         attempt = (
-            CorrespondenceDeliveryAttempt._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceDeliveryAttempt._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("delivery__recipient")
             .filter(pk=attempt_id)
             .first()
@@ -360,9 +356,7 @@ def _prepare_claimed_attempt(attempt_id: int):  # noqa: PLR0911
         except CorrespondenceDispatchNotCurrentError as exc:
             source_error = exc
         attempt = (
-            CorrespondenceDeliveryAttempt._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceDeliveryAttempt._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("delivery__recipient")
             .filter(pk=attempt_id)
             .first()
@@ -451,9 +445,7 @@ def _finalize_claimed_attempt(attempt_id: int, *, outcome, provider_started: boo
     """Phase C: append the provider result after the independent provider phase."""
     with transaction.atomic():
         attempt = (
-            CorrespondenceDeliveryAttempt._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceDeliveryAttempt._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("delivery__recipient")
             .filter(pk=attempt_id)
             .first()
@@ -550,9 +542,7 @@ def _preflight_terminal_safe_code(exc):
 
 def _locked_attempt(external_id):
     return (
-        CorrespondenceDeliveryAttempt._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceDeliveryAttempt._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("delivery__recipient")
         .filter(external_id=external_id, deleted=False)
         .first()
@@ -561,9 +551,7 @@ def _locked_attempt(external_id):
 
 def _locked_delivery(delivery_id):
     return (
-        CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "recipient",
             "revision__letter",

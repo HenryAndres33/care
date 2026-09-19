@@ -14,8 +14,8 @@ from pydantic import (
     model_validator,
 )
 
-from care.emr.models.correspondence import CorrespondenceCompilation
 from care.emr.resources.base import EMRResource
+from care_suriname.models.correspondence import CorrespondenceCompilation
 
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 

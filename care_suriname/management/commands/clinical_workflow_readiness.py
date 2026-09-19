@@ -7,10 +7,12 @@ from django.db import connection, models
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
-from care.emr.models.consult_closure import ConsultClosureRecoveryTask
-from care.emr.models.correspondence_correction import CorrespondenceCorrectionOutbox
-from care.emr.models.correspondence_delivery import CorrespondenceDeliveryEvent
 from care.emr.models.questionnaire import FormSubmission
+from care_suriname.models.consult_closure import ConsultClosureRecoveryTask
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionOutbox,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDeliveryEvent
 
 SAFE_CODE_PATTERN = re.compile(r"^[a-z0-9_:-]{1,64}$")
 OUTBOX_OUTSTANDING_STATES = ("pending", "processing", "failed_terminal")

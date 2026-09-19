@@ -11,7 +11,6 @@ from rest_framework.test import APIClient
 
 from care.emr.models.questionnaire import (
     FormSubmission,
-    FormSubmissionCommand,
     Questionnaire,
 )
 from care.emr.resources.form_submission.commands import (
@@ -29,6 +28,9 @@ from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.form_submission_command import (
+    FormSubmissionCommand,
+)
 
 
 class TestCorrespondenceCorrectionMigration(TransactionTestCase):

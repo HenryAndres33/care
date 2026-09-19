@@ -31,5 +31,8 @@ class OperationPlan(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        db_table = "emr_operationplan"
+
     def __str__(self):
         return f"Operation plan for booking {self.booking_id}"

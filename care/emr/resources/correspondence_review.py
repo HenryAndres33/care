@@ -4,12 +4,12 @@ from uuid import UUID
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, PositiveInt, field_validator
 
-from care.emr.models.correspondence_review import (
+from care.emr.resources.base import EMRResource
+from care.emr.resources.correspondence import Sha256, canonical_sha256
+from care_suriname.models.correspondence_review import (
     CorrespondenceRecipient,
     CorrespondenceReview,
 )
-from care.emr.resources.base import EMRResource
-from care.emr.resources.correspondence import Sha256, canonical_sha256
 
 MIN_MANUAL_RECIPIENT_NAME_LENGTH = 2
 

@@ -2,13 +2,13 @@ from care.emr.correspondence.review import (
     reviewed_binding_available,
     reviewed_binding_frozen_integrity_valid,
 )
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.resources.correspondence_letter import (
     correspondence_letter_body_hash,
     correspondence_letter_revision_hash,
 )
 from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 
 SHA256_HEX_LENGTH = 64
 

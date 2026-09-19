@@ -17,7 +17,6 @@ from rest_framework.test import APIClient
 from care.emr.correspondence.correction import create_finalized_form_series_head
 from care.emr.models.questionnaire import FormSubmission, Questionnaire
 from care.emr.models.report.report_upload import (
-    FormSubmissionArtifactCommand,
     ReportUpload,
 )
 from care.emr.reports.form_submission_artifact import (
@@ -40,6 +39,9 @@ from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.security.permissions.template import TemplatePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.form_submission_artifact_command import (
+    FormSubmissionArtifactCommand,
+)
 
 
 class TestFormSubmissionArtifactAPI(CareAPITestBase):
@@ -246,7 +248,7 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.assertNotIn("Patient-safe <script>", html)
 
     def test_admission_slot_note_prints_its_kind_and_admission_date_label(self):
-        from care.emr.models.admission_documentation import AdmissionDocumentation
+        from care_suriname.models.admission_documentation import AdmissionDocumentation
 
         self.encounter.encounter_class = "imp"
         self.encounter.save(update_fields=["encounter_class"])
@@ -267,7 +269,7 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         self.assertNotIn("Consultdatum", html)
 
     def test_dated_visit_slot_prints_visit_note_title(self):
-        from care.emr.models.admission_documentation import AdmissionDocumentation
+        from care_suriname.models.admission_documentation import AdmissionDocumentation
 
         self.encounter.encounter_class = "imp"
         self.encounter.save(update_fields=["encounter_class"])
@@ -577,9 +579,7 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
         payload = self._payload()
         created = self._generate(payload)
         artifact_id = created.json()["artifact"]["id"]
-        ReportUpload._base_manager.filter(external_id=artifact_id).update(  # noqa: SLF001
-            deleted=True
-        )
+        ReportUpload._base_manager.filter(external_id=artifact_id).update(deleted=True)  # noqa: SLF001
 
         replay = self._generate(payload)
 
@@ -591,9 +591,7 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
     def test_deleted_source_replay_fails_closed_and_keeps_key_reserved(self):
         payload = self._payload()
         self.assertEqual(self._generate(payload).status_code, HTTPStatus.CREATED)
-        FormSubmission._base_manager.filter(pk=self.submission.pk).update(  # noqa: SLF001
-            deleted=True
-        )
+        FormSubmission._base_manager.filter(pk=self.submission.pk).update(deleted=True)  # noqa: SLF001
 
         replay = self._generate(payload)
 
@@ -643,10 +641,7 @@ class TestFormSubmissionArtifactAPI(CareAPITestBase):
 
     def test_named_constraints_reserve_keys_and_exact_sources_across_soft_delete(self):
         self._generate()
-        artifact_constraints = {
-            item.name
-            for item in ReportUpload._meta.constraints  # noqa: SLF001
-        }
+        artifact_constraints = {item.name for item in ReportUpload._meta.constraints}  # noqa: SLF001
         command_constraints = {
             item.name
             for item in FormSubmissionArtifactCommand._meta.constraints  # noqa: SLF001

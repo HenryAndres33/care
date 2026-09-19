@@ -5,17 +5,17 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from care.emr.models.correspondence_delivery import (
-    CorrespondenceSyntheticProviderInvocation,
-    CorrespondenceSyntheticProviderReceipt,
-)
-from care.emr.models.correspondence_review import CorrespondenceRecipient
 from care.emr.resources.correspondence import canonical_sha256
 from care.emr.resources.correspondence_delivery import (
     correspondence_synthetic_provider_invocation_hash,
     correspondence_synthetic_provider_receipt_hash,
     correspondence_synthetic_provider_request_hash,
 )
+from care_suriname.models.correspondence_delivery import (
+    CorrespondenceSyntheticProviderInvocation,
+    CorrespondenceSyntheticProviderReceipt,
+)
+from care_suriname.models.correspondence_review import CorrespondenceRecipient
 
 
 class CorrespondenceDeliveryAdapterUnavailableError(ValueError):

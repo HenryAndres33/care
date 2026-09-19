@@ -40,9 +40,7 @@ class EncounterAdmissionNoteViewSet(
 
         with transaction.atomic():
             encounter = get_object_or_404(
-                Encounter._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                ).select_related(
+                Encounter._base_manager.select_for_update(of=("self",)).select_related(  # noqa: SLF001
                     "patient",
                     "facility",
                     "appointment",

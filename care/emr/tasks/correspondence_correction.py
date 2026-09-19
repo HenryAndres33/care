@@ -27,10 +27,10 @@ from care.emr.correspondence.correction import (
 from care.emr.correspondence.replacement import (
     refresh_replacement_case_for_delivery,
 )
-from care.emr.models.correspondence_correction import (
+from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionOutbox,
 )
-from care.emr.models.correspondence_delivery import (
+from care_suriname.models.correspondence_delivery import (
     CorrespondenceDelivery,
     CorrespondenceDeliveryEvent,
 )
@@ -159,7 +159,7 @@ def scan_correspondence_correction_delivery_cases():
 
 @shared_task(ignore_result=True)
 def refresh_correspondence_correction_delivery(delivery_external_id: str):
-    from care.emr.models.correspondence_delivery import CorrespondenceDelivery
+    from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
 
     delivery_id = (
         CorrespondenceDelivery._base_manager.filter(  # noqa: SLF001
@@ -336,9 +336,7 @@ def _release_claim(
 ):
     with transaction.atomic():
         outbox = (
-            CorrespondenceCorrectionOutbox._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCorrectionOutbox._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(
                 pk=outbox_id,
                 status="processing",
@@ -375,9 +373,7 @@ def _release_claim(
 def _terminal_claim(outbox_id, claim_token, *, safe_code):
     with transaction.atomic():
         outbox = (
-            CorrespondenceCorrectionOutbox._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCorrectionOutbox._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(
                 pk=outbox_id,
                 status="processing",

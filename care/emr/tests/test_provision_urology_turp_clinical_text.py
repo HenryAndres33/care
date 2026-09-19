@@ -8,8 +8,8 @@ from care.emr.clinical_text_catalogs.urology_turp import (
     TURP_CLINICAL_TEXT_CATALOG,
     TURP_TEMPLATE_BODY,
 )
-from care.emr.models.clinical_text import ClinicalTextResource
 from care.facility.models import Facility
+from care_suriname.models.clinical_text import ClinicalTextResource
 
 
 class ProvisionUrologyTurpClinicalTextTest(TestCase):

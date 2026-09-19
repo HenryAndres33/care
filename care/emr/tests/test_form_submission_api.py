@@ -14,7 +14,6 @@ from rest_framework.test import APIClient
 
 from care.emr.models.questionnaire import (
     FormSubmission,
-    FormSubmissionCommand,
     Questionnaire,
 )
 from care.emr.resources.encounter.constants import StatusChoices
@@ -30,6 +29,9 @@ from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.form_submission_command import (
+    FormSubmissionCommand,
+)
 
 
 class TestFormSubmissionViewSet(CareAPITestBase):
@@ -433,9 +435,7 @@ class TestFormSubmissionViewSet(CareAPITestBase):
             conflict.json()["errors"][0]["type"],
             "form_submission_instance_conflict",
         )
-        self.assertTrue(
-            FormSubmission._base_manager.filter(pk=existing.pk).exists()  # noqa: SLF001
-        )
+        self.assertTrue(FormSubmission._base_manager.filter(pk=existing.pk).exists())  # noqa: SLF001
 
     def test_legacy_create_cannot_create_submitted_form(self):
         self._grant_patient_submit_permission()

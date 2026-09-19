@@ -42,6 +42,7 @@ class ClinicalTermTranslation(EMRBaseModel):
     is_active = models.BooleanField(default=True)
 
     class Meta:
+        db_table = "emr_clinicaltermtranslation"
         constraints = [
             models.UniqueConstraint(
                 fields=["system", "code", "language"],

@@ -38,10 +38,9 @@ Candidate upstream PR.
 
 ## What deliberately stays in core (this phase)
 
-- **Models and migrations.** All tables stay in `care.emr` for now. Moving them
-  is Phase 2 step 2 (keep `db_table`, state-only migrations, relabel content
-  types in place, rehearse on the isolated test stack from a restored dump *and*
-  from an empty database before any real database).
+- **Columns and constraints on CARE's own tables** (the nine schema migrations
+  0078/0079/0080/0081/0084/0086/0091/0093/0096, plus 0107): these stay in `emr`
+  for good; there is nowhere else they can live.
 
 ## Phase 2 step 1 (18 September 2026): the artifact link now points custom → core
 
@@ -109,3 +108,74 @@ run once without `--parallel` or drop the clones.
 
 `git checkout backup/pre-plug-app-2026-09-18 -- .` restores the previous layout;
 no database action is needed for Phase 1.
+
+## Phase 2 step 2 (18 September 2026): the 34 models move to the plug, state only
+
+**Inventory.** 34 model classes (13 modules under the former `care/emr/models/`
+plus `FormSubmissionCommand` from `questionnaire.py` and
+`FormSubmissionArtifactCommand` from `report/report_upload.py`), 34 tables, 34
+owned sequences, no many-to-many through tables, no generic relations. All now
+live in `care_suriname/models/` with `db_table` pinned to the existing `emr_*`
+name, so every auto-derived index and constraint name is unchanged.
+
+**Migrations, none deleted.** The applied `emr` migrations 0078..0107 are
+untouched and still create the tables on an empty database. Two new
+state-only migrations do the bookkeeping:
+
+- `emr.0108_move_models_to_care_suriname`: `SeparateDatabaseAndState` with the
+  autodetector's RemoveField/RemoveConstraint/RemoveIndex/DeleteModel operations
+  as state operations and **no** database operations.
+- `care_suriname.0001_move_models_to_care_suriname` (depends on `emr.0108`):
+  the matching CreateModel/AddField/AddConstraint/AddIndex operations as state
+  operations, no database operations, then one `RunPython` that relabels the 34
+  content-type rows from `emr` to `care_suriname` **in place** (IDs and the 136
+  attached Django permissions survive). It fails closed: a duplicate row, or a
+  row already present under both labels, raises `ContentTypeRelabelError` and
+  the transaction rolls back with 0001 not recorded. Reverse relabels back.
+
+`sqlmigrate` prints no SQL for either; `makemigrations --check` is clean. The
+dependency direction is plug → core only (the plug's 0001 depends on `emr`).
+
+**Exact sequence a database at emr 0106 (the server) receives:**
+`emr.0107` → `emr.0108` → `care_suriname.0001`. The rehearsal asserts this plan
+textually before applying it.
+
+**Rehearsal (`scripts/phase2/rehearse-step2.sh`, isolated stack only):**
+1. `restored <dump at 0106>`: restore; assert the plan above; apply 0107;
+   snapshot (34 row counts, the full list of `emr_*` tables, the 34 content-type
+   rows, the 136 permission rows) and `pg_dump --schema-only`; apply 0108 +
+   0001; assert the schema dump is **byte-identical** (only pg_dump's per-run
+   session token filtered), row counts and table list unchanged, exactly one
+   content type per model and under `care_suriname`, none left under `emr`,
+   content-type IDs preserved, permission rows identical, `create_contenttypes`
+   + `create_permissions` create nothing, all 34 resolve via
+   `apps.get_model("care_suriname", …)` on their `emr_*` table and none via
+   `emr`, audit-log exclusion resolves the new labels, no stale content types;
+   migrate back to 0107 and assert the mirror image (schema identical again);
+   insert a stray `care_suriname` content type and assert the forward migration
+   aborts with `ContentTypeRelabelError` and is not recorded; remove it and
+   migrate forward again with the full assertion set.
+2. `empty`: migrate from zero, same final assertions.
+
+Both passed on 18 September 2026 against the pre-phase2 dump.
+
+**Code that still imports these models from core files** (the form-submission
+and encounter viewsets, the correspondence services under `care/emr/`) now
+imports from `care_suriname.models`; import lines only. Settings
+`AUDIT_LOG_DOMAIN_LEDGER_MODELS` uses the new labels.
+
+**Operator runbook (laptop, then server):**
+```bash
+bash scripts/care-suriname-backup.sh                     # database + MinIO, first
+python manage.py showmigrations --plan | grep '\[ \]'     # expect 0108, 0001 (server: 0107 first)
+python manage.py migrate --noinput
+python scripts/phase2/verify_state.py snapshot           # only meaningful BEFORE migrate; see rehearsal
+```
+On a live database use the rehearsal order: `snapshot` before `migrate`, then
+`verify_state.py moved` after. Rollback: `migrate care_suriname zero && migrate
+emr 0107` together with checking out the previous commit (the code must roll
+back with the state), or restore the backup set.
+
+**Caution:** rolling back the migrations while keeping the new code running lets
+`post_migrate` create `care_suriname` content types, after which a later forward
+migration fails closed by design. Roll code and state back together.

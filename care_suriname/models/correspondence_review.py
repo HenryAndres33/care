@@ -60,6 +60,7 @@ class CorrespondenceRecipient(EMRBaseModel):
     content_hash = models.CharField(max_length=64, default="", blank=True)
 
     class Meta:
+        db_table = "emr_correspondencerecipient"
         constraints = [
             models.UniqueConstraint(
                 fields=["facility", "patient", "source_type", "source_reference"],
@@ -122,6 +123,7 @@ class CorrespondenceRecipientCommand(EMRBaseModel):
     )
 
     class Meta:
+        db_table = "emr_correspondencerecipientcommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],
@@ -134,7 +136,7 @@ class CorrespondenceReview(EMRBaseModel):
     COMPILATION_CONSTRAINT_NAME = REVIEW_COMPILATION_CONSTRAINT
 
     compilation = models.ForeignKey(
-        "emr.CorrespondenceCompilation",
+        "care_suriname.CorrespondenceCompilation",
         on_delete=models.PROTECT,
         related_name="reviews",
     )
@@ -168,6 +170,7 @@ class CorrespondenceReview(EMRBaseModel):
     status = models.CharField(max_length=32, default="reviewed")
 
     class Meta:
+        db_table = "emr_correspondencereview"
         constraints = [
             models.UniqueConstraint(
                 fields=["compilation"],
@@ -200,7 +203,7 @@ class CorrespondenceReviewCommand(EMRBaseModel):
     payload_hash = models.CharField(max_length=64)
     actor = models.ForeignKey("users.User", on_delete=models.PROTECT)
     compilation = models.ForeignKey(
-        "emr.CorrespondenceCompilation", on_delete=models.PROTECT
+        "care_suriname.CorrespondenceCompilation", on_delete=models.PROTECT
     )
     patient = models.ForeignKey("emr.Patient", on_delete=models.PROTECT)
     encounter = models.ForeignKey("emr.Encounter", on_delete=models.PROTECT)
@@ -211,6 +214,7 @@ class CorrespondenceReviewCommand(EMRBaseModel):
     )
 
     class Meta:
+        db_table = "emr_correspondencereviewcommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],

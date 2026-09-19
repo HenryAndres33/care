@@ -30,19 +30,6 @@ from care.emr.correspondence.source import (
     compilation_frozen_integrity_valid,
     compilation_sources_available,
 )
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionOutbox,
-    CorrespondenceSourceCorrection,
-    FormSubmissionSeriesHead,
-)
-from care.emr.models.correspondence_delivery import CorrespondenceDelivery
-from care.emr.models.correspondence_letter import (
-    CorrespondenceLetter,
-    CorrespondenceLetterRevision,
-)
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.authorizers.utils import (
@@ -57,6 +44,19 @@ from care.emr.resources.correspondence_continuity import (
 )
 from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionOutbox,
+    CorrespondenceSourceCorrection,
+    FormSubmissionSeriesHead,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetter,
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 IN_FLIGHT_DELIVERY_STATES = {
     "dispatch_pending",
@@ -124,16 +124,12 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
 
     def _build_locked_payload(self, compilation_pk):
         series_id = (
-            CorrespondenceCompilation._base_manager.filter(  # noqa: SLF001
-                pk=compilation_pk
-            )
+            CorrespondenceCompilation._base_manager.filter(pk=compilation_pk)  # noqa: SLF001
             .values_list("form_submission__series_id", flat=True)
             .get()
         )
         head = (
-            FormSubmissionSeriesHead._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            FormSubmissionSeriesHead._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("advanced_by")
             .get(series_id=series_id)
         )
@@ -153,9 +149,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
         head.current_submission = current
         case_reference = self._lock_case_reference(compilation_pk)
         compilation = (
-            CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(*self._compilation_related_fields())
             .get(pk=compilation_pk)
         )
@@ -392,9 +386,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
             ):
                 return {"integrity_valid": False}
             delivery = (
-                CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .select_related(
                     "artifact",
                     "recipient",
@@ -489,9 +481,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
     @staticmethod
     def _lock_case_reference(compilation_pk):
         return (
-            CorrespondenceCorrectionCase._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCorrectionCase._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .only("pk")
             .filter(original_compilation_id=compilation_pk)
             .first()
@@ -704,9 +694,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
         )
 
         delivery = (
-            CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(
                 "artifact",
                 "recipient",

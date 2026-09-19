@@ -6,9 +6,14 @@ from django.urls import reverse
 from model_bakery import baker
 
 from care.emr.fhir.resources.code_concept import MinimalCodeConcept
-from care.emr.models import ClinicalTermTranslation, ValueSet
+from care.emr.models import (
+    ValueSet,
+)
 from care.emr.resources.clinical_term_translation import parse_csv_import
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.clinical_term_translation import (
+    ClinicalTermTranslation,
+)
 
 SYSTEM = "http://snomed.info/sct"
 

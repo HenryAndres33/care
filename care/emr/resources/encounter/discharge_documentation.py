@@ -10,9 +10,9 @@ from care.emr.correspondence.correction import (
     lock_current_finalized_form_series,
 )
 from care.emr.correspondence.letter import correspondence_revision_actionable
-from care.emr.models.admission_documentation import AdmissionDocumentation
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
 from care.emr.models.questionnaire import FormSubmission
+from care_suriname.models.admission_documentation import AdmissionDocumentation
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 
 MAX_DISCHARGE_LETTERS = 50
 

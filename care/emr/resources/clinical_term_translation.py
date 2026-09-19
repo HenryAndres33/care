@@ -7,7 +7,7 @@ from typing import Annotated
 from django.db.models import Q
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from care.emr.models.clinical_term_translation import ClinicalTermTranslation
+from care_suriname.models.clinical_term_translation import ClinicalTermTranslation
 
 REGION_SUBTAG_LENGTH = 2
 MAX_CSV_ROWS = 500

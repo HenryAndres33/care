@@ -18,7 +18,7 @@ from healthy_django.healthcheck.django_database import DjangoDatabaseHealthCheck
 from care.utils.csp import config as csp_config
 from plug_config import manager
 
-from .config import *  # noqa F403
+from .config import *  # noqa: F403
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -501,14 +501,14 @@ AUDIT_LOG_ENABLED = env.bool("AUDIT_LOG_ENABLED", default=False)
 AUDIT_LOG_DOMAIN_LEDGER_MODELS = [
     "users.DraftRecoveryKey",
     "emr.FormSubmission",
-    "emr.FormSubmissionCommand",
-    "emr.FormSubmissionArtifactCommand",
-    "emr.EncounterDischargeCommand",
+    "care_suriname.FormSubmissionCommand",
+    "care_suriname.FormSubmissionArtifactCommand",
+    "care_suriname.EncounterDischargeCommand",
     "emr.QuestionnaireResponse",
     "emr.MedicationRequest",
     "emr.ReportUpload",
-    "glob:emr.Correspondence*",
-    "glob:emr.ConsultClosure*",
+    "glob:care_suriname.Correspondence*",
+    "glob:care_suriname.ConsultClosure*",
 ]
 AUDIT_LOG_DOMAIN_LEDGER_MODE = True
 AUDIT_LOG = {

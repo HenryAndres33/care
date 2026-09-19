@@ -24,7 +24,6 @@ from care.emr.api.viewsets.device import disassociate_device_from_encounter
 from care.emr.api.viewsets.emergency_admission import EmergencyAdmissionMixin
 from care.emr.api.viewsets.location import close_related_location_from_encounter
 from care.emr.models import (
-    ConsultClosure,
     Encounter,
     EncounterOrganization,
     FacilityOrganization,
@@ -63,6 +62,9 @@ from care.users.models import User
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.shortcuts import get_object_or_404
 from care.utils.time_util import care_now
+from care_suriname.models.consult_closure import (
+    ConsultClosure,
+)
 
 
 class LiveFilter(filters.CharFilter):
@@ -244,9 +246,7 @@ class EncounterViewSet(
         with transaction.atomic():
             if instance.appointment_id:
                 appointment = (
-                    TokenBooking._base_manager.select_for_update(  # noqa: SLF001
-                        of=("self",)
-                    )
+                    TokenBooking._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .select_related("token_slot__resource")
                     .get(pk=instance.appointment_id)
                 )
@@ -369,9 +369,7 @@ class EncounterViewSet(
             ):
                 self._raise_active_inpatient_conflict()
             if (
-                ConsultClosure._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                ConsultClosure._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .filter(encounter=instance, deleted=False)
                 .exists()
             ):

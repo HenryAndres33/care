@@ -5,16 +5,16 @@ from uuid import uuid4
 from django.urls import reverse
 from django.utils import timezone
 
-from care.emr.models.admission_documentation import AdmissionDocumentation
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
-from care.emr.models.correspondence_review import CorrespondenceReview
-from care.emr.models.encounter_discharge import EncounterDischargeCommand
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.security.models import PermissionModel, RolePermission
 from care.security.permissions.encounter import EncounterPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.admission_documentation import AdmissionDocumentation
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.models.encounter_discharge import EncounterDischargeCommand
 
 
 class DischargeDocumentationTests(CorrespondenceReviewTestMixin, CareAPITestBase):

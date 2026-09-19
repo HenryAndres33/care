@@ -9,7 +9,6 @@ from rest_framework.response import Response
 
 from care.emr.api.viewsets.scheduling.schedule import get_schedulable_resource
 from care.emr.models.encounter import Encounter
-from care.emr.models.operation_plan import OperationPlan
 from care.emr.resources.scheduling.operation_plan import (
     OperationPlanSpec,
     OperationProgrammeSpec,
@@ -20,6 +19,7 @@ from care.emr.resources.scheduling.slot.spec import COMPLETED_STATUS_CHOICES
 from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.operation_plan import OperationPlan
 
 
 class OperationPlanMixin:

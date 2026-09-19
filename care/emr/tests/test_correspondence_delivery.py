@@ -22,19 +22,6 @@ from care.emr.correspondence.delivery_adapters import (
     CorrespondenceDeliveryAdapterUnavailableError,
     SyntheticCorrespondenceDeliveryAdapter,
 )
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionOutbox,
-    CorrespondenceSourceCorrection,
-)
-from care.emr.models.correspondence_delivery import (
-    CorrespondenceDelivery,
-    CorrespondenceDeliveryAttempt,
-    CorrespondenceDeliveryEvent,
-    CorrespondenceSyntheticProviderInvocation,
-    CorrespondenceSyntheticProviderReceipt,
-)
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.resources.correspondence import canonical_sha256
 from care.emr.resources.correspondence_delivery import (
@@ -58,6 +45,19 @@ from care.emr.tasks.correspondence_delivery import (
 )
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionOutbox,
+    CorrespondenceSourceCorrection,
+)
+from care_suriname.models.correspondence_delivery import (
+    CorrespondenceDelivery,
+    CorrespondenceDeliveryAttempt,
+    CorrespondenceDeliveryEvent,
+    CorrespondenceSyntheticProviderInvocation,
+    CorrespondenceSyntheticProviderReceipt,
+)
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 SYNTHETIC_PDF = b"%PDF-1.7\nsynthetic-delivery-artifact"
 
@@ -887,9 +887,7 @@ class TestCorrespondenceDeliveryConcurrency(
         attempt = delivery.attempts.get(attempt_number=1)
         provider_started = ThreadEvent()
         provider_release = ThreadEvent()
-        original_record = (
-            SyntheticCorrespondenceDeliveryAdapter._record_outcome  # noqa: SLF001 - intentional provider-race test seam
-        )
+        original_record = SyntheticCorrespondenceDeliveryAdapter._record_outcome  # noqa: SLF001
 
         def slow_record(adapter, **kwargs):
             provider_started.set()

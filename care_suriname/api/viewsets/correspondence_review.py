@@ -32,13 +32,6 @@ from care.emr.correspondence.review import (
     reviewed_binding_frozen_integrity_valid,
 )
 from care.emr.correspondence.source import compilation_sources_available
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceRecipientCommand,
-    CorrespondenceReview,
-    CorrespondenceReviewCommand,
-)
 from care.emr.models.encounter import Encounter
 from care.emr.models.organization import (
     FacilityOrganization,
@@ -67,6 +60,13 @@ from care.security.authorization.base import AuthorizationController
 from care.security.models import RoleModel
 from care.users.models import User
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceRecipientCommand,
+    CorrespondenceReview,
+    CorrespondenceReviewCommand,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -472,9 +472,7 @@ class CorrespondenceReviewViewSet(
             is_active=True,
         )
         department = get_object_or_404(
-            FacilityOrganization._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            ),
+            FacilityOrganization._base_manager.select_for_update(of=("self",)),  # noqa: SLF001
             pk=compilation.department_id,
             deleted=False,
             active=True,
@@ -727,9 +725,7 @@ class CorrespondenceReviewViewSet(
     @staticmethod
     def _lock_compilation(pk):
         return (
-            CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(*CorrespondenceReviewViewSet._compilation_related_fields())
             .get(pk=pk)
         )
@@ -881,9 +877,7 @@ def _require_facility_membership(user, facility):
 
 def _lock_author_membership(author, department):
     memberships = list(
-        FacilityOrganizationUser._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        ).filter(
+        FacilityOrganizationUser._base_manager.select_for_update(of=("self",)).filter(  # noqa: SLF001
             deleted=False,
             organization=department,
             user=author,

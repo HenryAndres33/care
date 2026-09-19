@@ -20,15 +20,9 @@ from care.emr.correspondence.correction import (
     form_submission_series_head_integrity_valid,
     source_correction_integrity_valid,
 )
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionOutbox,
-    CorrespondenceSourceCorrection,
-    FormSubmissionSeriesHead,
-)
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.questionnaire import (
     FormSubmission,
-    FormSubmissionCommand,
     Questionnaire,
     QuestionnaireResponse,
 )
@@ -58,6 +52,14 @@ from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionOutbox,
+    CorrespondenceSourceCorrection,
+    FormSubmissionSeriesHead,
+)
+from care_suriname.models.form_submission_command import (
+    FormSubmissionCommand,
+)
 
 
 class TestFinalizedResponseDumpValidation(SimpleTestCase):
@@ -864,9 +866,9 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
         self.assertEqual(amended.status_code, HTTPStatus.CREATED, amended.json())
         outbox = CorrespondenceCorrectionOutbox.objects.get()
         with self.assertRaises(IntegrityError), transaction.atomic():
-            CorrespondenceCorrectionOutbox._base_manager.filter(  # noqa: SLF001
-                pk=outbox.pk
-            ).update(status="processing", attempt_count=0, claimed_at=None)
+            CorrespondenceCorrectionOutbox._base_manager.filter(pk=outbox.pk).update(  # noqa: SLF001
+                status="processing", attempt_count=0, claimed_at=None
+            )
 
     def test_amendment_clones_exact_structured_action_link_and_provenance(self):
         medication, source_link = self._linked_medication(self.submission)

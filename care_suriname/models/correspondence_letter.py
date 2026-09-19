@@ -13,7 +13,7 @@ class CorrespondenceLetter(EMRBaseModel):
     REVIEW_CONSTRAINT_NAME = LETTER_REVIEW_CONSTRAINT
 
     review = models.ForeignKey(
-        "emr.CorrespondenceReview",
+        "care_suriname.CorrespondenceReview",
         on_delete=models.PROTECT,
         related_name="letter_series",
     )
@@ -25,6 +25,7 @@ class CorrespondenceLetter(EMRBaseModel):
     author = models.ForeignKey("users.User", on_delete=models.PROTECT)
 
     class Meta:
+        db_table = "emr_correspondenceletter"
         constraints = [
             models.UniqueConstraint(fields=["review"], name=LETTER_REVIEW_CONSTRAINT)
         ]
@@ -77,6 +78,7 @@ class CorrespondenceLetterRevision(EMRBaseModel):
     )
 
     class Meta:
+        db_table = "emr_correspondenceletterrevision"
         constraints = [
             models.UniqueConstraint(
                 fields=["letter", "resource_version"],
@@ -131,7 +133,9 @@ class CorrespondenceLetterCommand(EMRBaseModel):
         on_delete=models.PROTECT,
         related_name="commands",
     )
-    review = models.ForeignKey("emr.CorrespondenceReview", on_delete=models.PROTECT)
+    review = models.ForeignKey(
+        "care_suriname.CorrespondenceReview", on_delete=models.PROTECT
+    )
     patient = models.ForeignKey("emr.Patient", on_delete=models.PROTECT)
     encounter = models.ForeignKey("emr.Encounter", on_delete=models.PROTECT)
     target_revision = models.ForeignKey(
@@ -155,6 +159,7 @@ class CorrespondenceLetterCommand(EMRBaseModel):
     )
 
     class Meta:
+        db_table = "emr_correspondencelettercommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],

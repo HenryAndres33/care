@@ -4,11 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from care.emr.models.emergency_admission import EmergencyAdmission
 from care.emr.models.encounter import ACTIVE_INPATIENT_STATUSES, Encounter
 from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.emergency_admission import EmergencyAdmission
 
 
 class EmergencyAdmissionSpec(BaseModel):

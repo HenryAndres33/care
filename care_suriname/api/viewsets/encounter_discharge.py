@@ -10,7 +10,6 @@ from care.emr.api.viewsets.base import EMRBaseViewSet
 from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.api.viewsets.device import disassociate_device_from_encounter
 from care.emr.models.encounter import Encounter
-from care.emr.models.encounter_discharge import EncounterDischargeCommand
 from care.emr.resources.encounter.discharge import (
     EncounterDischargeCommandResponseSpec,
     EncounterDischargeCommandSpec,
@@ -32,6 +31,7 @@ from care.emr.resources.encounter.discharge_state import (
 from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.encounter_discharge import EncounterDischargeCommand
 
 
 class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):

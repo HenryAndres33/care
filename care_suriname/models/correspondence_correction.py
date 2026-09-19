@@ -42,6 +42,7 @@ class FormSubmissionSeriesHead(EMRBaseModel):
     head_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_formsubmissionserieshead"
         constraints = [
             models.UniqueConstraint(
                 fields=["series_id"],
@@ -106,6 +107,7 @@ class CorrespondenceSourceCorrection(EMRBaseModel):
     correction_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencesourcecorrection"
         constraints = [
             models.UniqueConstraint(
                 fields=["source_head", "sequence"],
@@ -171,6 +173,7 @@ class CorrespondenceCorrectionOutbox(EMRBaseModel):
     safe_code = models.CharField(max_length=64, blank=True, default="")
 
     class Meta:
+        db_table = "emr_correspondencecorrectionoutbox"
         constraints = [
             models.UniqueConstraint(
                 fields=["source_correction"],
@@ -237,17 +240,17 @@ class CorrespondenceCorrectionCase(EMRBaseModel):
     )
     source_head_hash = models.CharField(max_length=64)
     original_compilation = models.OneToOneField(
-        "emr.CorrespondenceCompilation",
+        "care_suriname.CorrespondenceCompilation",
         on_delete=models.PROTECT,
         related_name="correction_case",
     )
     original_review = models.OneToOneField(
-        "emr.CorrespondenceReview",
+        "care_suriname.CorrespondenceReview",
         on_delete=models.PROTECT,
         related_name="correction_case",
     )
     original_delivery = models.OneToOneField(
-        "emr.CorrespondenceDelivery",
+        "care_suriname.CorrespondenceDelivery",
         on_delete=models.PROTECT,
         related_name="correction_case",
     )
@@ -288,28 +291,28 @@ class CorrespondenceCorrectionCase(EMRBaseModel):
         blank=True,
     )
     replacement_attempt = models.ForeignKey(
-        "emr.CorrespondenceReplacementAttempt",
+        "care_suriname.CorrespondenceReplacementAttempt",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="current_for_cases",
     )
     replacement_compilation = models.ForeignKey(
-        "emr.CorrespondenceCompilation",
+        "care_suriname.CorrespondenceCompilation",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="replacement_correction_cases",
     )
     replacement_review = models.ForeignKey(
-        "emr.CorrespondenceReview",
+        "care_suriname.CorrespondenceReview",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="replacement_correction_cases",
     )
     replacement_revision = models.ForeignKey(
-        "emr.CorrespondenceLetterRevision",
+        "care_suriname.CorrespondenceLetterRevision",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -323,7 +326,7 @@ class CorrespondenceCorrectionCase(EMRBaseModel):
         related_name="replacement_correction_cases",
     )
     replacement_delivery = models.ForeignKey(
-        "emr.CorrespondenceDelivery",
+        "care_suriname.CorrespondenceDelivery",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -343,6 +346,7 @@ class CorrespondenceCorrectionCase(EMRBaseModel):
     case_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencecorrectioncase"
         constraints = [
             models.UniqueConstraint(
                 fields=["original_review"],
@@ -555,17 +559,17 @@ class CorrespondenceReplacementAttempt(EMRBaseModel):
     )
     form_artifact_hash = models.CharField(max_length=64)
     compilation = models.OneToOneField(
-        "emr.CorrespondenceCompilation",
+        "care_suriname.CorrespondenceCompilation",
         on_delete=models.PROTECT,
         related_name="replacement_attempt",
     )
     review = models.OneToOneField(
-        "emr.CorrespondenceReview",
+        "care_suriname.CorrespondenceReview",
         on_delete=models.PROTECT,
         related_name="replacement_attempt",
     )
     initial_revision = models.OneToOneField(
-        "emr.CorrespondenceLetterRevision",
+        "care_suriname.CorrespondenceLetterRevision",
         on_delete=models.PROTECT,
         related_name="replacement_attempt_started",
     )
@@ -578,6 +582,7 @@ class CorrespondenceReplacementAttempt(EMRBaseModel):
     attempt_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencereplacementattempt"
         constraints = [
             models.UniqueConstraint(
                 fields=["case", "attempt_number"],
@@ -645,6 +650,7 @@ class CorrespondencePaperReconciliationAttestation(EMRBaseModel):
     attestation_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencepaperreconciliationattestation"
         constraints = [
             models.UniqueConstraint(
                 fields=["case", "replacement_attempt"],
@@ -708,7 +714,7 @@ class CorrespondenceCorrectionCommand(EMRBaseModel):
         related_name="result_commands",
     )
     result_revision = models.ForeignKey(
-        "emr.CorrespondenceLetterRevision",
+        "care_suriname.CorrespondenceLetterRevision",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -722,7 +728,7 @@ class CorrespondenceCorrectionCommand(EMRBaseModel):
         related_name="correction_commands",
     )
     result_delivery = models.ForeignKey(
-        "emr.CorrespondenceDelivery",
+        "care_suriname.CorrespondenceDelivery",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -740,6 +746,7 @@ class CorrespondenceCorrectionCommand(EMRBaseModel):
     result_snapshot = models.JSONField(default=dict)
 
     class Meta:
+        db_table = "emr_correspondencecorrectioncommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],
@@ -796,7 +803,7 @@ class CorrespondenceCorrectionEvent(EMRBaseModel):
         related_name="case_events",
     )
     delivery_event = models.ForeignKey(
-        "emr.CorrespondenceDeliveryEvent",
+        "care_suriname.CorrespondenceDeliveryEvent",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -839,6 +846,7 @@ class CorrespondenceCorrectionEvent(EMRBaseModel):
     event_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencecorrectionevent"
         constraints = [
             models.UniqueConstraint(
                 fields=["case", "sequence"],

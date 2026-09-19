@@ -26,10 +26,6 @@ from care.emr.correspondence.presentation import (
     dutch_correspondence_date,
 )
 from care.emr.correspondence.source import compilation_frozen_integrity_valid
-from care.emr.models.correspondence import (
-    CorrespondenceCompilation,
-    CorrespondenceCompileCommand,
-)
 from care.emr.models.encounter import Encounter, EncounterOrganization
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import (
@@ -76,6 +72,10 @@ from care.security.authorization.base import AuthorizationController
 from care.security.models import RoleModel
 from care.users.models import User
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.correspondence import (
+    CorrespondenceCompilation,
+    CorrespondenceCompileCommand,
+)
 
 logger = logging.getLogger(__name__)
 CONFIRMED_MEDICATION_STATUSES = {"active", "completed"}
@@ -122,9 +122,7 @@ class CorrespondenceCompilationViewSet(
         },
     )
     @action(detail=False, methods=["POST"], url_path="idempotent-compile")
-    def idempotent_compile(  # noqa: PLR0911, PLR0912
-        self, request, *args, **kwargs
-    ):
+    def idempotent_compile(self, request, *args, **kwargs):  # noqa: PLR0911, PLR0912
         request_spec = CompileCorrespondenceSpec.model_validate(request.data)
         source = self._get_source(request_spec.form_submission)
         self._authorize_clinical_read(source)
@@ -260,9 +258,9 @@ class CorrespondenceCompilationViewSet(
         self._validate_form_source(request_spec, source)
 
         artifact = get_object_or_404(
-            ReportUpload._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            ).select_related("patient", "encounter", "form_submission"),
+            ReportUpload._base_manager.select_for_update(of=("self",)).select_related(  # noqa: SLF001
+                "patient", "encounter", "form_submission"
+            ),
             external_id=request_spec.form_artifact,
         )
         self._validate_form_artifact(request_spec, source, artifact)
@@ -271,9 +269,9 @@ class CorrespondenceCompilationViewSet(
         )
 
         template = get_object_or_404(
-            Template._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            ).select_related("facility"),
+            Template._base_manager.select_for_update(of=("self",)).select_related(  # noqa: SLF001
+                "facility"
+            ),
             external_id=request_spec.template,
         )
         self._validate_template(request_spec, encounter, template)
@@ -434,9 +432,7 @@ class CorrespondenceCompilationViewSet(
     def _lock_and_validate_medications(self, request_spec, source, encounter):
         requested_ids = [item.id for item in request_spec.medication_actions]
         medications = list(
-            MedicationRequest._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            MedicationRequest._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("requested_product", "requester")
             .filter(external_id__in=requested_ids)
         )

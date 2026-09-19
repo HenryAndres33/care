@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from care.emr.models.diagnostic_report import DiagnosticReport
-from care.emr.models.form_submission_lab import FormSubmissionLabLink
+from care_suriname.models.form_submission_lab import FormSubmissionLabLink
 from care.emr.models.observation import Observation
 from care.emr.models.service_request import ServiceRequest
 from care.emr.resources.form_submission.note_lab_text import (

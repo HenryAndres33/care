@@ -50,6 +50,7 @@ class CorrespondenceCompilation(EMRBaseModel):
     status = models.CharField(max_length=32, default="compiled")
 
     class Meta:
+        db_table = "emr_correspondencecompilation"
         constraints = [
             models.UniqueConstraint(
                 fields=["source_fingerprint"],
@@ -91,6 +92,7 @@ class CorrespondenceCompileCommand(EMRBaseModel):
     )
 
     class Meta:
+        db_table = "emr_correspondencecompilecommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],

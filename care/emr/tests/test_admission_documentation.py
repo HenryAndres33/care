@@ -6,9 +6,9 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from care.emr.models.admission_documentation import AdmissionDocumentation
 from care.security.permissions.encounter import EncounterPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.admission_documentation import AdmissionDocumentation
 
 
 @override_settings(CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES=["*"])

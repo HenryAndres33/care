@@ -16,8 +16,8 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from care.emr.models.clinical_text import ClinicalTextResource
 from care.facility.models import Facility
+from care_suriname.models.clinical_text import ClinicalTextResource
 
 COPYABLE_KINDS = ("template", "list", "preset", "dictionary")
 DEFAULT_KINDS = ("template", "list", "preset")

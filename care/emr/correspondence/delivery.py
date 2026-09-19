@@ -18,20 +18,6 @@ from care.emr.correspondence.review import (
     correspondence_review_hash,
     reviewed_binding_available,
 )
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_delivery import (
-    CorrespondenceDelivery,
-    CorrespondenceDeliveryAttempt,
-    CorrespondenceDeliveryEvent,
-)
-from care.emr.models.correspondence_letter import (
-    CorrespondenceLetter,
-    CorrespondenceLetterRevision,
-)
-from care.emr.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceReview,
-)
 from care.emr.models.encounter import EncounterOrganization
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import FacilityOrganizationUser
@@ -51,6 +37,20 @@ from care.emr.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
 )
 from care.security.models import RoleModel
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_delivery import (
+    CorrespondenceDelivery,
+    CorrespondenceDeliveryAttempt,
+    CorrespondenceDeliveryEvent,
+)
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetter,
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceReview,
+)
 
 MAX_DELIVERY_EVENTS = 100
 MAX_MEDICATION_SOURCES = 50
@@ -88,9 +88,7 @@ def lock_and_assert_correspondence_dispatch_current(
     """Lock and prove every source needed before a new delivery side effect."""
     source = locked_source or lock_correspondence_dispatch_source_current(revision_id)
     revision = (
-        CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceLetterRevision._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("previous_revision", "finalized_by")
         .get(pk=revision_id)
     )
@@ -219,16 +217,12 @@ def delivery_frozen_integrity_valid(delivery: CorrespondenceDelivery) -> bool:
         if not _delivery_frozen_snapshot_valid(delivery):
             return False
         attempts = list(
-            CorrespondenceDeliveryAttempt._base_manager.filter(  # noqa: SLF001
-                delivery=delivery
-            )
+            CorrespondenceDeliveryAttempt._base_manager.filter(delivery=delivery)  # noqa: SLF001
             .select_related("requested_by", "previous_terminal_event")
             .order_by("attempt_number")
         )
         events = list(
-            CorrespondenceDeliveryEvent._base_manager.filter(  # noqa: SLF001
-                delivery=delivery
-            )
+            CorrespondenceDeliveryEvent._base_manager.filter(delivery=delivery)  # noqa: SLF001
             .select_related("attempt", "actor", "previous_event", "delivery")
             .order_by("sequence")
         )
@@ -242,17 +236,13 @@ def lock_and_verify_delivery_ledger(delivery: CorrespondenceDelivery):
     if not _delivery_frozen_snapshot_valid(delivery):
         raise CorrespondenceDeliveryIntegrityError
     attempts = list(
-        CorrespondenceDeliveryAttempt._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceDeliveryAttempt._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .filter(delivery=delivery)
         .select_related("requested_by", "previous_terminal_event", "delivery")
         .order_by("attempt_number")
     )
     events = list(
-        CorrespondenceDeliveryEvent._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceDeliveryEvent._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .filter(delivery=delivery)
         .select_related("attempt", "actor", "previous_event", "delivery")
         .order_by("sequence")

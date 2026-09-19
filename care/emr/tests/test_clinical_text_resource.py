@@ -2,8 +2,8 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from care.emr.models.clinical_text import ClinicalTextResource
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.clinical_text import ClinicalTextResource
 
 
 class TestClinicalTextResourceAPI(CareAPITestBase):

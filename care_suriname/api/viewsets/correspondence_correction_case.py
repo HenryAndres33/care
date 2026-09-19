@@ -43,23 +43,6 @@ from care.emr.correspondence.replacement import (
     commit_case_command,
 )
 from care.emr.correspondence.review import correspondence_review_hash
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionCommand,
-    CorrespondencePaperReconciliationAttestation,
-    CorrespondenceReplacementAttempt,
-)
-from care.emr.models.correspondence_delivery import (
-    CorrespondenceDelivery,
-    CorrespondenceDeliveryAttempt,
-)
-from care.emr.models.correspondence_letter import (
-    CorrespondenceLetterRevision,
-)
-from care.emr.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceReview,
-)
 from care.emr.models.encounter import Encounter
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.authorizers.utils import (
@@ -99,6 +82,23 @@ from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
 from care_suriname.api.viewsets.correspondence import CorrespondenceCompilationViewSet
 from care_suriname.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionCommand,
+    CorrespondencePaperReconciliationAttestation,
+    CorrespondenceReplacementAttempt,
+)
+from care_suriname.models.correspondence_delivery import (
+    CorrespondenceDelivery,
+    CorrespondenceDeliveryAttempt,
+)
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceReview,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -135,9 +135,9 @@ class CorrespondenceCorrectionCaseViewSet(ClinicalNoStoreResponseMixin, EMRBaseV
                 head, current = lock_current_finalized_form_series(
                     reference.current_submission
                 )
-                Encounter._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                ).get(pk=current.encounter_id)
+                Encounter._base_manager.select_for_update(of=("self",)).get(  # noqa: SLF001
+                    pk=current.encounter_id
+                )
                 case = self._lock_case(reference, head, current)
                 self._authorize_read(case)
                 self._authorize_mutation(case)
@@ -391,9 +391,7 @@ class CorrespondenceCorrectionCaseViewSet(ClinicalNoStoreResponseMixin, EMRBaseV
         ):
             return False
         delivery = (
-            CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(
                 "artifact",
                 "recipient",
@@ -780,9 +778,7 @@ class CorrespondenceCorrectionCaseViewSet(ClinicalNoStoreResponseMixin, EMRBaseV
 
     def _lock_case(self, reference, head, current):
         case = (
-            CorrespondenceCorrectionCase._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCorrectionCase._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(*self._case_related_fields())
             .get(pk=reference.pk)
         )
@@ -849,9 +845,7 @@ class CorrespondenceCorrectionCaseViewSet(ClinicalNoStoreResponseMixin, EMRBaseV
             letter__review=attempt.review,
         )
         latest = (
-            CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceLetterRevision._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(letter=revision.letter)
             .order_by("-resource_version")
             .first()

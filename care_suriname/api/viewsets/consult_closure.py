@@ -32,20 +32,6 @@ from care.emr.correspondence.letter import (
     correspondence_revision_frozen_integrity_valid,
 )
 from care.emr.correspondence.source import compilation_frozen_integrity_valid
-from care.emr.models.consult_closure import (
-    ConsultClosure,
-    ConsultClosureCommand,
-    ConsultClosureRecoveryTask,
-)
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionOutbox,
-    CorrespondenceSourceCorrection,
-)
-from care.emr.models.correspondence_delivery import CorrespondenceDelivery
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.device import Device
 from care.emr.models.encounter import Encounter, EncounterOrganization
 from care.emr.models.location import FacilityLocation
@@ -93,6 +79,20 @@ from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.consult_closure import (
+    ConsultClosure,
+    ConsultClosureCommand,
+    ConsultClosureRecoveryTask,
+)
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionOutbox,
+    CorrespondenceSourceCorrection,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 logger = logging.getLogger(__name__)
 
@@ -264,9 +264,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         methods=["POST"],
         url_path="idempotent-resolve-recovery",
     )
-    def idempotent_resolve_recovery(  # noqa: PLR0911
-        self, request, *args, **kwargs
-    ):
+    def idempotent_resolve_recovery(self, request, *args, **kwargs):  # noqa: PLR0911
         request_spec = ConsultClosureRecoveryResolveSpec.model_validate(request.data)
         reference = self._reference_encounter()
         self._authorize_encounter_read(reference)
@@ -409,9 +407,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             .order_by("closure_number")
         )
         pending_recoveries = list(
-            ConsultClosureRecoveryTask._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            ConsultClosureRecoveryTask._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(encounter=encounter, status="pending", deleted=False)
             .order_by("pk")
         )
@@ -432,9 +428,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             raise Http404("Consult close context not found")
 
         department_link = (
-            EncounterOrganization._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            EncounterOrganization._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("organization")
             .filter(
                 encounter=encounter,
@@ -470,9 +464,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                     .get(pk=appointment.token_id)
                 )
                 subqueues = list(
-                    TokenSubQueue._base_manager.select_for_update(  # noqa: SLF001
-                        of=("self",)
-                    )
+                    TokenSubQueue._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .filter(current_token=token)
                     .order_by("pk")
                 )
@@ -597,9 +589,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
 
     def _medication_actions(self, source, encounter, outcome, blockers):
         responses = list(
-            QuestionnaireResponse._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            QuestionnaireResponse._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(
                 form_submission=source,
                 structured_response_type="medication_request",
@@ -656,9 +646,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             blockers.add("medication_incomplete")
         return actions
 
-    def _correspondence_evidence(  # noqa: PLR0911, PLR0912, PLR0915
-        self, source, encounter, spec, blockers
-    ):
+    def _correspondence_evidence(self, source, encounter, spec, blockers):  # noqa: PLR0911, PLR0912, PLR0915
         empty = {
             "correspondence_outcome": spec.correspondence_outcome,
             "correspondence_compilation": None,
@@ -672,9 +660,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         }
         if spec.correspondence_outcome == "not_required":
             compilations = list(
-                CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .filter(form_submission__series_id=source.series_id, deleted=False)
                 .order_by("pk")
             )
@@ -703,9 +689,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 .order_by("pk")
             )
             reviews = list(
-                CorrespondenceReview._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                CorrespondenceReview._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .filter(compilation__in=compilations, deleted=False)
                 .order_by("pk")
             )
@@ -720,9 +704,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 .order_by("pk")
             )
             deliveries = list(
-                CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .filter(review__compilation__in=compilations, deleted=False)
                 .order_by("pk")
             )
@@ -753,9 +735,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 return empty
             case = cases[0]
             compilation = (
-                CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .select_related("form_submission", "form_artifact")
                 .get(pk=case.original_compilation_id)
             )
@@ -803,9 +783,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             return empty
 
         compilation_query = (
-            CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("form_submission", "form_artifact")
             .filter(deleted=False)
         )
@@ -864,9 +842,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             blockers.add("correspondence_stale")
             return empty
         review = (
-            CorrespondenceReview._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceReview._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(compilation=compilation, deleted=False)
             .first()
         )
@@ -885,9 +861,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         delivery = None
         if review:
             delivery = (
-                CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .filter(review=review, deleted=False)
                 .order_by("pk")
                 .last()
@@ -1059,9 +1033,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 if projection.get("retry_required"):
                     continue
                 command = (
-                    ConsultClosureCommand._base_manager.select_for_update(  # noqa: SLF001
-                        of=("self",)
-                    )
+                    ConsultClosureCommand._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .select_related("actor", "encounter", "result_closure")
                     .get(pk=command.pk)
                 )
@@ -1154,9 +1126,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             .order_by("closure_number")
         )
         recoveries = list(
-            ConsultClosureRecoveryTask._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            ConsultClosureRecoveryTask._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(encounter=encounter, deleted=False)
             .order_by("created_date")
         )
@@ -1198,23 +1168,17 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             .first()
         )
         subqueue_points_to_token = token is not None and (
-            TokenSubQueue._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            TokenSubQueue._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(current_token=token)
             .exists()
         )
         location_points_to_encounter = (
-            FacilityLocation._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            FacilityLocation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(current_encounter=encounter)
             .exists()
         )
         device_points_to_encounter = (
-            Device._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            Device._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(current_encounter=encounter)
             .exists()
         )
@@ -1380,9 +1344,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             ):
                 return False
             commands = list(
-                ConsultClosureCommand._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                ConsultClosureCommand._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                 .select_related("actor", "encounter", "result_closure")
                 .filter(result_closure=closure, deleted=False)
                 .order_by("pk")
@@ -1404,9 +1366,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
 
     def _ensure_pending_recovery(self, encounter, safe_code):
         existing = (
-            ConsultClosureRecoveryTask._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            ConsultClosureRecoveryTask._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .filter(encounter=encounter, status="pending", deleted=False)
             .first()
         )

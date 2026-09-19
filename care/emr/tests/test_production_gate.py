@@ -52,14 +52,14 @@ class TestProductionGate(SimpleTestCase):
         try:
             for model_name in [
                 "emr.FormSubmission",
-                "emr.FormSubmissionCommand",
-                "emr.FormSubmissionArtifactCommand",
+                "care_suriname.FormSubmissionCommand",
+                "care_suriname.FormSubmissionArtifactCommand",
                 "emr.QuestionnaireResponse",
                 "emr.MedicationRequest",
                 "emr.ReportUpload",
-                "emr.CorrespondenceCompilation",
-                "emr.CorrespondenceDeliveryEvent",
-                "emr.ConsultClosureRecoveryTask",
+                "care_suriname.CorrespondenceCompilation",
+                "care_suriname.CorrespondenceDeliveryEvent",
+                "care_suriname.ConsultClosureRecoveryTask",
             ]:
                 self.assertTrue(exclude_model(model_name), model_name)
         finally:

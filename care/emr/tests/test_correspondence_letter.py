@@ -13,12 +13,6 @@ from django.urls import reverse
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient
 
-from care.emr.models.correspondence_letter import (
-    CorrespondenceLetter,
-    CorrespondenceLetterCommand,
-    CorrespondenceLetterRevision,
-)
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.patient import PatientIdentifierConfig
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.correspondence_letter import build_correspondence_letter_html
@@ -35,6 +29,12 @@ from care.emr.signals.patient.phone_number_identifier import (
 )
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetter,
+    CorrespondenceLetterCommand,
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 
 class TestCorrespondenceLetterAPI(

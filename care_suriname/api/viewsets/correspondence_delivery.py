@@ -26,11 +26,6 @@ from care.emr.correspondence.delivery_adapters import (
     CorrespondenceDeliveryAdapterUnavailableError,
     get_correspondence_delivery_adapter,
 )
-from care.emr.models.correspondence_delivery import (
-    CorrespondenceDelivery,
-    CorrespondenceDeliveryAttempt,
-)
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
 from care.emr.reports.authorizers.utils import (
     read_report_authorizer,
     write_report_authorizer,
@@ -51,6 +46,11 @@ from care.emr.tasks.correspondence_delivery import (
 from care.emr.workflow_capabilities import require_correspondence_delivery_enabled
 from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.correspondence_delivery import (
+    CorrespondenceDelivery,
+    CorrespondenceDeliveryAttempt,
+)
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 
 logger = logging.getLogger(__name__)
 
@@ -146,9 +146,7 @@ class CorrespondenceDeliveryViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet
                 adapter = get_correspondence_delivery_adapter(context.recipient)
                 read_and_verify_correspondence_artifact(context.artifact)
                 if (
-                    CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                        of=("self",)
-                    )
+                    CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .filter(revision=context.revision)
                     .exists()
                 ):
@@ -243,9 +241,7 @@ class CorrespondenceDeliveryViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet
                     delivery.revision_id
                 )
                 delivery = (
-                    CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-                        of=("self",)
-                    )
+                    CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .select_related(*self._related_fields())
                     .get(pk=delivery.pk)
                 )
@@ -525,9 +521,7 @@ class CorrespondenceDeliveryViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet
 
     def _serialize(self, delivery):
         attempts = list(
-            CorrespondenceDeliveryAttempt._base_manager.filter(  # noqa: SLF001
-                delivery=delivery
-            )
+            CorrespondenceDeliveryAttempt._base_manager.filter(delivery=delivery)  # noqa: SLF001
             .select_related("requested_by", "previous_terminal_event")
             .prefetch_related("events__actor", "events__previous_event")
             .order_by("attempt_number")

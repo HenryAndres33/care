@@ -9,7 +9,6 @@ from model_bakery import baker
 from rest_framework import status
 
 from care.emr.models.device import Device, DeviceEncounterHistory
-from care.emr.models.encounter_discharge import EncounterDischargeCommand
 from care.emr.models.location import FacilityLocation, FacilityLocationEncounter
 from care.emr.resources.encounter.constants import (
     ClassChoices,
@@ -24,6 +23,7 @@ from care.emr.resources.location.spec import (
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.encounter_discharge import EncounterDischargeCommand
 
 
 class EncounterDischargeTests(CareAPITestBase):

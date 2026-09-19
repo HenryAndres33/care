@@ -26,10 +26,12 @@ OUTBOX_TOKEN_NAMESPACE = uuid.UUID("d5b74ada-c3ae-4c23-850e-c969d21fab65")
 class TestCorrespondenceContinuityMigration(TransactionTestCase):
     migrate_from = ("emr", "0086_correspondence_source_correction")
     migrate_to = ("emr", "0087_correspondence_continuity")
-    migrate_latest = ("emr", "0090_consult_closure_recovery_resolution")
 
     def tearDown(self):
-        MigrationExecutor(connection).migrate([self.migrate_latest])
+        # Return to the graph's real leaf, not a pinned name: pinning 0090
+        # left the shared test database at 0090 for every later test.
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
         super().tearDown()
 
     def _migrate(self, target):
@@ -72,7 +74,6 @@ class TestCorrespondenceContinuityLegacyOutboxMigration(
     fake = CareAPITestBase.fake
     migrate_from = ("emr", "0086_correspondence_source_correction")
     migrate_to = ("emr", "0087_correspondence_continuity")
-    migrate_latest = ("emr", "0090_consult_closure_recovery_resolution")
     create_user = CareAPITestBase.create_user
     create_facility = CareAPITestBase.create_facility
     create_facility_organization = CareAPITestBase.create_facility_organization
@@ -132,7 +133,8 @@ class TestCorrespondenceContinuityLegacyOutboxMigration(
         self.claimed_at = now
 
     def tearDown(self):
-        self._migrate(self.migrate_latest)
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
         super().tearDown()
 
     @staticmethod

@@ -18,19 +18,6 @@ from care.emr.api.viewsets.location import FacilityLocationEncounterViewSet
 from care.emr.api.viewsets.medication_request import MedicationRequestViewSet
 from care.emr.api.viewsets.scheduling.booking import TokenBookingViewSet
 from care.emr.api.viewsets.scheduling.token import TokenViewSet
-from care.emr.models.consult_closure import (
-    ConsultClosure,
-    ConsultClosureCommand,
-    ConsultClosureRecoveryTask,
-)
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionOutbox,
-)
-from care.emr.models.correspondence_delivery import CorrespondenceDelivery
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.device import Device
 from care.emr.models.location import FacilityLocation, FacilityLocationEncounter
 from care.emr.models.medication_request import MedicationRequest
@@ -56,6 +43,19 @@ from care.emr.tests.test_correspondence_compilation import (
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
 from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
+from care_suriname.models.consult_closure import (
+    ConsultClosure,
+    ConsultClosureCommand,
+    ConsultClosureRecoveryTask,
+)
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionOutbox,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 SYNTHETIC_PDF = b"%PDF-1.7\nconsult-closure-correspondence"
 REQUIRED_FORMS = {"urology department": ["generic-correspondence-form"]}
@@ -242,7 +242,7 @@ class ConsultClosureWorkflowTests(
             encounter_class="imp",
             status="in_progress",
         )
-        from care.emr.models.emergency_admission import EmergencyAdmission
+        from care_suriname.models.emergency_admission import EmergencyAdmission
 
         EmergencyAdmission.objects.create(
             emergency=self.encounter, admission=admission, created_by=self.user

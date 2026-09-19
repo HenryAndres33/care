@@ -11,7 +11,6 @@ from model_bakery import baker
 from rest_framework.test import APIClient, APITransactionTestCase
 
 from care.emr.models.encounter import Encounter, EncounterOrganization
-from care.emr.models.encounter_discharge import EncounterDischargeCommand
 from care.emr.models.organization import FacilityOrganization
 from care.emr.models.patient import Patient
 from care.emr.resources.encounter.constants import (
@@ -21,6 +20,7 @@ from care.emr.resources.encounter.constants import (
 )
 from care.facility.models import Facility
 from care.users.models import User
+from care_suriname.models.encounter_discharge import EncounterDischargeCommand
 
 
 class EncounterDischargeConcurrencyTests(APITransactionTestCase):

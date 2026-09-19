@@ -17,10 +17,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient
 
 from care.emr.correspondence.correction import create_finalized_form_series_head
-from care.emr.models.correspondence import (
-    CorrespondenceCompilation,
-    CorrespondenceCompileCommand,
-)
 from care.emr.models.encounter import EncounterOrganization
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.questionnaire import (
@@ -56,6 +52,10 @@ from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.security.permissions.template import TemplatePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.correspondence import (
+    CorrespondenceCompilation,
+    CorrespondenceCompileCommand,
+)
 
 
 class CorrespondenceCompilationTestMixin:

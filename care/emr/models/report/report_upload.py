@@ -146,33 +146,3 @@ class ReportUpload(EMRBaseModel):
                 internal_name = f"{internal_name}{extension}"
             self.internal_name = internal_name
         return super().save(*args, **kwargs)
-
-
-class FormSubmissionArtifactCommand(EMRBaseModel):
-    IDEMPOTENCY_CONSTRAINT_NAME = FORM_ARTIFACT_COMMAND_IDEMPOTENCY_CONSTRAINT
-
-    client_request_id = models.UUIDField()
-    payload_hash = models.CharField(max_length=64)
-    actor = models.ForeignKey(User, on_delete=models.PROTECT)
-    patient = models.ForeignKey("emr.Patient", on_delete=models.PROTECT)
-    encounter = models.ForeignKey("emr.Encounter", on_delete=models.PROTECT)
-    source_submission = models.ForeignKey(
-        "emr.FormSubmission",
-        on_delete=models.PROTECT,
-        related_name="artifact_commands",
-    )
-    source_version = models.PositiveIntegerField()
-    source_snapshot_hash = models.CharField(max_length=64)
-    result_artifact = models.ForeignKey(
-        ReportUpload,
-        on_delete=models.PROTECT,
-        related_name="idempotency_commands",
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["client_request_id"],
-                name=FORM_ARTIFACT_COMMAND_IDEMPOTENCY_CONSTRAINT,
-            )
-        ]

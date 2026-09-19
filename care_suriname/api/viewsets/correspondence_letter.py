@@ -25,16 +25,6 @@ from care.emr.correspondence.review import (
     reviewed_binding_available,
     reviewed_binding_frozen_integrity_valid,
 )
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_letter import (
-    CorrespondenceLetter,
-    CorrespondenceLetterCommand,
-    CorrespondenceLetterRevision,
-)
-from care.emr.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceReview,
-)
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.authorizers.utils import (
     read_report_authorizer,
@@ -62,6 +52,16 @@ from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization.base import AuthorizationController
 from care.utils.pagination.care_pagination import CareLimitOffsetPagination
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetter,
+    CorrespondenceLetterCommand,
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceReview,
+)
 
 logger = logging.getLogger(__name__)
 SHA256_HEX_LENGTH = 64
@@ -166,9 +166,7 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
                 self._authorize_new_mutation(review)
                 self._validate_review_source(request_spec, review)
                 letter = (
-                    CorrespondenceLetter._base_manager.select_for_update(  # noqa: SLF001
-                        of=("self",)
-                    )
+                    CorrespondenceLetter._base_manager.select_for_update(of=("self",))  # noqa: SLF001
                     .filter(review=review)
                     .first()
                 )
@@ -277,9 +275,7 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         request_spec = FinalizeCorrespondenceLetterSpec.model_validate(request.data)
         return self._execute_revision_command(request_spec, command_type="finalize")
 
-    def _execute_revision_command(  # noqa: PLR0911, PLR0912
-        self, request_spec, *, command_type
-    ):
+    def _execute_revision_command(self, request_spec, *, command_type):  # noqa: PLR0911, PLR0912
         target = self._get_revision(self.kwargs["external_id"])
         review = target.letter.review
         self._authorize_read(review)
@@ -412,9 +408,7 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
 
     def _lock_review(self, review):
         compilation = (
-            CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(
                 "patient",
                 "encounter",
@@ -429,16 +423,12 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             .get(pk=review.compilation_id)
         )
         locked = (
-            CorrespondenceReview._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceReview._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(*self._review_related_fields())
             .get(pk=review.pk)
         )
         recipient = (
-            CorrespondenceRecipient._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceRecipient._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(
                 "patient",
                 "facility",
@@ -734,9 +724,7 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
     @staticmethod
     def _latest_revision(letter):
         return (
-            CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceLetterRevision._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related("letter__review", "previous_revision", "finalized_by")
             .filter(letter=letter)
             .order_by("-resource_version")
@@ -886,9 +874,7 @@ class CorrespondenceLetterViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
     @staticmethod
     def _lock_revision(pk):
         return (
-            CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-                of=("self",)
-            )
+            CorrespondenceLetterRevision._base_manager.select_for_update(of=("self",))  # noqa: SLF001
             .select_related(*CorrespondenceLetterViewSet._revision_related_fields())
             .get(pk=pk)
         )

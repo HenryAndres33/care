@@ -19,8 +19,8 @@ def document_title(submission, questionnaire) -> str:
 
 
 def _admission_slot(submission) -> str | None:
-    from care.emr.models.admission_documentation import AdmissionDocumentation
     from care.emr.models.questionnaire import FormSubmission
+    from care_suriname.models.admission_documentation import AdmissionDocumentation
 
     if not submission.encounter_id:
         return None

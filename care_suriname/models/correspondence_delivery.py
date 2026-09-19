@@ -14,7 +14,7 @@ class CorrespondenceDelivery(EMRBaseModel):
     REVISION_CONSTRAINT_NAME = DELIVERY_REVISION_CONSTRAINT
 
     revision = models.ForeignKey(
-        "emr.CorrespondenceLetterRevision",
+        "care_suriname.CorrespondenceLetterRevision",
         on_delete=models.PROTECT,
         related_name="deliveries",
     )
@@ -24,12 +24,12 @@ class CorrespondenceDelivery(EMRBaseModel):
         related_name="correspondence_deliveries",
     )
     review = models.ForeignKey(
-        "emr.CorrespondenceReview",
+        "care_suriname.CorrespondenceReview",
         on_delete=models.PROTECT,
         related_name="deliveries",
     )
     recipient = models.ForeignKey(
-        "emr.CorrespondenceRecipient",
+        "care_suriname.CorrespondenceRecipient",
         on_delete=models.PROTECT,
         related_name="deliveries",
     )
@@ -59,6 +59,7 @@ class CorrespondenceDelivery(EMRBaseModel):
     correction_case_reference = models.UUIDField(null=True, blank=True, db_index=True)
 
     class Meta:
+        db_table = "emr_correspondencedelivery"
         constraints = [
             models.UniqueConstraint(
                 fields=["revision"],
@@ -108,7 +109,7 @@ class CorrespondenceDeliveryAttempt(EMRBaseModel):
     provider_idempotency_key = models.CharField(max_length=64)
     attempt_hash = models.CharField(max_length=64)
     previous_terminal_event = models.ForeignKey(
-        "emr.CorrespondenceDeliveryEvent",
+        "care_suriname.CorrespondenceDeliveryEvent",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -116,6 +117,7 @@ class CorrespondenceDeliveryAttempt(EMRBaseModel):
     )
 
     class Meta:
+        db_table = "emr_correspondencedeliveryattempt"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],
@@ -212,6 +214,7 @@ class CorrespondenceDeliveryEvent(EMRBaseModel):
     event_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencedeliveryevent"
         constraints = [
             models.UniqueConstraint(
                 fields=["delivery", "sequence"],
@@ -330,6 +333,7 @@ class CorrespondenceSyntheticProviderReceipt(EMRBaseModel):
     receipt_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencesyntheticproviderreceipt"
         constraints = [
             models.UniqueConstraint(
                 fields=["provider_idempotency_key"],
@@ -392,6 +396,7 @@ class CorrespondenceSyntheticProviderInvocation(EMRBaseModel):
     marker_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_correspondencesyntheticproviderinvocation"
         constraints = [
             models.UniqueConstraint(
                 fields=["provider_idempotency_key", "attempt_number"],

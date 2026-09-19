@@ -13,6 +13,7 @@ class FormSubmissionLabLink(EMRBaseModel):
     fingerprint = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_formsubmissionlablink"
         constraints = [
             models.UniqueConstraint(
                 fields=["series_id", "slot"], name="form_lab_series_slot_unique"

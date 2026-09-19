@@ -14,6 +14,7 @@ class AdmissionDocumentation(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
+        db_table = "emr_admissiondocumentation"
         constraints = [
             models.UniqueConstraint(
                 fields=["admission", "slot"], name="unique_admission_document_slot"

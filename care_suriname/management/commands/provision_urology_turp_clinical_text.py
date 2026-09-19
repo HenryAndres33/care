@@ -8,9 +8,9 @@ from care.emr.clinical_text_catalogs.urology_turp import (
     TURP_CATALOG_VERSION,
     TURP_CLINICAL_TEXT_CATALOG,
 )
-from care.emr.models.clinical_text import ClinicalTextResource
 from care.emr.resources.clinical_text import ClinicalTextResourceWriteSpec
 from care.facility.models import Facility
+from care_suriname.models.clinical_text import ClinicalTextResource
 
 # Databases this catalog may be written into. The declared catalog is a
 # deterministic fixture for automated tests, not a mirror of production.

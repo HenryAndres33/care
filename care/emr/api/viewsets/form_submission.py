@@ -25,20 +25,13 @@ from care.emr.correspondence.correction import (
     create_finalized_form_series_head,
     lock_current_finalized_form_series,
 )
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionOutbox,
-    CorrespondenceSourceCorrection,
-    FormSubmissionSeriesHead,
-)
 from care.emr.models.encounter import Encounter
 from care.emr.models.patient import Patient
 from care.emr.models.questionnaire import (
     FormSubmission,
-    FormSubmissionCommand,
     Questionnaire,
 )
 from care.emr.models.report.report_upload import (
-    FormSubmissionArtifactCommand,
     ReportUpload,
 )
 from care.emr.reports.authorizers.utils import (
@@ -90,6 +83,17 @@ from care.security.authorization.base import AuthorizationController
 from care.utils.filters.dummy_filter import DummyUUIDFilter
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionOutbox,
+    CorrespondenceSourceCorrection,
+    FormSubmissionSeriesHead,
+)
+from care_suriname.models.form_submission_artifact_command import (
+    FormSubmissionArtifactCommand,
+)
+from care_suriname.models.form_submission_command import (
+    FormSubmissionCommand,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -422,9 +426,7 @@ class FormSubmissionViewSet(
         methods=["POST"],
         url_path="idempotent-generate-artifact",
     )
-    def idempotent_generate_artifact(  # noqa: PLR0911, PLR0912
-        self, request, *args, **kwargs
-    ):
+    def idempotent_generate_artifact(self, request, *args, **kwargs):  # noqa: PLR0911, PLR0912
         request_spec = GenerateFormSubmissionArtifactSpec.model_validate(request.data)
         source = self._get_artifact_source()
         self._authorize_read(source)
@@ -989,9 +991,7 @@ class FormSubmissionViewSet(
     @staticmethod
     def _existing_source_artifact(source):
         return (
-            ReportUpload._base_manager.select_related(  # noqa: SLF001
-                "generated_by"
-            )
+            ReportUpload._base_manager.select_related("generated_by")  # noqa: SLF001
             .filter(
                 form_submission=source,
                 source_version=source.resource_version,

@@ -25,6 +25,7 @@ class EncounterDischargeCommand(EMRBaseModel):
     result_snapshot = models.JSONField(default=dict)
 
     class Meta:
+        db_table = "emr_encounterdischargecommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],

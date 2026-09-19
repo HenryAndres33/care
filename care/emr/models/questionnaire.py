@@ -33,7 +33,7 @@ class QuestionnaireTag(EMRBaseModel):
             tag = cls.objects.get(id=tag_id)
             TAG_CACHE[tag_id] = cls.serialize_model(tag)
             return TAG_CACHE[tag_id]
-        except Exception:  # noqa S110
+        except Exception:  # noqa: S110
             pass
         return {}
 
@@ -183,9 +183,7 @@ class FormSubmission(EMRBaseModel):
     def save(self, *args, **kwargs):
         if self.pk:
             persisted = (
-                self.__class__._base_manager.filter(pk=self.pk)  # noqa: SLF001
-                .only("status")
-                .first()
+                self.__class__._base_manager.filter(pk=self.pk).only("status").first()  # noqa: SLF001
             )
             if persisted and persisted.status == "submitted":
                 update_fields = kwargs.get("update_fields")
@@ -211,51 +209,6 @@ class FormSubmission(EMRBaseModel):
                 if not allowed_error_transition:
                     raise ValidationError("Finalized form submissions are immutable")
         return super().save(*args, **kwargs)
-
-
-class FormSubmissionCommand(EMRBaseModel):
-    IDEMPOTENCY_CONSTRAINT_NAME = FORM_SUBMISSION_COMMAND_IDEMPOTENCY_CONSTRAINT
-
-    client_request_id = models.UUIDField()
-    payload_hash = models.CharField(max_length=64)
-    command_type = models.CharField(max_length=32)
-    expected_version = models.PositiveIntegerField()
-    actor = models.ForeignKey("users.User", on_delete=models.PROTECT)
-    patient = models.ForeignKey("emr.Patient", on_delete=models.PROTECT)
-    encounter = models.ForeignKey(
-        "emr.Encounter", on_delete=models.PROTECT, null=True, blank=True
-    )
-    questionnaire = models.ForeignKey(Questionnaire, on_delete=models.PROTECT)
-    target_submission = models.ForeignKey(
-        FormSubmission,
-        on_delete=models.PROTECT,
-        related_name="targeted_commands",
-    )
-    result_submission = models.ForeignKey(
-        FormSubmission,
-        on_delete=models.PROTECT,
-        related_name="result_commands",
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["client_request_id"],
-                name=FORM_SUBMISSION_COMMAND_IDEMPOTENCY_CONSTRAINT,
-            ),
-            models.CheckConstraint(
-                condition=models.Q(
-                    command_type__in=[
-                        "create_draft",
-                        "update_draft",
-                        "finalize",
-                        "amend",
-                        "enter_in_error",
-                    ]
-                ),
-                name="formsub_cmd_type_ck",
-            ),
-        ]
 
 
 class QuestionnaireResponse(EMRBaseModel):

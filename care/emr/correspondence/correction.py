@@ -15,23 +15,6 @@ from care.emr.correspondence.review import (
 from care.emr.correspondence.source import (
     compilation_frozen_integrity_valid as source_compilation_frozen_integrity_valid,
 )
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionCommand,
-    CorrespondenceCorrectionEvent,
-    CorrespondenceCorrectionOutbox,
-    CorrespondencePaperReconciliationAttestation,
-    CorrespondenceReplacementAttempt,
-    CorrespondenceSourceCorrection,
-    FormSubmissionSeriesHead,
-)
-from care.emr.models.correspondence_delivery import CorrespondenceDelivery
-from care.emr.models.correspondence_letter import (
-    CorrespondenceLetter,
-    CorrespondenceLetterRevision,
-)
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.form_submission_artifact import (
@@ -61,6 +44,23 @@ from care.emr.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
 )
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionCommand,
+    CorrespondenceCorrectionEvent,
+    CorrespondenceCorrectionOutbox,
+    CorrespondencePaperReconciliationAttestation,
+    CorrespondenceReplacementAttempt,
+    CorrespondenceSourceCorrection,
+    FormSubmissionSeriesHead,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetter,
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 MAX_AFFECTED_CORRESPONDENCE_BRANCHES = 500
 MAX_DISPLAY_LABEL_CHARACTERS = 255
@@ -124,9 +124,7 @@ def create_finalized_form_series_head(*, submission, actor):
 def lock_current_finalized_form_series(target):
     """Lock head first, then current source, and prove the route target is current."""
     head = (
-        FormSubmissionSeriesHead._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        FormSubmissionSeriesHead._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("advanced_by")
         .filter(series_id=target.series_id, deleted=False)
         .first()
@@ -189,9 +187,7 @@ def advance_finalized_form_series(*, head, previous, result, actor):
     )
 
     previous_sequence = (
-        CorrespondenceSourceCorrection._base_manager.filter(  # noqa: SLF001
-            source_head=head
-        )
+        CorrespondenceSourceCorrection._base_manager.filter(source_head=head)  # noqa: SLF001
         .order_by("-sequence")
         .values_list("sequence", flat=True)
         .first()
@@ -541,9 +537,7 @@ def correction_case_integrity_valid(case) -> bool:
         ):
             return False
         attempts = list(
-            CorrespondenceReplacementAttempt._base_manager.filter(  # noqa: SLF001
-                case=case
-            )
+            CorrespondenceReplacementAttempt._base_manager.filter(case=case)  # noqa: SLF001
             .select_related(
                 "case__source_head",
                 "source_head",
@@ -564,9 +558,7 @@ def correction_case_integrity_valid(case) -> bool:
             return False
         attempt_ids = {attempt.id for attempt in attempts}
         events = list(
-            CorrespondenceCorrectionEvent._base_manager.filter(  # noqa: SLF001
-                case=case
-            )
+            CorrespondenceCorrectionEvent._base_manager.filter(case=case)  # noqa: SLF001
             .select_related(
                 "actor",
                 "case",
@@ -625,9 +617,9 @@ def correction_case_integrity_valid(case) -> bool:
                 ledger_command_ids.add(event.command_id)
             previous = event
         persisted_command_ids = set(
-            CorrespondenceCorrectionCommand._base_manager.filter(  # noqa: SLF001
-                case=case
-            ).values_list("id", flat=True)
+            CorrespondenceCorrectionCommand._base_manager.filter(case=case).values_list(  # noqa: SLF001
+                "id", flat=True
+            )
         )
         commands = [event.command for event in events if event.command_id]
         return bool(
@@ -806,9 +798,7 @@ def _historical_replacement_deliveries_integrity_valid(  # noqa: PLR0911
         ):
             return False
     deliveries = list(
-        CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "artifact",
             "recipient",
@@ -877,9 +867,7 @@ def correction_command_integrity_valid(command) -> bool:
 def materialize_claimed_correction_outbox(*, outbox_id, claim_token) -> bool:
     """Materialize one claimed correction and fence stale workers by token."""
     outbox_reference = (
-        CorrespondenceCorrectionOutbox._base_manager.filter(  # noqa: SLF001
-            pk=outbox_id
-        )
+        CorrespondenceCorrectionOutbox._base_manager.filter(pk=outbox_id)  # noqa: SLF001
         .values(
             "source_correction__new_version",
             "source_correction__source_head_id",
@@ -889,9 +877,7 @@ def materialize_claimed_correction_outbox(*, outbox_id, claim_token) -> bool:
     if not outbox_reference:
         return False
     head = (
-        FormSubmissionSeriesHead._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        FormSubmissionSeriesHead._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("advanced_by", "current_submission__workflow_finalized_by")
         .get(pk=outbox_reference["source_correction__source_head_id"])
     )
@@ -914,9 +900,7 @@ def materialize_claimed_correction_outbox(*, outbox_id, claim_token) -> bool:
     ):
         raise CorrespondenceCorrectionIntegrityError
     existing_cases = list(
-        CorrespondenceCorrectionCase._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCorrectionCase._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .only("pk", "original_compilation_id")
         .filter(
             original_compilation__form_submission__series_id=head.series_id,
@@ -932,9 +916,7 @@ def materialize_claimed_correction_outbox(*, outbox_id, claim_token) -> bool:
         case.original_compilation_id: case for case in existing_cases
     }
     outbox = (
-        CorrespondenceCorrectionOutbox._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCorrectionOutbox._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "source_correction__corrected_by",
             "source_correction__new_submission__workflow_finalized_by",
@@ -965,9 +947,7 @@ def materialize_claimed_correction_outbox(*, outbox_id, claim_token) -> bool:
         raise CorrespondenceCorrectionPendingError
 
     compilations = list(
-        CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "patient",
             "encounter",
@@ -1047,9 +1027,7 @@ def _materialize_compilation_correction(
     if not letter:
         return
     revision = (
-        CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceLetterRevision._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("letter__review", "previous_revision", "finalized_by")
         .filter(letter=letter, status="finalized")
         .first()
@@ -1235,9 +1213,7 @@ def _append_case_event(
     if not SAFE_CORRECTION_CODE.fullmatch(safe_code):
         raise CorrespondenceCorrectionIntegrityError
     previous = (
-        CorrespondenceCorrectionEvent._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCorrectionEvent._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .filter(case=case)
         .order_by("-sequence")
         .first()
@@ -1331,9 +1307,7 @@ def refresh_correction_case_for_delivery(  # noqa: PLR0912, PLR0915
     if not reference:
         return False
     head = (
-        FormSubmissionSeriesHead._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        FormSubmissionSeriesHead._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("advanced_by", "current_submission__workflow_finalized_by")
         .get(series_id=reference["review__compilation__form_submission__series_id"])
     )
@@ -1346,17 +1320,13 @@ def refresh_correction_case_for_delivery(  # noqa: PLR0912, PLR0915
     if not form_submission_series_head_integrity_valid(head, current=current):
         raise CorrespondenceCorrectionIntegrityError
     case_reference = (
-        CorrespondenceCorrectionCase._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCorrectionCase._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .only("pk")
         .filter(original_delivery_id=delivery_id)
         .first()
     )
     compilation = (
-        CorrespondenceCompilation._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCompilation._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "patient",
             "encounter",
@@ -1373,9 +1343,7 @@ def refresh_correction_case_for_delivery(  # noqa: PLR0912, PLR0915
     if not compilation_frozen_integrity_valid(compilation):
         raise CorrespondenceCorrectionIntegrityError
     review = (
-        CorrespondenceReview._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceReview._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "author",
             "recipient",
@@ -1388,13 +1356,11 @@ def refresh_correction_case_for_delivery(  # noqa: PLR0912, PLR0915
     )
     if not review_frozen_integrity_valid(review):
         raise CorrespondenceCorrectionIntegrityError
-    letter = CorrespondenceLetter._base_manager.select_for_update(  # noqa: SLF001
-        of=("self",)
-    ).get(review=review)
+    letter = CorrespondenceLetter._base_manager.select_for_update(of=("self",)).get(  # noqa: SLF001
+        review=review
+    )
     revision = (
-        CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceLetterRevision._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("letter__review", "previous_revision", "finalized_by")
         .get(letter=letter, status="finalized")
     )

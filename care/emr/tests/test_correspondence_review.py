@@ -16,13 +16,6 @@ from rest_framework.test import APIClient
 
 from care.emr.correspondence.recipient import MAX_VERIFIED_RECIPIENT_RESULTS
 from care.emr.correspondence.review import correspondence_review_hash
-from care.emr.models.correspondence import CorrespondenceCompilation
-from care.emr.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceRecipientCommand,
-    CorrespondenceReview,
-    CorrespondenceReviewCommand,
-)
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
 )
@@ -37,6 +30,13 @@ from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.template import TemplatePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceRecipientCommand,
+    CorrespondenceReview,
+    CorrespondenceReviewCommand,
+)
 
 
 class CorrespondenceReviewTestMixin(CorrespondenceCompilationTestMixin):
@@ -172,12 +172,8 @@ class TestCorrespondenceReviewAPI(
     def test_manual_recipient_exact_retry_is_idempotent(self):
         payload = self._manual_recipient_payload()
 
-        created = self.client.post(
-            self.manual_recipient_url, payload, format="json"
-        )
-        replayed = self.client.post(
-            self.manual_recipient_url, payload, format="json"
-        )
+        created = self.client.post(self.manual_recipient_url, payload, format="json")
+        replayed = self.client.post(self.manual_recipient_url, payload, format="json")
 
         self.assertEqual(created.status_code, HTTPStatus.CREATED)
         self.assertEqual(replayed.status_code, HTTPStatus.OK)
@@ -199,9 +195,7 @@ class TestCorrespondenceReviewAPI(
         )
 
         self.assertEqual(conflict.status_code, HTTPStatus.CONFLICT)
-        self.assertEqual(
-            conflict.json()["errors"][0]["type"], "idempotency_conflict"
-        )
+        self.assertEqual(conflict.json()["errors"][0]["type"], "idempotency_conflict")
 
     def test_verified_recipient_discovery_is_scoped_strict_and_never_auto_selects(self):
         second = self._recipient(display_name="Second Verified Recipient")
@@ -240,9 +234,7 @@ class TestCorrespondenceReviewAPI(
         )
         deleted = self._recipient()
         dirty = self._recipient()
-        CorrespondenceRecipient._base_manager.filter(pk=deleted.pk).update(  # noqa: SLF001
-            deleted=True
-        )
+        CorrespondenceRecipient._base_manager.filter(pk=deleted.pk).update(deleted=True)  # noqa: SLF001
         CorrespondenceRecipient._base_manager.filter(pk=dirty.pk).update(  # noqa: SLF001
             content_hash="0" * 64
         )
@@ -428,9 +420,7 @@ class TestCorrespondenceReviewAPI(
                 self.assertEqual(response.status_code, HTTPStatus.UNPROCESSABLE_ENTITY)
 
         deleted = self._recipient()
-        CorrespondenceRecipient._base_manager.filter(pk=deleted.pk).update(  # noqa: SLF001
-            deleted=True
-        )
+        CorrespondenceRecipient._base_manager.filter(pk=deleted.pk).update(deleted=True)  # noqa: SLF001
         deleted_response = self._bind(
             self._review_payload(
                 recipient=str(deleted.external_id),
@@ -443,9 +433,9 @@ class TestCorrespondenceReviewAPI(
     def test_recipient_kind_and_directory_json_are_model_hardened(self):
         invalid_kind = self._recipient()
         with self.assertRaises(IntegrityError), transaction.atomic():
-            CorrespondenceRecipient._base_manager.filter(  # noqa: SLF001
-                pk=invalid_kind.pk
-            ).update(recipient_kind="non_clinical_contact")
+            CorrespondenceRecipient._base_manager.filter(pk=invalid_kind.pk).update(  # noqa: SLF001
+                recipient_kind="non_clinical_contact"
+            )
 
         too_deep = {"a": {"b": {"c": {"d": {"e": {"f": "value"}}}}}}
         cases = [
@@ -497,9 +487,7 @@ class TestCorrespondenceReviewAPI(
         )
         replay = self._bind(payload)
         retrieved = self.client.get(review_url)
-        new_key = self._bind(
-            {**payload, "client_request_id": str(uuid4())}
-        )
+        new_key = self._bind({**payload, "client_request_id": str(uuid4())})
 
         self.assertEqual(discovery.status_code, HTTPStatus.OK)
         self.assertNotIn(str(recipient.external_id), str(discovery.json()))
@@ -694,9 +682,7 @@ class TestCorrespondenceReviewAPI(
         self.assertNotEqual(self.recipient.content_hash, old_hash)
 
         replay = self._bind(payload)
-        new_key = self._bind(
-            {**payload, "client_request_id": str(uuid4())}
-        )
+        new_key = self._bind({**payload, "client_request_id": str(uuid4())})
 
         self.assertEqual(replay.status_code, HTTPStatus.OK)
         self.assertTrue(replay.json()["replayed"])
@@ -712,9 +698,7 @@ class TestCorrespondenceReviewAPI(
         created = self._bind(payload)
         amended = self._amend_source()
         exact = self._bind(payload)
-        new_key = self._bind(
-            {**payload, "client_request_id": str(uuid4())}
-        )
+        new_key = self._bind({**payload, "client_request_id": str(uuid4())})
 
         self.assertEqual(created.status_code, HTTPStatus.CREATED)
         self.assertEqual(amended.status_code, HTTPStatus.CREATED, amended.json())
@@ -758,9 +742,7 @@ class TestCorrespondenceReviewConcurrency(
 
         def post(payload):
             url, body = (
-                payload
-                if isinstance(payload, tuple)
-                else (self.review_url, payload)
+                payload if isinstance(payload, tuple) else (self.review_url, payload)
             )
             close_old_connections()
             client = APIClient()
@@ -804,9 +786,7 @@ class TestCorrespondenceReviewConcurrency(
         )
         expected_reviews = 1 if responses[1][0] == HTTPStatus.CREATED else 0
         self.assertEqual(CorrespondenceReview.objects.count(), expected_reviews)
-        self.assertEqual(
-            CorrespondenceReviewCommand.objects.count(), expected_reviews
-        )
+        self.assertEqual(CorrespondenceReviewCommand.objects.count(), expected_reviews)
 
     def test_concurrent_same_key_different_recipient_is_non_leaking(self):
         request_id = str(uuid4())

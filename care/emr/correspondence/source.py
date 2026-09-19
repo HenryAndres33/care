@@ -2,7 +2,6 @@ from care.emr.correspondence.author import (
     InvalidVerifiedAuthorError,
     verified_author_snapshot,
 )
-from care.emr.models.correspondence_correction import FormSubmissionSeriesHead
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import FacilityOrganizationUser
 from care.emr.reports.template_versioning import calculate_template_content_hash
@@ -14,6 +13,7 @@ from care.emr.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
 )
 from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
+from care_suriname.models.correspondence_correction import FormSubmissionSeriesHead
 
 SHA256_LENGTH = 64
 
@@ -43,14 +43,12 @@ def compilation_frozen_integrity_valid(compilation) -> bool:
                 len(compilation.form_source_hash) == SHA256_LENGTH,
                 len(compilation.form_artifact_hash) == SHA256_LENGTH,
                 len(compilation.template_hash) == SHA256_LENGTH,
-                provenance.get("contract")
-                == "correspondence-compilation-snapshot-v1",
+                provenance.get("contract") == "correspondence-compilation-snapshot-v1",
                 provenance.get("compilation") == str(compilation.external_id),
                 form.get("id") == str(compilation.form_submission.external_id),
                 form.get("version") == compilation.form_source_version,
                 form.get("hash") == compilation.form_source_hash,
-                form.get("artifact_id")
-                == str(compilation.form_artifact.external_id),
+                form.get("artifact_id") == str(compilation.form_artifact.external_id),
                 form.get("artifact_hash") == compilation.form_artifact_hash,
                 template.get("id") == str(compilation.template.external_id),
                 template.get("version") == compilation.template_version,
@@ -102,7 +100,10 @@ def compilation_sources_available(compilation) -> bool:
     ):
         return False
     try:
-        if finalized_form_submission_snapshot_hash(source) != compilation.form_source_hash:
+        if (
+            finalized_form_submission_snapshot_hash(source)
+            != compilation.form_source_hash
+        ):
             return False
         if calculate_template_content_hash(template) != compilation.template_hash:
             return False

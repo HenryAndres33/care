@@ -1,22 +1,12 @@
 from .account import *  # noqa F403
-from .admission_documentation import *  # noqa F403
 from .activity_definition import *  # noqa F403
 from .allergy_intolerance import *  # noqa F403
 from .charge_item import *  # noqa F403
 from .charge_item_definition import *  # noqa F403
-from .clinical_text import *  # noqa F403
-from .clinical_term_translation import *  # noqa F403
 from .condition import *  # noqa F403
-from .consult_closure import *  # noqa F403
-from .correspondence import *  # noqa F403
-from .correspondence_correction import *  # noqa F403
-from .correspondence_delivery import *  # noqa F403
-from .correspondence_letter import *  # noqa F403
-from .correspondence_review import *  # noqa F403
 from .device import *  # noqa F403
 from .diagnostic_report import *  # noqa F403
 from .encounter import *  # noqa F403
-from .encounter_discharge import *  # noqa F403
 from .facility_config import *  # noqa F003
 from .file_upload import *  # noqa F403
 from .healthcare_service import *  # noqa F403
@@ -43,7 +33,3 @@ from .supply_delivery import *  # noqa F403
 from .supply_request import *  # noqa F403
 from .tag_config import *  # noqa F403
 from .valueset import *  # noqa F403
-from care.emr.models.emergency_admission import EmergencyAdmission
-from care.emr.models.operation_plan import OperationPlan
-
-from care.emr.models.form_submission_lab import FormSubmissionLabLink

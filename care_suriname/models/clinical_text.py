@@ -16,6 +16,7 @@ class ClinicalTextResource(EMRBaseModel):
     payload = models.JSONField(default=dict)
 
     class Meta:
+        db_table = "emr_clinicaltextresource"
         constraints = [
             models.UniqueConstraint(
                 fields=["facility", "kind", "key"],

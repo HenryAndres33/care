@@ -44,13 +44,13 @@ class ConsultClosure(EMRBaseModel):
     medication_actions = models.JSONField(default=list)
     correspondence_outcome = models.CharField(max_length=32)
     correspondence_compilation = models.ForeignKey(
-        "emr.CorrespondenceCompilation",
+        "care_suriname.CorrespondenceCompilation",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
     )
     correspondence_delivery = models.ForeignKey(
-        "emr.CorrespondenceDelivery",
+        "care_suriname.CorrespondenceDelivery",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -65,7 +65,7 @@ class ConsultClosure(EMRBaseModel):
         blank=True,
     )
     correspondence_case = models.ForeignKey(
-        "emr.CorrespondenceCorrectionCase",
+        "care_suriname.CorrespondenceCorrectionCase",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -84,6 +84,7 @@ class ConsultClosure(EMRBaseModel):
     closure_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_consultclosure"
         constraints = [
             models.UniqueConstraint(
                 fields=["encounter", "closure_number"],
@@ -179,6 +180,7 @@ class ConsultClosureCommand(EMRBaseModel):
     result_snapshot = models.JSONField(default=dict)
 
     class Meta:
+        db_table = "emr_consultclosurecommand"
         constraints = [
             models.UniqueConstraint(
                 fields=["client_request_id"],
@@ -235,6 +237,7 @@ class ConsultClosureRecoveryTask(EMRBaseModel):
     recovery_hash = models.CharField(max_length=64)
 
     class Meta:
+        db_table = "emr_consultclosurerecoverytask"
         constraints = [
             models.UniqueConstraint(
                 fields=["encounter"],

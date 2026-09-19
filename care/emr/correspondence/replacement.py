@@ -13,14 +13,6 @@ from care.emr.correspondence.delivery import (
     latest_delivery_event,
     lock_and_verify_delivery_ledger,
 )
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionCommand,
-    CorrespondenceCorrectionEvent,
-    CorrespondencePaperReconciliationAttestation,
-    FormSubmissionSeriesHead,
-)
-from care.emr.models.correspondence_delivery import CorrespondenceDelivery
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.resources.correspondence_continuity import (
     correspondence_correction_case_hash,
@@ -30,6 +22,14 @@ from care.emr.resources.correspondence_replacement import (
     CorrespondenceReplacementWorkflowReadSpec,
     correspondence_correction_command_hash,
 )
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionCommand,
+    CorrespondenceCorrectionEvent,
+    CorrespondencePaperReconciliationAttestation,
+    FormSubmissionSeriesHead,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
 
 
 def serialize_replacement_attempt(attempt):
@@ -204,9 +204,7 @@ def refresh_replacement_case_for_delivery(  # noqa: PLR0912, PLR0915
     if not reference:
         return False
     head = (
-        FormSubmissionSeriesHead._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        FormSubmissionSeriesHead._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related("advanced_by", "current_submission__workflow_finalized_by")
         .get(series_id=reference["review__compilation__form_submission__series_id"])
     )
@@ -227,9 +225,7 @@ def refresh_replacement_case_for_delivery(  # noqa: PLR0912, PLR0915
         .get()
     )
     case = (
-        CorrespondenceCorrectionCase._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        CorrespondenceCorrectionCase._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "source_head",
             "frozen_submission__workflow_finalized_by",
@@ -268,9 +264,7 @@ def refresh_replacement_case_for_delivery(  # noqa: PLR0912, PLR0915
     )
     locked_deliveries = {
         item.pk: item
-        for item in CorrespondenceDelivery._base_manager.select_for_update(  # noqa: SLF001
-            of=("self",)
-        )
+        for item in CorrespondenceDelivery._base_manager.select_for_update(of=("self",))  # noqa: SLF001
         .select_related(
             "artifact",
             "recipient",

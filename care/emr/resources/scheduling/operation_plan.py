@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import UUID4, BaseModel, ConfigDict, Field
 from rest_framework.exceptions import ValidationError
 
-from care.emr.models.operation_plan import OperationPlan
+from care_suriname.models.operation_plan import OperationPlan
 
 
 class OperationPlanSpec(BaseModel):

@@ -14,17 +14,6 @@ from care.emr.correspondence.correction import (
     materialize_claimed_correction_outbox,
 )
 from care.emr.correspondence.delivery import append_delivery_event
-from care.emr.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionCommand,
-    CorrespondenceCorrectionEvent,
-    CorrespondenceCorrectionOutbox,
-    CorrespondencePaperReconciliationAttestation,
-    CorrespondenceReplacementAttempt,
-)
-from care.emr.models.correspondence_delivery import CorrespondenceDelivery
-from care.emr.models.correspondence_letter import CorrespondenceLetterRevision
-from care.emr.models.correspondence_review import CorrespondenceReview
 from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.resources.correspondence_continuity import (
@@ -50,6 +39,17 @@ from care.emr.tasks.correspondence_delivery import (
 )
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionCommand,
+    CorrespondenceCorrectionEvent,
+    CorrespondenceCorrectionOutbox,
+    CorrespondencePaperReconciliationAttestation,
+    CorrespondenceReplacementAttempt,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.models.correspondence_review import CorrespondenceReview
 
 SYNTHETIC_PDF = b"%PDF-1.7\nsynthetic-continuity-artifact"
 
@@ -334,7 +334,7 @@ class TestCorrespondenceContinuityAPI(
         self.assertFalse(response.json()["action_policy"]["can_finalize"])
 
     def test_missing_series_head_maps_to_integrity_conflict(self):
-        from care.emr.models.correspondence_correction import (
+        from care_suriname.models.correspondence_correction import (
             FormSubmissionSeriesHead,
         )
 
@@ -348,7 +348,7 @@ class TestCorrespondenceContinuityAPI(
         self.assertEqual(response["Cache-Control"], "no-store")
 
     def test_tampered_series_head_maps_to_integrity_conflict(self):
-        from care.emr.models.correspondence_correction import (
+        from care_suriname.models.correspondence_correction import (
             FormSubmissionSeriesHead,
         )
 
@@ -903,13 +903,13 @@ class TestCorrespondenceContinuityDeliveredBranch(
         case.refresh_from_db()
         self.assertTrue(correction_case_integrity_valid(case))
         original_source_hash = attempts[0].source_snapshot_hash
-        CorrespondenceReplacementAttempt._base_manager.filter(  # noqa: SLF001
-            pk=attempts[0].pk
-        ).update(source_snapshot_hash="0" * 64)
+        CorrespondenceReplacementAttempt._base_manager.filter(pk=attempts[0].pk).update(  # noqa: SLF001
+            source_snapshot_hash="0" * 64
+        )
         self.assertFalse(correction_case_integrity_valid(case))
-        CorrespondenceReplacementAttempt._base_manager.filter(  # noqa: SLF001
-            pk=attempts[0].pk
-        ).update(source_snapshot_hash=original_source_hash)
+        CorrespondenceReplacementAttempt._base_manager.filter(pk=attempts[0].pk).update(  # noqa: SLF001
+            source_snapshot_hash=original_source_hash
+        )
         self.assertTrue(correction_case_integrity_valid(case))
         paper_attestation = CorrespondencePaperReconciliationAttestation.objects.get()
         original_attestation_hash = paper_attestation.attestation_hash
