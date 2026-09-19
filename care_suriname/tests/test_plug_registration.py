@@ -33,7 +33,7 @@ class PlugRegistrationTests(SimpleTestCase):
                 self.assertEqual(match.url_name, name)
                 module = match.func.__module__
                 self.assertTrue(
-                    module.startswith(("care_suriname.", "care.users.draft_recovery")),
+                    module.startswith("care_suriname."),
                     module,
                 )
 

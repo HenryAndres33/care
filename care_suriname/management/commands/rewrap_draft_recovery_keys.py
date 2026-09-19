@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from care.users.draft_recovery.crypto import RecoveryUnavailableError
-from care.users.draft_recovery.models import DraftRecoveryKey
-from care.users.draft_recovery.service import rewrap_key
+from care_suriname.draft_recovery.crypto import RecoveryUnavailableError
+from care_suriname.draft_recovery.service import rewrap_key
+from care_suriname.models.draft_recovery import DraftRecoveryKey
 
 
 class Command(BaseCommand):

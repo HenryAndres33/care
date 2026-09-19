@@ -4,9 +4,12 @@ import os
 import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import close_old_connections
 from django.test import override_settings
 from django.utils import timezone
@@ -14,15 +17,15 @@ from rest_framework.test import APITransactionTestCase
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from care.emr.utils.mfa import create_auth_response
-from care.users.draft_recovery.crypto import (
+from care.users.models import User
+from care_suriname.draft_recovery.auth import interactive_refresh_token
+from care_suriname.draft_recovery.crypto import (
     RecoveryUnavailableError,
     load_wrapping_keys,
 )
-from care.users.draft_recovery.models import DraftRecoveryKey
-from care.users.draft_recovery.service import get_or_create_key, rewrap_key
-from care.users.models import User
+from care_suriname.draft_recovery.service import get_or_create_key, rewrap_key
+from care_suriname.models.draft_recovery import DraftRecoveryKey
 from config.auth_views import TokenObtainPairSerializer, TokenRefreshSerializer
-from config.draft_recovery_auth import interactive_refresh_token
 
 
 @override_settings(DEBUG=False)
@@ -263,3 +266,27 @@ class DraftRecoveryTests(APITransactionTestCase):
         output = " ".join(logs.output)
         self.assertNotIn(response.data["key_material"], output)
         self.assertNotIn(self.first, output)
+
+    def test_rewrap_command_preserves_active_and_retired_material(self):
+        original = self.post().data
+        DraftRecoveryKey.objects.filter(pk=original["key_id"]).update(active=False)
+        active = self.post().data
+        second = base64.b64encode(os.urandom(32)).decode()
+        self.write_ring({"v1": self.first, "v2": second}, "v2")
+        output = StringIO()
+        call_command("rewrap_draft_recovery_keys", stdout=output)
+        self.assertEqual(output.getvalue().strip(), "Rewrapped 2 retained draft keys.")
+        self.write_ring({"v2": second}, "v2")
+        for response in (original, active):
+            recovered = self.client.get(f"{self.url}{response['key_id']}/", secure=True)
+            self.assertEqual(recovered.status_code, 200)
+            self.assertEqual(recovered.data["key_material"], response["key_material"])
+            self.assertNotIn(response["key_material"], output.getvalue())
+        with (
+            override_settings(DRAFT_RECOVERY_WRAPPING_KEYS_FILE=""),
+            self.assertRaisesMessage(
+                CommandError,
+                "Rewrap unavailable; retain every old wrapping key and retry.",
+            ),
+        ):
+            call_command("rewrap_draft_recovery_keys", stdout=StringIO())

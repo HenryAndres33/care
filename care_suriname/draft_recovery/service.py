@@ -4,14 +4,14 @@ import uuid
 from django.db import transaction
 from django.views.decorators.debug import sensitive_variables
 
-from care.users.draft_recovery.crypto import (
+from care.users.models import User
+from care_suriname.draft_recovery.crypto import (
     RecoveryUnavailableError,
     load_wrapping_keys,
     unwrap_key,
     wrap_key,
 )
-from care.users.draft_recovery.models import DraftRecoveryKey
-from care.users.models import User
+from care_suriname.models.draft_recovery import DraftRecoveryKey
 
 
 def eligible(owner):

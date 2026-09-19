@@ -10,7 +10,7 @@ from rest_framework_simplejwt.exceptions import (
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from care.users.models import User
-from config.draft_recovery_auth import interactive_refresh_token
+from care_suriname.draft_recovery.auth import interactive_refresh_token
 from config.ratelimit import ratelimit
 
 logger = logging.getLogger(__name__)

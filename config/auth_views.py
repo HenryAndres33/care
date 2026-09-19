@@ -15,7 +15,7 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.views import TokenVerifyView, TokenViewBase
 
-from config.draft_recovery_auth import interactive_refresh_token
+from care_suriname.draft_recovery.auth import interactive_refresh_token
 from config.ratelimit import ratelimit
 
 User = get_user_model()

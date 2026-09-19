@@ -49,7 +49,9 @@ terminal output, logs, tickets or this document. Back up the protected wrapping
 key separately from the database; loss makes retained ciphertext unrecoverable.
 
 Activation requires a reviewed secret provisioned on the deployment, migration
-`users.0028_draftrecoverykey`, actual authenticated endpoint/shape checks and a
+the immutable table-creation migration `users.0028_draftrecoverykey`, followed by
+`users.0029_move_draft_recovery_to_care_suriname` and
+`care_suriname.0002_move_draft_recovery`, actual authenticated endpoint checks and a
 coordinated service rollout. No migration/config activation on the shared
 clinical stack is claimed merely from local source tests. Without configuration,
 the application returns unavailable and must not show local protection enabled.
@@ -86,10 +88,39 @@ is not data deletion. The API has no key-destruction or clinical write commands.
 Backend tests cover API identity/TLS/authentication, login versus refresh proof,
 concurrent first creation, hostile configuration and tampered ciphertext, retained
 keys and wrapping rotation. Run them only on a disposable test database:
-`DJANGO_SETTINGS_MODULE=config.settings.test DJANGO_TEST_DATABASE_NAME=test_care_draft_keys_codex python manage.py test care.users.tests.test_draft_recovery --noinput`.
+`DJANGO_SETTINGS_MODULE=config.settings.test DJANGO_TEST_DATABASE_NAME=test_care_draft_keys_codex python manage.py test care_suriname.tests.test_draft_recovery care_suriname.tests.test_draft_recovery_ownership --noinput`.
 Use test-stack PostgreSQL, never the development database or a care_test reset.
 
 Pending separate acceptance: independent code/security review, real deployment
 secret/backup restore, native authenticated live response, editor integration,
 account/session transitions and real browser-disk crash recovery. A passing API
 suite alone does not certify Phase 1 or any locally protected badge.
+
+## Plugin ownership — 19 September 2026
+
+This is the Urology encrypted-draft client contract introduced in custom commit
+`530eafb9e`, absent at CARE fork `ece71a878`. The implementation and auth-proof
+helper live here; the model is `care_suriname.models.draft_recovery.DraftRecoveryKey`.
+Its existing table remains `users_draftrecoverykey`. Applied users migrations are
+immutable. The new paired migrations change model state and relabel the existing
+content type in place; no table/column/index/constraint/row-copy operation occurs.
+Content-type ID and permission IDs survive. The new permission label is
+`care_suriname.<action>_draftrecoverykey`; no application caller checks these Django
+permissions (the endpoint still enforces owner identity and recent authentication).
+
+The only native implementation callers are the existing password-login and MFA
+proof hooks in `config/auth_views.py` and `care/emr/utils/mfa.py`. They import
+`auth.interactive_refresh_token`; CARE has no shared post-interactive-auth hook.
+Refresh and temporary MFA token behavior are unchanged. Settings keep their exact
+environment names and defaults; only the generic audit-exclusion model label moves.
+
+For a code rollback, on a backed-up/quiesced stack first run
+`manage.py migrate users 0028` with this revision's migration files available,
+then restore the previous code. This reverses plugin0002 and users0029 only;
+never reverse users0028. Resume writes after verifying the users content type and
+same key rows. Forward migration is `manage.py migrate`; duplicate target or missing
+installed content types fail closed. Empty installs get their content type from
+post_migrate. Do not delete duplicate identities to force a live migration through.
+
+Rehearsal, laptop state and exact verification are recorded in
+[the ownership report](../../docs/development/2026-09-19-draft-recovery-ownership.md).

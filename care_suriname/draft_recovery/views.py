@@ -11,9 +11,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from care.users.draft_recovery.crypto import RecoveryUnavailableError
-from care.users.draft_recovery.models import DraftRecoveryKey
-from care.users.draft_recovery.service import eligible, get_or_create_key, get_owned_key
+from care_suriname.draft_recovery.crypto import RecoveryUnavailableError
+from care_suriname.draft_recovery.service import (
+    eligible,
+    get_or_create_key,
+    get_owned_key,
+)
+from care_suriname.models.draft_recovery import DraftRecoveryKey
 from config.authentication import CustomJWTAuthentication
 
 logger = logging.getLogger("draft_recovery_access")

@@ -7,7 +7,6 @@ config/api_router.py, so URLs and `reverse()` names stay the same.
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from care.users.draft_recovery.views import DraftRecoveryKeyView
 from care_suriname.api.viewsets.clinical_term_translation import (
     ClinicalTermTranslationViewSet,
 )
@@ -41,6 +40,7 @@ from care_suriname.api.viewsets.encounter_discharge import (
 from care_suriname.api.viewsets.workflow_capability import (
     WorkflowCapabilityViewSet,
 )
+from care_suriname.draft_recovery.views import DraftRecoveryKeyView
 
 router = SimpleRouter(trailing_slash=True)
 router.register(

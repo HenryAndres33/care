@@ -245,3 +245,58 @@ mixin. The complete unchanged production-core import file set is ten:
 `api/viewsets/report/report_upload.py`, and `models/report/template.py`
 (all under `care/emr/`). The report no-store safeguard is an existing patch,
 not a dependency introduced by the note-lab extraction.
+
+
+## Draft-recovery ownership decision — 19 September 2026
+
+The earlier users-app exception is closed: custom commit `530eafb9e` introduced
+this contract for Urology's encrypted browser drafts; it is absent at upstream
+fork `ece71a878` and has no native frontend consumer. It may be useful upstream,
+but that does not make this implementation native CARE. Implementation, auth
+helper, README and security tests now belong to `care_suriname`; no core shim.
+`care/users/models.py` is byte-identical to the fork again.
+
+`users.0028` stays immutable. New `users.0029` removes model state with no SQL;
+`care_suriname.0002` depends on it and plugin0001, recreates state with
+`db_table="users_draftrecoverykey"`, then relabels the existing content type in
+place. Dependencies point plugin → core only. No schema SQL, table rename, row
+copy, cryptographic/AAD change, API or frontend change. Permission IDs/links are
+preserved; their app-qualified names now use care_suriname. Missing installed
+identity and any target identity fail closed; a fresh database with no content
+types or keys defers creation to post_migrate.
+
+Two owner-authorized, existing authentication-proof patches now import the
+plugin helper directly: `config/auth_views.py` (successful password login) and
+`care/emr/utils/mfa.py` (successful MFA). Neither has a shared generic interactive
+authentication hook. Removing either would lock users out of their encrypted
+drafts or weaken recency proof; inventing a wide auth seam is outside this move.
+An upstream post-auth token-claims hook is a future candidate, not implemented.
+The guard requires exactly these two native draft-recovery consumers. Settings
+retain the secret-file/recent-auth configuration and use the plugin model label
+for audit-value exclusion so key ciphertext is not logged.
+
+The complete intentional production core→plugin import file list is now:
+
+- `care/emr/api/viewsets/condition.py`
+- `care/emr/api/viewsets/encounter.py`
+- `care/emr/api/viewsets/form_submission.py`
+- `care/emr/api/viewsets/medication_request.py`
+- `care/emr/api/viewsets/report/report_upload.py`
+- `care/emr/api/viewsets/scheduling/booking.py`
+- `care/emr/api/viewsets/scheduling/schedule.py`
+- `care/emr/api/viewsets/user.py`
+- `care/emr/api/viewsets/valueset.py`
+- `care/emr/models/report/template.py`
+- `care/emr/utils/mfa.py`
+- `config/auth_views.py`
+
+The first ten remain the documented clinical safety/compatibility patches.
+Native table invariants and immutable migration history, completed-encounter
+patient access, user preferences/directory behavior, configuration and the generic
+v1 registration seam also remain; this is not an unmodified CARE checkout.
+The two auth imports replace existing custom-helper calls, not new behavior.
+
+Exact rehearsal, backup, laptop application, test and endpoint evidence:
+[2026-09-19-draft-recovery-ownership.md](2026-09-19-draft-recovery-ownership.md).
+No production VM or deployment change. Roll back code and migration state together
+as documented in [the module README](../../care_suriname/draft_recovery/README.md).

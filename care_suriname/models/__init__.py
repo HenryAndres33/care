@@ -7,6 +7,7 @@ from .correspondence_correction import *  # noqa: F403
 from .correspondence_delivery import *  # noqa: F403
 from .correspondence_letter import *  # noqa: F403
 from .correspondence_review import *  # noqa: F403
+from .draft_recovery import *  # noqa: F403
 from .emergency_admission import *  # noqa: F403
 from .encounter_discharge import *  # noqa: F403
 from .form_submission_artifact_command import *  # noqa: F403

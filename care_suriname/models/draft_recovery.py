@@ -16,7 +16,7 @@ class DraftRecoveryKey(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        app_label = "users"
+        db_table = "users_draftrecoverykey"
         constraints = [
             models.UniqueConstraint(
                 fields=["owner"],

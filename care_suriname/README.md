@@ -45,13 +45,14 @@ The main areas are:
 - `authorization/` — additional permission methods;
 - `checks/` — deployment and configuration checks;
 - `extensions/` — CARE extension registrations;
+- `draft_recovery/` — owner-bound encrypted-draft key release and authentication proof;
 - `management/commands/` — operational commands;
 - `migrations/` — plug-owned migration state;
 - `models/` — plug-owned models;
 - `resources/form_submission/` — custom command contracts and note-lab parsing/registration; and
 - `tasks/` — Celery tasks and periodic scans.
 
-The documented native safety patches and users-app draft-recovery decision remain separate. Use Git history and the migration plan rather than moving or deleting those files independently.
+Draft recovery is plugin-owned, with its original `users_draftrecoverykey` table pinned and paired state-only users0029/plugin0002 migrations. The native safety patches remain intentional. See [draft recovery](draft_recovery/README.md) and the dated ownership evidence before migration or rollback. No production deployment is implied.
 
 ## Database and migration rules
 
