@@ -32,8 +32,6 @@ EXPECTED_IMPORTS = {
     },
     "care/emr/api/viewsets/medication_request.py": {
         "care_suriname.api.viewsets.clinical_no_store",
-        "care_suriname.resources.medication_request_idempotency",
-        "care_suriname.workflow_capabilities",
     },
     "care/emr/api/viewsets/report/report_upload.py": {
         "care_suriname.api.viewsets.clinical_no_store"

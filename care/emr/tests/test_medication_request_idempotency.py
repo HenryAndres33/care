@@ -30,6 +30,7 @@ from care.emr.signals.patient.phone_number_identifier import (
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.api.viewsets import medication_commands
 
 
 class TestMedicationRequestIdempotencyApi(CareAPITestBase):
@@ -602,9 +603,9 @@ class TestMedicationRequestIdempotencyConcurrency(TransactionTestCase):
                 synchronize_preflight,
             ),
             patch.object(
-                medication_request_viewset,
+                medication_commands,
                 "_is_idempotency_constraint_violation",
-                wraps=medication_request_viewset._is_idempotency_constraint_violation,  # noqa: SLF001
+                wraps=medication_commands._is_idempotency_constraint_violation,  # noqa: SLF001
             ) as constraint_check,
         ):
             responses = self._post_concurrently([payload, changed])

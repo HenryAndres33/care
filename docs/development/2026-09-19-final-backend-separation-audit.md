@@ -315,3 +315,17 @@ form_submission. Six/eight finite backlog clusters are closed (75% of that
 backlog, not a weighted whole-backend percentage). Full separation remains
 incomplete. The reproduced native diagnosis/symptom authorization failures are
 unresolved and must not be read as certified safe by this extraction.
+
+## Subsequent medication-command correction — 19 September 2026
+
+Medication create/reconcile execution and command helpers are now plugin-owned,
+using the existing generic additive action seam. Native CRUD/locks/authorization,
+shared prescription resolution and no-store response policy remain unchanged.
+No new direct plugin import or generic seam; imports 10/26→10/24.
+
+Only form/artifact orchestration remains in the finite F backlog: 7/8 groups
+closed (87.5% of this backlog, not a weighted whole-backend percentage). Historical
+hunk inventories above remain pinned to their recorded revisions. The
+[medication report](2026-09-19-medication-command-ownership.md) records exact current
+metrics, baseline failures and verification. Ownership completion does not
+certify unresolved baseline authorization behavior.

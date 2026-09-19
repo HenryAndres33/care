@@ -18,7 +18,14 @@ def diagnosis_actions():
     return DiagnosisCommandActions
 
 
+def medication_actions():
+    from care_suriname.api.viewsets.medication_commands import MedicationCommandActions
+
+    return MedicationCommandActions
+
+
 CONTRIBUTIONS = {
+    "viewset_actions:medication_request": medication_actions,
     "viewset_actions:diagnosis": diagnosis_actions,
     "valueset_expand": expand_valueset,
     "condition_clinical_domain": ClinicalDomainChoices,

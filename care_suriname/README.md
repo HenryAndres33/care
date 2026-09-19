@@ -135,3 +135,12 @@ seam; native CRUD, authorization and write safety remain inherited unchanged.
 No broader route priority or plugin-specific native import is needed. See the
 [command contract](resources/DIAGNOSIS_COMMANDS.md) and
 [verification report](../docs/development/2026-09-19-diagnosis-command-ownership.md).
+
+## Medication command ownership — 19 September 2026
+
+The create/reconcile actions now live in `api/viewsets/medication_commands.py`,
+registered by a lazy contribution through the existing generic action seam.
+Native medication CRUD, encounter locks, prescription helper and no-store safety
+are retained. URLs, schema, command identity/hash and side effects are unchanged.
+See the [contract](resources/MEDICATION_COMMANDS.md) and
+[verification](../docs/development/2026-09-19-medication-command-ownership.md).
