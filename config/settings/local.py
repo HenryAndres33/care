@@ -4,6 +4,7 @@ import json
 from authlib.jose import JsonWebKey
 
 from care.utils.jwks.generate_jwk import get_jwks_from_file
+from plugs.contributions import apply_settings
 
 from .base import *  # noqa
 from .base import BASE_DIR, INSTALLED_APPS, MIDDLEWARE, env
@@ -53,12 +54,7 @@ CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES = ["*"]
 CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = ["*"]
 # Fixed synthetic browser fixture only; production resolves explicit department
 # policy from CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT.
-CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = {
-    "urology": ["urology-medisch-dossier"],
-    "19d9ec24-cf5e-4944-93a9-a4900e1f4feb": ["urology-medisch-dossier"],
-    # Owner-approved AZP department policy; exact UUID avoids name collisions.
-    "d1dd82e0-0690-4121-94d8-7605b27192ee": ["urology-medisch-dossier"],
-}
+apply_settings(globals(), "local")
 
 # open id connect
 JWKS = JsonWebKey.import_key_set(

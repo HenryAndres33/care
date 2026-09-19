@@ -114,3 +114,14 @@ Names and model constraints are unchanged; no migration is required. Roll back
 this code-only batch as a unit (route registration, plugin implementation and
 native removals), never by adding a second directory. No database rollback.
 See [verification and remaining work](../docs/development/2026-09-19-directory-and-constraint-ownership.md).
+
+## Policy ownership — 19 September 2026
+
+Dutch terminology expansion, the recent-patient preference schema, required-form
+department maps and diagnosis-domain vocabulary now live in
+[`policies/`](policies/README.md), declared by model-free `contributions.py`.
+The generic host contributions preserve early settings initialization and native
+fallbacks; no native file directly imports these policies. Condition's existing
+column/default and all API schemas remain unchanged, with zero migration drift.
+Core command orchestration remains a separate batch; see the
+[policy verification and handoff](../docs/development/2026-09-19-policy-ownership.md).

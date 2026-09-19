@@ -4,6 +4,7 @@ import json
 from authlib.jose import JsonWebKey
 
 from care.utils.jwks.generate_jwk import get_jwks_from_file
+from plugs.contributions import apply_settings
 
 from .base import *  # noqa
 from .base import BASE_DIR, TEMPLATES, env
@@ -113,10 +114,7 @@ DISABLE_RATELIMIT = True
 CORRESPONDENCE_SYNTHETIC_DELIVERY_ENABLED = True
 CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES = ["*"]
 CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = ["*"]
-CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = {
-    "urology": ["urology-medisch-dossier"],
-    "19d9ec24-cf5e-4944-93a9-a4900e1f4feb": ["urology-medisch-dossier"],
-}
+apply_settings(globals(), "test")
 
 SMS_BACKEND = "care.utils.sms.backend.console.ConsoleBackend"
 

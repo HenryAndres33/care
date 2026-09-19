@@ -48,9 +48,6 @@ EXPECTED_IMPORTS = {
         "care_suriname.resources.scheduling.conflicts"
     },
     "care/emr/api/viewsets/user.py": {"care_suriname.api.viewsets.doctor_activation"},
-    "care/emr/api/viewsets/valueset.py": {
-        "care_suriname.resources.clinical_term_translation"
-    },
     "care/emr/models/report/template.py": {"care_suriname.reports.template_versioning"},
     "care/emr/utils/mfa.py": {"care_suriname.draft_recovery.auth"},
     "config/auth_views.py": {"care_suriname.draft_recovery.auth"},

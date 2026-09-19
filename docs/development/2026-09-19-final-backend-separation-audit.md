@@ -281,3 +281,21 @@ backlog); no defensible weighted overall completion percentage is established.
 Full behavior separation remains incomplete. See the batch report for the
 pre-existing cross-department authorization test failure reproduced at fcfdba421;
 this extraction does not resolve or certify that unrelated policy.
+
+## Subsequent policy batch correction — 19 September 2026
+
+The earlier F entries for valueset expansion, recent-patient/required-document
+settings and clinical-domain vocabulary are now closed by plugin policies plus
+small generic contributions. Do not rewrite the historical hunk appendix.
+Native Condition retains its existing table field/default and native specs retain
+the field contract; these no longer define the specialty vocabulary. Local/test
+UUID maps moved as well as the base map, preserving profile precedence.
+
+Current care/config non-test source: 37 files, 179 hunks, +3004/−249. Native
+core-to-plugin imports: 11 files/27 statements (valueset removed). F implementation
+incidence falls 8 → 3 files: condition, form_submission and medication_request
+viewsets. Five/eight explicit backlog clusters are closed (62.5% of that backlog);
+100% behavior separation is not yet reached. Generic contribution infrastructure
+outside care/config is separately accounted in the
+[policy batch report](2026-09-19-policy-ownership.md), including the reproduced
+baseline permission-test failure and synthetic browser audit artifact.

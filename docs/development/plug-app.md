@@ -7,12 +7,12 @@ tag `backup/pre-plug-app-2026-09-18`, `output/backups/care-pre-plug-app-2026-09-
 ## Current closure status — 19 September 2026
 
 **Custom model ownership is complete; full implementation separation is not.**
-The final audit finds 35 plugin models, 12 native production files importing the
-plugin (28 statements), and 38 modified non-test Python files under care/config.
-The directory endpoint, custom command orchestration, terminology policy and
-preference schema still contain custom implementation in native CARE. They are
-not all unavoidable safety hooks. Do not interpret the historical phase notes
-below as a claim that the backend is 100% separated.
+After the directory/constants and policy batches, there are 35 plugin models,
+11 native production files importing the plugin (27 statements), and 37 modified
+non-test Python files under care/config. Diagnosis, form/artifact and medication
+command orchestration still contain custom implementation in native CARE.
+They are not all unavoidable safety hooks. Five/eight audited behavior clusters
+are implemented; this is not a claim that the backend is 100% separated.
 
 See the [final decision and verification](2026-09-19-final-backend-separation-audit.md)
 and [exact path/hunk inventory](2026-09-19-final-backend-separation-hunks.md).
@@ -369,3 +369,29 @@ eight enumerated implementation clusters are closed. This is 25% of that finite
 closure backlog, not a claim that the whole backend is only 25% or already 100%
 separated. Custom model ownership remains 35/35. Full evidence, known baseline
 failure and remaining scope: [batch report](2026-09-19-directory-and-constraint-ownership.md).
+
+## Policy separation batch — 19 September 2026
+
+Terminology expansion policy, recent-patient schema, base/local/test required-form
+maps and clinical-domain enum now belong to `care_suriname/policies`, exported by
+model-free `care_suriname.contributions`. Generic `plugs.contributions` provides
+conflict-checked single callbacks/types, additive schema maps and JSON settings
+contributions. Native value-set authentication/object lookup/search fallback stay
+native. Native Condition's open column and persisted `general` default remain;
+no model choices or plugin model import were added. Settings initialization and
+all environment/profile precedence match the baseline. No migration.
+
+The direct valueset import is removed: **11 native files / 27 statements** remain.
+Current native care/config non-test Python inventory is **37 files, 179 hunks,
++3,004/−249** versus fork `ece71a878`. The changed hunk count reflects generic seams,
+not more custom policy. Generic `plugs/contributions.py` is counted separately,
+as are `plugs/urls.py` and root `plug_config.py`.
+
+Three more of the eight finite behavior-separation backlog clusters are closed:
+**5/8 (62.5%)**, not a weighted overall completion percentage. Remaining F groups:
+form/artifact command orchestration, diagnosis commands, medication commands
+(three native viewsets). Native metadata, historical migrations, safety imports,
+authorization safeguards and deployment configuration still remain intentional.
+No additional native file became byte-identical to fork in this batch; eight
+previously restored files remain identical. Full backend behavior separation is
+still incomplete. See [exact evidence and limitations](2026-09-19-policy-ownership.md).

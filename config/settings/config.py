@@ -1,6 +1,7 @@
 import environ
 
 from care.emr.resources.utils import MonetaryCodes, MonetaryComponentDefinitions
+from plugs.contributions import merge_mapping
 
 env = environ.Env()
 
@@ -293,92 +294,39 @@ PATIENT_DEPARTMENT_LONGITUDINAL_ACCESS_ENABLED = env.bool(
 
 PREFERENCE_SCHEMA = env.json(
     "PREFERENCE_SCHEMA",
-    default={
-        "facility_quick_links": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "title": "UserPreferences",
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "blacklist": {
-                    "type": "array",
-                    "items": {"type": "string", "minLength": 1},
-                    "default": [],
-                },
-                "custom_links": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["link", "title"],
-                        "properties": {
-                            "link": {"type": "string", "minLength": 1},
-                            "title": {"type": "string", "minLength": 1},
-                            "icon": {"type": "string", "minLength": 1},
-                            "facilityId": {"type": "string", "minLength": 1},
-                        },
-                    },
-                    "default": [],
-                },
-            },
-        },
-        "urology_recent_patients": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "title": "UrologyRecentPatients",
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["facilities", "version"],
-            "properties": {
-                "version": {"const": 1},
-                "facilities": {
-                    "type": "object",
-                    "maxProperties": 50,
-                    "propertyNames": {
-                        "pattern": (
-                            "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
-                            "[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-"
-                            "[0-9a-fA-F]{12}$"
-                        )
-                    },
-                    "additionalProperties": {
+    default=merge_mapping(
+        "preference_schemas",
+        {
+            "facility_quick_links": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "title": "UserPreferences",
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "blacklist": {
                         "type": "array",
-                        "maxItems": 8,
+                        "items": {"type": "string", "minLength": 1},
+                        "default": [],
+                    },
+                    "custom_links": {
+                        "type": "array",
                         "items": {
                             "type": "object",
                             "additionalProperties": False,
-                            "required": [
-                                "displayName",
-                                "lastOpened",
-                                "mrn",
-                                "patientId",
-                            ],
+                            "required": ["link", "title"],
                             "properties": {
-                                "patientId": {
-                                    "type": "string",
-                                    "pattern": (
-                                        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
-                                        "[1-8][0-9a-fA-F]{3}-"
-                                        "[89abAB][0-9a-fA-F]{3}-"
-                                        "[0-9a-fA-F]{12}$"
-                                    ),
-                                },
-                                "displayName": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200,
-                                },
-                                "mrn": {"type": "string", "maxLength": 100},
-                                "lastOpened": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                },
+                                "link": {"type": "string", "minLength": 1},
+                                "title": {"type": "string", "minLength": 1},
+                                "icon": {"type": "string", "minLength": 1},
+                                "facilityId": {"type": "string", "minLength": 1},
                             },
                         },
+                        "default": [],
                     },
                 },
             },
         },
-    },
+    ),
 )
 
 QUESTIONNAIRE_ERRORED_TIME_LIMIT_MINUTES = env.int(

@@ -17,6 +17,7 @@ from healthy_django.healthcheck.django_database import DjangoDatabaseHealthCheck
 
 from care.utils.csp import config as csp_config
 from plug_config import manager
+from plugs.contributions import apply_settings
 
 from .config import *  # noqa: F403
 
@@ -66,10 +67,7 @@ CORRESPONDENCE_DELIVERY_ENABLED_FACILITIES = env.json(
 # Department keys may be stable external UUIDs or normalized department names.
 # Each configured close workflow currently binds exactly one required questionnaire
 # series; deployments can replace this map without diagnosis-specific backend code.
-CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT = env.json(
-    "CONSULT_CLOSE_REQUIRED_FORMS_BY_DEPARTMENT",
-    default={"urology": ["urology-medisch-dossier"]},
-)
+apply_settings(globals(), "base", env=env)
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.

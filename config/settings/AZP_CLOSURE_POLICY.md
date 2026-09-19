@@ -27,3 +27,12 @@ ruff format --check config/settings/local.py config/settings/tests/test_azp_clos
 The running `care-backend-1` settings read confirmed `config.settings.local` and
 the expected single required form. Follow with browser preflight against the
 synthetic AZP visit; missing later prerequisites must remain explicit blockers.
+
+## Ownership correction — 19 September 2026
+
+The exact base/local/test maps now live in
+`care_suriname/policies/settings.py`. Native settings apply generic plug
+contributions at the same initialization points; local AZP identity and environment
+precedence are unchanged. The regression test reads the plugin-owned map.
+No local UUID is a new production default. See the
+[policy ownership report](../../docs/development/2026-09-19-policy-ownership.md).

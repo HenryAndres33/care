@@ -12,6 +12,7 @@ from care.emr.resources.condition.valueset import CARE_CODITION_CODE_VALUESET
 from care.emr.utils.valueset_coding_type import ValueSetBoundCoding
 from care.utils.shortcuts import get_object_or_404
 from care.utils.time_util import care_now
+from plugs.contributions import single
 
 
 class ClinicalStatusChoices(str, Enum):
@@ -45,9 +46,7 @@ class SeverityChoices(str, Enum):
     severe = "severe"
 
 
-class ClinicalDomainChoices(str, Enum):
-    general = "general"
-    urology = "urology"
+ClinicalDomainChoices = single("condition_clinical_domain", str)
 
 
 class ConditionOnSetSpec(EMRResource):
@@ -90,7 +89,7 @@ class ConditionSpec(BaseConditionSpec):
     abatement: ConditionAbatementSpec = {}
     note: str | None = None
     category: CategoryChoices
-    clinical_domain: ClinicalDomainChoices = ClinicalDomainChoices.general
+    clinical_domain: ClinicalDomainChoices = ClinicalDomainChoices("general")
 
     @field_validator("encounter")
     @classmethod
@@ -147,7 +146,7 @@ class ConditionUpdateSpec(BaseConditionSpec):
     onset: ConditionOnSetSpec = {}
     abatement: ConditionAbatementSpec = {}
     note: str | None = None
-    clinical_domain: ClinicalDomainChoices = ClinicalDomainChoices.general
+    clinical_domain: ClinicalDomainChoices = ClinicalDomainChoices("general")
 
 
 class ChronicConditionUpdateSpec(ConditionUpdateSpec):
