@@ -34,3 +34,17 @@ environment and restart, or remove the guarded block in
 
 `python manage.py test care.security.tests.test_patient_department_access
 --settings=config.settings.test --keepdb --noinput` in the isolated test stack.
+
+## Ownership correction — 19 September 2026
+
+The completed-encounter query now lives in
+`care_suriname/policies/patient_access.py`. Native PatientAccess contains only a
+generic optional organization-scope contribution call at the original lookup
+point. The environment switch remains unchanged. Both direct permission
+serialization and authorization-controller callers retain the same role lookup.
+The policy also affects any existing write permission held by the matching role;
+this extraction does not silently narrow it to read-only decisions. Native list
+filtering remains unchanged. The old instruction to remove the native guarded
+block is historical; current code rollback must include contribution registration
+and implementation. Contract and limits: `care_suriname/policies/README.md` and
+`docs/development/2026-09-19-patient-access-ownership.md`.

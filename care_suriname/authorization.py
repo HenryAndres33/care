@@ -4,10 +4,9 @@ CARE's `AuthorizationController` looks methods up by name across all registered
 handler classes, so a plug may add new `can_*` methods without editing the core
 handler files. These three used to be added to core classes directly.
 
-Not here on purpose: the completed-encounter role lookup in
-`care/security/authorization/patient.py` (PATIENT_DEPARTMENT_ACCESS.md). It
-stays a core patch because `care/emr/resources/permissions.py` instantiates
-`PatientAccess` directly, bypassing the controller.
+Completed-encounter department roles are contributed by policies.patient_access
+through the generic shared PatientAccess organization-scope hook. This reaches
+both controller callers and direct PatientAccess permission serialization.
 """
 
 from care.security.authorization import AuthorizationController

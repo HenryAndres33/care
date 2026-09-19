@@ -107,8 +107,8 @@ class BackendOwnershipTests(SimpleTestCase):
                                 f"Custom command reintroduced at {path}:{node.lineno}",
                             )
 
-    def test_residual_department_policy_is_explicit_and_does_not_spread(self):
-        # This is an acknowledged ownership gap, not a 100% completion claim.
+    def test_department_policy_is_not_implemented_in_native_source(self):
+        # Configuration may retain its switch; native policy consumers may not.
         root = Path(__file__).resolve().parents[2]
         consumers = set()
         for path in (root / "care").rglob("*.py"):
@@ -120,4 +120,4 @@ class BackendOwnershipTests(SimpleTestCase):
                     and node.attr == "PATIENT_DEPARTMENT_LONGITUDINAL_ACCESS_ENABLED"
                 ):
                     consumers.add(path.relative_to(root).as_posix())
-        self.assertEqual(consumers, {"care/security/authorization/patient.py"})
+        self.assertEqual(consumers, set())

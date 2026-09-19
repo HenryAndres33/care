@@ -1,17 +1,17 @@
-# Post-extraction backend ownership: exact hunk inventory
+# Backend source-ownership closure: exact hunk inventory
 
-Pinned fork `ece71a878b3764a476d713a163a2f5515db57581` → audited HEAD `347517ddb34fc1a8170885e4b6b12af3f381114a` (19 September 2026).
-This is the fresh inventory after all eight extraction groups. The earlier
+Pinned fork `ece71a878b3764a476d713a163a2f5515db57581` → the source committed with this report (parent e6424e8d6) (19 September 2026).
+This inventory follows all eight groups and the completed-department policy move. The earlier
 [inventory](2026-09-19-final-backend-separation-hunks.md) remains historical.
-See the [decision](2026-09-19-post-extraction-ownership-audit.md): full source
-ownership is still incomplete because one custom department read policy remains.
+See the [decision](2026-09-19-patient-access-ownership.md): no feature-specific
+implementation remains outside the documented native safety/integration/config scope.
 
 A: native safety/table contract; B: plugin integration; C: generic upstream
 candidate; D: configuration/non-production/history; E: possible redundancy;
 F: embedded custom implementation. Categories overlap and are not percentages.
 
 Native non-test care/config Python: 37 files, 174 hunks,
-+1320/−249. Test settings, root wiring and three generic
++1313/−248. Test settings, root wiring and four generic
 plugs modules appear separately in the same table. No environment values shown.
 
 ## Source classification
@@ -49,7 +49,7 @@ plugs modules appear separately in the same table. No environment values shown.
 | `care/emr/resources/report/template/spec.py` | 2 / 0 | A/C | Expose native template resource_version/content_hash used by immutable artifact provenance. |
 | `care/emr/resources/scheduling/schedule/spec.py` | 2 / 2 | C | Strict interval overlap allows adjacent intervals. Generic validation fix. |
 | `care/emr/utils/mfa.py` | 2 / 1 | B | Successful interactive MFA obtains plugin authentication-proof token. Missing common post-auth claim hook; removing it breaks encrypted draft recovery recency proof. |
-| `care/security/authorization/patient.py` | 9 / 1 | B/F | Residual custom completed-encounter department role lookup (lines 33-40): read-access policy, not write-time safety. Requires narrow role-contribution hook used by both direct PatientAccess and controller consumers before moving policy. |
+| `care/security/authorization/patient.py` | 2 / 0 | B/C | Generic candidate organization contribution at the original role-lookup point; native membership/permission/list checks unchanged. Completed-encounter policy is plugin-owned; no feature flag or status policy here. |
 | `config/auth_views.py` | 2 / 1 | B | Successful password login obtains plugin authentication-proof token; same missing generic hook as MFA. |
 | `config/settings/base.py` | 48 / 4 | C/D | Generic settings contribution; deployment/fail-closed workflow gates, time zone, audit exclusions and draft-recovery configuration. Department-to-required-form policy moved; no settings values reproduced. |
 | `config/settings/config.py` | 35 / 26 | C/D | Generic preference-schema contribution; department-access feature switch remains. Urology recent-patient schema/defaults/bounds are plugin-owned. |
@@ -57,6 +57,7 @@ plugs modules appear separately in the same table. No environment values shown.
 | `config/settings/test.py` | 9 / 0 | C/D | Test DB-name override, deterministic workflow/delivery gates and generic settings contribution; non-production. |
 | `config/urls.py` | 15 / 0 | C | Generic optional plug v1 mount plus collision-checked literal-priority path registration; no specialty URL hardcoding. |
 | `plug_config.py` | 13 / 1 | D | LocalPlugManager registers care_suriname through get_apps despite plugs=[]; local integration wiring, not an upstream core model/service. |
+| `plugs/authorization.py` | 29 / 0 | C | Optional single-provider patient organization scope; validates positive integer set, duplicate providers/errors fail closed, never returns boolean allow. |
 | `plugs/contributions.py` | 71 / 0 | C | Generic lazy single-provider, collision-checked mapping and validated settings contribution registry; no specialty policy. |
 | `plugs/urls.py` | 119 / 0 | C | Generic literal explicit-route priority with exact/parameter collision safeguards and format alias handling. |
 | `plugs/viewset_actions.py` | 89 / 0 | C | Generic optional additive plain-class/tuple action and private-helper contributions; host/name/path collisions fail closed. |
@@ -431,11 +432,11 @@ plugs modules appear separately in the same table. No environment values shown.
 
 ### `care/security/authorization/patient.py`
 
-+9/−1; 2 hunks; 139 source lines.
++2/−0; 2 hunks; 133 source lines.
 
 ```diff
-@@ -6 +6 @@ from care.emr.models.organization import FacilityOrganizationUser, OrganizationU
-@@ -32,0 +33,8 @@ class PatientAccess(AuthorizationHandler):
+@@ -12,0 +13 @@ from care.security.permissions.patient import PatientPermissions
+@@ -32,0 +34 @@ class PatientAccess(AuthorizationHandler):
 ```
 
 ### `config/auth_views.py`
@@ -512,6 +513,14 @@ plugs modules appear separately in the same table. No environment values shown.
 
 ```diff
 @@ -6 +6,13 @@ plugs = []
+```
+
+### `plugs/authorization.py`
+
++29/−0; 1 hunks; 29 source lines.
+
+```diff
+@@ -0,0 +1,29 @@
 ```
 
 ### `plugs/contributions.py`
@@ -639,7 +648,7 @@ production count. Paths and counts only; no environment contents.
 | `care/emr/tests/test_urology_operation_response.py` | 75 / 0 | D: test/fixture |
 | `care/emr/tests/test_user_api.py` | 94 / 0 | D: test/fixture |
 | `care/emr/tests/test_workflow_capabilities.py` | 123 / 0 | D: test/fixture |
-| `care/security/authorization/PATIENT_DEPARTMENT_ACCESS.md` | 36 / 0 | D: documentation |
+| `care/security/authorization/PATIENT_DEPARTMENT_ACCESS.md` | 50 / 0 | D: documentation |
 | `care/security/tests/__init__.py` | 0 / 0 | D: test/fixture |
 | `care/security/tests/test_patient_department_access.py` | 78 / 0 | D: test/fixture |
 | `care/users/migrations/0028_draftrecoverykey.py` | 43 / 0 | D: immutable applied migration/history |
@@ -673,21 +682,26 @@ production count. Paths and counts only; no environment contents.
 | `docs/development/2026-09-19-diagnosis-command-ownership.md` | 179 / 0 | D: documentation |
 | `docs/development/2026-09-19-directory-and-constraint-ownership.md` | 229 / 0 | D: documentation |
 | `docs/development/2026-09-19-draft-recovery-ownership.md` | 247 / 0 | D: documentation |
-| `docs/development/2026-09-19-final-backend-separation-audit.md` | 342 / 0 | D: documentation |
-| `docs/development/2026-09-19-final-backend-separation-hunks.md` | 680 / 0 | D: documentation |
+| `docs/development/2026-09-19-final-backend-separation-audit.md` | 354 / 0 | D: documentation |
+| `docs/development/2026-09-19-final-backend-separation-hunks.md` | 692 / 0 | D: documentation |
 | `docs/development/2026-09-19-form-command-ownership.md` | 143 / 0 | D: documentation |
 | `docs/development/2026-09-19-medication-command-ownership.md` | 170 / 0 | D: documentation |
 | `docs/development/2026-09-19-note-lab-extraction.md` | 188 / 0 | D: documentation |
+| `docs/development/2026-09-19-ownership-closure-hunks.md` | 715 / 0 | D: documentation |
+| `docs/development/2026-09-19-patient-access-ownership.md` | 201 / 0 | D: documentation |
 | `docs/development/2026-09-19-policy-ownership.md` | 207 / 0 | D: documentation |
+| `docs/development/2026-09-19-post-extraction-ownership-audit.md` | 204 / 0 | D: documentation |
+| `docs/development/2026-09-19-post-extraction-ownership-hunks.md` | 711 / 0 | D: documentation |
 | `docs/development/correspondence-letter-pdf-core-patch.md` | 161 / 0 | D: documentation |
 | `docs/development/encounter-admission-note-extension-core-patch.md` | 122 / 0 | D: documentation |
 | `docs/development/encounter-clinical-closure-core-patch.md` | 169 / 0 | D: documentation |
 | `docs/development/encounter-discharge-core-patch.md` | 168 / 0 | D: documentation |
 | `docs/development/patient-directory-pagination-core-patch.md` | 52 / 0 | D: documentation |
-| `docs/development/plug-app.md` | 427 / 0 | D: documentation |
+| `docs/development/plug-app.md` | 454 / 0 | D: documentation |
 | `docs/development/schedule-overlap-core-patch.md` | 93 / 0 | D: documentation |
 | `docs/development/urology-recent-patients-preference-core-patch.md` | 47 / 0 | D: documentation |
 | `plugs/tests/__init__.py` | 0 / 0 | D: test/fixture |
+| `plugs/tests/test_authorization.py` | 69 / 0 | D: test/fixture |
 | `plugs/tests/test_contributions.py` | 86 / 0 | D: test/fixture |
 | `plugs/tests/test_priority_urls.py` | 122 / 0 | D: test/fixture |
 | `plugs/tests/test_viewset_actions.py` | 136 / 0 | D: test/fixture |
@@ -699,13 +713,3 @@ production count. Paths and counts only; no environment contents.
 | `scripts/phase2/verify_state.py` | 304 / 0 | D: deployment/build/configuration |
 | `scripts/systemd/care-suriname-backup.service` | 18 / 0 | D: deployment/build/configuration |
 | `scripts/systemd/care-suriname-backup.timer` | 16 / 0 | D: deployment/build/configuration |
-
-## Subsequent completed-department extraction — 19 September 2026
-
-The B/F counterexample recorded above is now plugin-owned through a generic
-organization-scope contribution in the shared role lookup. Its permission/query
-behavior remains unchanged. This document remains historical at 347517ddb;
-see [current verification and closure](2026-09-19-patient-access-ownership.md)
-and [current hunk inventory](2026-09-19-ownership-closure-hunks.md). Completion
-means source ownership under the documented exceptions, not zero native edits
-or certification of the separately recorded baseline authorization failures.

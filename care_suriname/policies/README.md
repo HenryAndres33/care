@@ -51,3 +51,34 @@ Tests: `plugs.tests.test_contributions`,
 `care_suriname.tests.test_policy_contributions`, native translation/user/diagnosis
 and closure tests. See [verification](../../docs/development/2026-09-19-policy-ownership.md)
 for baseline failures and the synthetic browser artifact audit identity.
+
+## Completed-consultation patient scope — 19 September 2026
+
+`patient_access.completed_department_ids` owns the completed-encounter policy.
+The early `patient_organization_ids` contribution lazily imports it on invocation.
+It returns the union of existing facility_organization_cache IDs for this patient's
+completed encounters (including native ancestor/root IDs), or an empty set when
+the unchanged environment-overridable feature switch is disabled. The ORM filter,
+manager, selected column and query count are unchanged. Cancelled/discontinued/
+entered-in-error encounters do not contribute; native active encounter behavior
+continues independently.
+
+The generic `plugs.authorization.patient_organization_ids` host helper accepts
+exactly one optional callable and a set of positive native integer organization
+IDs. Duplicate providers fail before either runs; invalid results/provider errors
+abort the role lookup, never produce an allow or fallback. Absence adds nothing.
+Native PatientAccess still filters membership by the requesting user and checks
+RolePermission. The contribution cannot overwrite native roles or return a
+boolean access decision. Set union is order independent; there is no provider
+priority. A trusted plugin can expand scope, so its policy needs security tests.
+
+This shared role lookup also feeds direct permission serialization and existing
+write-permission consumers: restricting this hook to reads would change baseline
+behavior. It adds no permission a user's matching role does not already hold.
+Native list filtering, direct patient links, geographical organization access,
+active encounters and superuser handling are untouched. Baseline inactive/soft-
+deleted filtering stays the native default manager's responsibility.
+
+Roll back the code-only extraction as one commit, or disable the existing policy
+switch to use native behavior. No model, migration, URL, settings default or
+frontend change. See [verification and final audit](../../docs/development/2026-09-19-patient-access-ownership.md).

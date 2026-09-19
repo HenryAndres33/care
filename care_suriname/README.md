@@ -163,3 +163,13 @@ commands. Full source ownership is not yet 100%: native PatientAccess retains
 the custom completed-department role policy. All 35 custom models and command
 engines are plugin-owned; ten native files retain 12 direct integration imports.
 See [fresh decision and remaining work](../docs/development/2026-09-19-post-extraction-ownership-audit.md).
+
+## Source-ownership closure — 19 September 2026
+
+The final confirmed custom policy, completed-department patient access, now lives
+in policies/patient_access.py and contributes candidate organizations to native
+role lookup through a generic single-provider hook. Native membership, permission
+and list behavior is unchanged. All custom model state and feature implementation
+is plugin-owned under the documented definition; native safeguards, generic
+seams, config/history and 12 direct integration imports remain explicit.
+[Verification, browser limitations and exact residual inventory](../docs/development/2026-09-19-patient-access-ownership.md).

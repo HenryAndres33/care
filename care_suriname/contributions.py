@@ -30,7 +30,14 @@ def form_actions():
     return command_parts()
 
 
+def patient_organizations(user, patient):
+    from care_suriname.policies.patient_access import completed_department_ids
+
+    return completed_department_ids(user, patient)
+
+
 CONTRIBUTIONS = {
+    "patient_organization_ids": patient_organizations,
     "viewset_actions:form_submission": form_actions,
     "viewset_actions:medication_request": medication_actions,
     "viewset_actions:diagnosis": diagnosis_actions,

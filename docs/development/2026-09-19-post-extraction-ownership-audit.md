@@ -192,3 +192,13 @@ artifacts, runtime sources or migration edits. No new failures.
 | `docs/development/plug-app.md` | 17 | 4 |
 
 Seven files +980/−5: tests +36/−1; docs +944/−4; production 0/0.
+
+## Subsequent completed-department extraction — 19 September 2026
+
+The B/F counterexample recorded above is now plugin-owned through a generic
+organization-scope contribution in the shared role lookup. Its permission/query
+behavior remains unchanged. This document remains historical at 347517ddb;
+see [current verification and closure](2026-09-19-patient-access-ownership.md)
+and [current hunk inventory](2026-09-19-ownership-closure-hunks.md). Completion
+means source ownership under the documented exceptions, not zero native edits
+or certification of the separately recorded baseline authorization failures.

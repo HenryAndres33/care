@@ -6,17 +6,19 @@ tag `backup/pre-plug-app-2026-09-18`, `output/backups/care-pre-plug-app-2026-09-
 
 ## Current closure status — 19 September 2026
 
-**Custom model ownership is complete; full implementation separation is not.**
-The eight identified implementation groups have been extracted, including all
-six form/artifact commands. The fresh audit identifies one remaining custom
-implementation: completed-department role policy in native PatientAccess.
-There are 35 plugin models and 10 native
-production files importing the plugin (12 statements). Native safety, generic
-seams, configuration and immutable migration history remain documented.
+**Backend source-ownership separation is complete under the documented definition.**
+All 35 custom models and feature implementations, including completed-department
+patient scope, belong to care_suriname. Native code retains individually reviewed
+safety/table contracts, generic seams/fixes, integration imports, configuration
+and immutable migration history. This is not an unmodified upstream checkout,
+zero imports, independent packaging, deployment or clinical/security certification.
+Ten native files still contain 12 direct plugin imports; four action-mixin imports
+have a plausible future generic-seam replacement. No exception count increased.
 
-See the [current decision and verification](2026-09-19-post-extraction-ownership-audit.md)
-and [exact path/hunk inventory](2026-09-19-post-extraction-ownership-hunks.md).
-These supersede broad closure statements below without rewriting prior evidence.
+See the [current evidence and limitations](2026-09-19-patient-access-ownership.md)
+and [exact current hunk inventory](2026-09-19-ownership-closure-hunks.md).
+Earlier entries remain revision-pinned history; the prior audit's remaining
+PatientAccess policy is now plugin-owned.
 
 ## What it is
 
@@ -438,3 +440,15 @@ Four action-mixin imports may now use the existing generic seam; they are not
 proven unavoidable. Historical figures above remain revision-pinned evidence.
 See the [fresh decision](2026-09-19-post-extraction-ownership-audit.md) and
 [current exact inventory](2026-09-19-post-extraction-ownership-hunks.md).
+
+## Generic patient organization scope — 19 September 2026
+
+The native role lookup consumes one optional callable through
+plugs.authorization.patient_organization_ids. It contributes only organization
+IDs; native membership and permission decisions remain authoritative. No provider
+adds nothing; duplicate/invalid providers, invalid return types and exceptions
+abort lookup without allow/fallback. One provider means no order/priority race.
+The plugin owns completed-encounter lookup and the existing feature switch's
+interpretation. Read, write and serialized permission consumers retain the same
+shared role semantics, and native list filtering is untouched. This is a small
+generic upstream candidate; see the plugin policies README and current report.
