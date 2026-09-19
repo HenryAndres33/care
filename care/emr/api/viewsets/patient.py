@@ -1,6 +1,3 @@
-import datetime
-from typing import Literal
-
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
@@ -8,7 +5,7 @@ from django.utils import timezone
 from django_filters import CharFilter, DateFilter, FilterSet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
-from pydantic import UUID4, BaseModel, Field
+from pydantic import UUID4, BaseModel
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import OrderingFilter
@@ -21,7 +18,6 @@ from care.emr.models.patient import Patient, PatientIdentifier, PatientIdentifie
 from care.emr.models.scheduling.token import Token
 from care.emr.resources.patient.spec import (
     PatientCreateSpec,
-    PatientDirectorySpec,
     PatientIdentifierConfigRequest,
     PatientListSpec,
     PatientPartialSpec,
@@ -42,15 +38,7 @@ from care.security.authorization import AuthorizationController
 from care.security.models import RoleModel
 from care.users.models import User
 from care.utils.lock import ObjectLocked
-from care.utils.pagination.care_pagination import CareLimitOffsetPagination
 from care.utils.shortcuts import get_object_or_404
-
-MINIMUM_PATIENT_DIRECTORY_NAME_LENGTH = 2
-
-
-class PatientDirectoryPagination(CareLimitOffsetPagination):
-    default_limit = 25
-    max_limit = 100
 
 
 class PatientFilters(FilterSet):
@@ -209,60 +197,6 @@ class PatientViewSet(EMRModelViewSet):
         value: str | None = None
         facility: UUID4 | None = None
         page_size: int = 100
-
-    class DirectoryRequestSpec(BaseModel):
-        facility: UUID4
-        name: str | None = None
-        date_of_birth: datetime.date | None = None
-        limit: int = Field(default=25, ge=1, le=100)
-        offset: int = Field(default=0, ge=0)
-        ordering: Literal[
-            "name",
-            "-name",
-            "phone_number",
-            "-phone_number",
-            "date_of_birth",
-            "-date_of_birth",
-            "external_id",
-            "-external_id",
-        ] = "name"
-
-    @extend_schema(responses={200: PatientDirectorySpec})
-    @action(detail=False, methods=["GET"])
-    def directory(self, request, *args, **kwargs):
-        """Search patient identities for appointment and correspondence workflows."""
-
-        request_data = self.DirectoryRequestSpec(**request.query_params.dict())
-        name = (request_data.name or "").strip()
-        if not name and not request_data.date_of_birth:
-            raise ValidationError("Name or date of birth is required")
-        if name and len(name) < MINIMUM_PATIENT_DIRECTORY_NAME_LENGTH:
-            raise ValidationError("Name must contain at least 2 characters")
-
-        facility = get_object_or_404(Facility, external_id=request_data.facility)
-        if not AuthorizationController.call(
-            "can_search_patient_directory",
-            self.request.user,
-            facility,
-        ):
-            raise PermissionDenied("Cannot search patients in this facility")
-
-        queryset = Patient.objects.all()
-        if name:
-            queryset = queryset.filter(name__icontains=name)
-        if request_data.date_of_birth:
-            queryset = queryset.filter(date_of_birth=request_data.date_of_birth)
-
-        ordering = request_data.ordering
-        ordering_fields = [ordering]
-        if ordering.lstrip("-") != "external_id":
-            ordering_fields.append("external_id")
-        queryset = queryset.order_by(*ordering_fields)
-
-        paginator = PatientDirectoryPagination()
-        page = paginator.paginate_queryset(queryset, request)
-        data = [PatientDirectorySpec.serialize(obj).to_json() for obj in page]
-        return paginator.get_paginated_response(data)
 
     @extend_schema(
         request=SearchRequestSpec,

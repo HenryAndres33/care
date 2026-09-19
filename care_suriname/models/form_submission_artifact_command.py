@@ -2,10 +2,11 @@ from django.db import models
 
 from care.emr.models.base import EMRBaseModel
 from care.emr.models.report.report_upload import (
-    FORM_ARTIFACT_COMMAND_IDEMPOTENCY_CONSTRAINT,
     ReportUpload,
 )
 from care.users.models import User
+
+FORM_ARTIFACT_COMMAND_IDEMPOTENCY_CONSTRAINT = "formartifact_cmd_request_id_uniq"
 
 
 class FormSubmissionArtifactCommand(EMRBaseModel):

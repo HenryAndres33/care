@@ -37,6 +37,7 @@ from care_suriname.api.viewsets.encounter_admission_note import (
 from care_suriname.api.viewsets.encounter_discharge import (
     EncounterDischargeViewSet,
 )
+from care_suriname.api.viewsets.patient_directory import PatientDirectoryViewSet
 from care_suriname.api.viewsets.workflow_capability import (
     WorkflowCapabilityViewSet,
 )
@@ -98,6 +99,21 @@ router.register(
     WorkflowCapabilityViewSet,
     basename="workflow-capability",
 )
+
+# Explicit compatibility path: native patient/<external_id> otherwise captures
+# the literal "directory". Other plugin routes retain their original precedence.
+priority_urlpatterns = [
+    path(
+        "patient/directory/",
+        PatientDirectoryViewSet.as_view(
+            {"get": "directory"},
+            basename="patient",
+            detail=False,
+            **PatientDirectoryViewSet.directory.kwargs,
+        ),
+        name="patient-directory",
+    ),
+]
 
 urlpatterns = [
     path(

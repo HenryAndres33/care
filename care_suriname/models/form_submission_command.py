@@ -2,10 +2,11 @@ from django.db import models
 
 from care.emr.models.base import EMRBaseModel
 from care.emr.models.questionnaire import (
-    FORM_SUBMISSION_COMMAND_IDEMPOTENCY_CONSTRAINT,
     FormSubmission,
     Questionnaire,
 )
+
+FORM_SUBMISSION_COMMAND_IDEMPOTENCY_CONSTRAINT = "formsub_cmd_client_request_id_uniq"
 
 
 class FormSubmissionCommand(EMRBaseModel):

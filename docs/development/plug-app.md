@@ -338,3 +338,34 @@ reviewed import boundary and checks all 35 model/table identities and all native
 apps for forward model relations into the plugin. Together with registration,
 note-lab and draft-recovery ownership checks, the scoped gate has 16 tests. This
 is a bounded ownership gate, not proof that all remaining behavior is separated.
+
+## First behavior-separation batch — 19 September 2026
+
+The directory endpoint/request/response/pagination and its four original tests
+now belong to `care_suriname`; native `resources/patient/spec.py` is byte-identical
+to fork `ece71a878` again. Native `PatientViewSet` retains only its generic birth-date
+filter delta (+2/−1), with native detail/update/DELETE untouched. Both command-only
+constraint constants moved into their plugin command model modules; strings,
+constraints and migration state are unchanged.
+
+A routing assumption in the final audit was incomplete: removing the custom
+patient action alone lets native `patient/<external_id>` capture “directory”
+before ordinary plugin URLs. The owner authorized `plugs.urls.with_priority_routes`
+and an optional `priority_urlpatterns` export from each plug's `v1_urls`.
+Only flat, literal path() entries may opt in before parameter routes. Duplicate
+literal paths, reverse names or collisions with exact existing URLs fail closed;
+parameterized, regex or nested priority declarations are rejected. With no opt-in,
+existing routing order is unchanged. DEBUG format aliases preserve native router
+behavior. The one opted-in path is declared only in the plugin. Middleware,
+authentication and authorization are unchanged. This is a generic upstream seam,
+not permission to override exact host routes or add a plugin catch-all.
+
+Current native care/config non-test Python inventory: **37 files, 173 hunks,
++3,071/−225**; root generic `plugs/urls.py` adds 119 lines outside that count.
+The existing root plugin wiring and test settings remain separately counted.
+Core→plugin imports remain **12 files / 28 statements**. Eight restored native
+files now match the fork. F-category file incidence falls **12 → 8**; two of the
+eight enumerated implementation clusters are closed. This is 25% of that finite
+closure backlog, not a claim that the whole backend is only 25% or already 100%
+separated. Custom model ownership remains 35/35. Full evidence, known baseline
+failure and remaining scope: [batch report](2026-09-19-directory-and-constraint-ownership.md).

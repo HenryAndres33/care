@@ -90,3 +90,27 @@ For code changes, run the checks appropriate to the affected area, including:
 The known serial concurrency-test failure must only be treated as pre-existing when the identical command also fails at the recorded baseline in an isolated worktree.
 
 Operational details and the migration rehearsal procedure are in [`docs/development/plug-app.md`](../docs/development/plug-app.md). The exact frontend/backend compatibility baseline and deployment state are recorded in [`care_fe/docs/plugin-compatibility.md`](../../care_fe/docs/plugin-compatibility.md).
+
+## Patient directory and command constants — 19 September 2026
+
+The existing read-only `/api/v1/patient/directory/` now belongs to
+`api/viewsets/patient_directory.py`, with request/identity types in
+`resources/patient_directory.py`. It searches native Patient rows; facility
+membership authorizes the lookup, not full chart access. It deliberately does
+not limit patients to an encounter in that facility. The URL, permission,
+validation, six identity fields, stable ordering and counted pagination remain
+unchanged. Frontend search, header/agenda typeahead, programme selection and
+admin directory still use the same endpoint without frontend edits.
+
+`v1_urls.priority_urlpatterns` opts this one literal path into the generic
+`plugs.urls.with_priority_routes` seam. It must precede native patient-ID matching;
+normal plugin routes retain their old order. Duplicate exact paths/names and
+parameterized priority registrations fail closed. Native UUID lookup and DELETE
+stay native; debug format aliases and schema/reverse metadata are preserved.
+
+Each command model now owns its own idempotency constraint-name constant in
+`models/form_submission_command.py` or `models/form_submission_artifact_command.py`.
+Names and model constraints are unchanged; no migration is required. Roll back
+this code-only batch as a unit (route registration, plugin implementation and
+native removals), never by adding a second directory. No database rollback.
+See [verification and remaining work](../docs/development/2026-09-19-directory-and-constraint-ownership.md).

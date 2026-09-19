@@ -11,7 +11,6 @@ from care.utils.csp.config import BucketType
 from care.utils.models.validators import parse_file_extension
 
 FORM_ARTIFACT_SOURCE_CONSTRAINT = "formartifact_source_version_uniq"
-FORM_ARTIFACT_COMMAND_IDEMPOTENCY_CONSTRAINT = "formartifact_cmd_request_id_uniq"
 
 
 class ReportUpload(EMRBaseModel):

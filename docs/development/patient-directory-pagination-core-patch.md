@@ -1,6 +1,19 @@
 # Patient directory pagination core patch
 
-## Rationale
+## Current ownership — 19 September 2026
+
+The historical native patch below is superseded by the
+[plugin ownership move](2026-09-19-directory-and-constraint-ownership.md).
+The endpoint/pagination now live in `care_suriname/api/viewsets/patient_directory.py`,
+the DTOs in `care_suriname/resources/patient_directory.py`, and tests in
+`care_suriname/tests/test_patient_directory.py`. The URL and counted response are
+unchanged. `PatientViewSet.directory` is absent at the fork and now absent in
+native CARE again; it was a custom endpoint using native Patient data, not an
+upstream directory API. Native patient DELETE and the generic birth-date filter
+remain unchanged. The original sections below record the pagination change;
+they are not instructions to restore native ownership or remove paging today.
+
+## Historical rationale
 
 The facility-authorized patient directory previously returned only the first
 bounded collection. A broad name search could therefore omit a matching patient

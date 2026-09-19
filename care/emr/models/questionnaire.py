@@ -10,7 +10,6 @@ from care.emr.models.organization import FacilityOrganization, Organization
 TAG_CACHE = {}  # TODO change to Redis with LRU Cache in process
 MAX_QUESTIONNAIRE_TAGS_COUNT = 1000
 FORM_SUBMISSION_SERIES_VERSION_CONSTRAINT = "formsub_series_resource_ver_uniq"
-FORM_SUBMISSION_COMMAND_IDEMPOTENCY_CONSTRAINT = "formsub_cmd_client_request_id_uniq"
 
 
 class QuestionnaireTag(EMRBaseModel):

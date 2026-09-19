@@ -19,6 +19,7 @@ from care.users.reset_password_views import (
     ResetPasswordRequestToken,
 )
 from config import api_router
+from plugs.urls import with_priority_routes
 
 from .auth_views import (
     AnnotatedTokenVerifyView,
@@ -110,6 +111,7 @@ if settings.DEBUG or not settings.IS_PRODUCTION:
         path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     ]
 
+priority_v1_patterns = []
 for plug in settings.PLUGIN_APPS:
     urlpatterns += [path(f"api/{plug}/", include(f"{plug}.urls"))]
     # CARE Suriname seam (docs/development/plug-app.md): a plug that ships a
@@ -117,3 +119,9 @@ for plug in settings.PLUGIN_APPS:
     # existing clients keep their URLs. Only paths core does not define.
     if importlib.util.find_spec(f"{plug}.v1_urls"):
         urlpatterns += [path("api/v1/", include(f"{plug}.v1_urls"))]
+        module = importlib.import_module(f"{plug}.v1_urls")
+        priority_v1_patterns.extend(getattr(module, "priority_urlpatterns", []))
+
+urlpatterns = with_priority_routes(
+    urlpatterns, priority_v1_patterns, prefix="api/v1/", format_suffixes=settings.DEBUG
+)

@@ -252,3 +252,32 @@ scratch evidence are staged. No test failure required baseline reproduction.
 The shared BUS claim/release is append-only in the frontend repository and is not
 included in the backend commit. No service restart, migration operation, frontend
 source change, clinical write, port-4000 change or deployment occurred.
+
+## Follow-up correction: directory/constant batch — 19 September 2026
+
+The [first implementation batch](2026-09-19-directory-and-constraint-ownership.md)
+closes the directory and two command-constant clusters. The earlier inventory
+above and its appendix remain pinned to db5051c64; do not rewrite those historical
+hunks. Current care/config non-test Python deltas are 37 files / 173 hunks /
++3,071/−225, plus a new 119-line generic `plugs/urls.py` route-priority mechanism.
+Patient spec is restored byte-for-byte; patient viewset retains only +2/−1 for the
+generic birth-date filter. Core plugin imports remain 12 files / 28 statements.
+F-category native file incidence is now eight rather than twelve.
+
+Correction to the directory recommendation: an ordinary late v1 plugin path does
+not win after removing the native action. The native patient detail regex accepts
+“directory” as external_id. A runtime resolver probe proved this at fcfdba421; the
+owner approved a narrow generic, opt-in literal-route priority seam with collision,
+reverse/schema, authentication and native UUID/method guards. It preserves normal
+plugin ordering and rejects exact-route replacement. No route is hardcoded in
+core. The earlier assertion that an ordinary explicit v1 route alone could own
+this URL was incomplete.
+
+Remaining F clusters: form-submission command/artifact orchestration, diagnosis
+commands, medication commands, local terminology expansion policy, Urology
+preference/required-form configuration, and clinical-domain vocabulary coupled to
+native Condition. Two of eight identified clusters are closed (25% of this audit
+backlog); no defensible weighted overall completion percentage is established.
+Full behavior separation remains incomplete. See the batch report for the
+pre-existing cross-department authorization test failure reproduced at fcfdba421;
+this extraction does not resolve or certify that unrelated policy.
