@@ -12,8 +12,10 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet, EMRListMixin
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.resources.clinical_term_translation import (
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.models.clinical_term_translation import ClinicalTermTranslation
+from care_suriname.resources.clinical_term_translation import (
     CSV_FIELDS,
     ClinicalTermCsvImportRequest,
     ClinicalTermKind,
@@ -29,8 +31,6 @@ from care.emr.resources.clinical_term_translation import (
     serialize_clinical_term,
     validate_status_transition,
 )
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.clinical_term_translation import ClinicalTermTranslation
 
 
 class ClinicalTermTranslationViewSet(

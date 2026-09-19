@@ -23,7 +23,7 @@ class Template(SlugBaseModel):
     content_hash = models.CharField(max_length=64, default="", blank=True)
 
     def save(self, *args, **kwargs):
-        from care.emr.reports.template_versioning import (
+        from care_suriname.reports.template_versioning import (
             calculate_template_content_hash,
         )
 

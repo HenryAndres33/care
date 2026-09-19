@@ -6,8 +6,12 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet, EMRListMixin
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.resources.clinical_text import (
+from care.facility.models import Facility
+from care.security.authorization import AuthorizationController
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.models.clinical_text import ClinicalTextResource
+from care_suriname.resources.clinical_text import (
     ClinicalTextKind,
     ClinicalTextResourceReadSpec,
     ClinicalTextResourceUpdateSpec,
@@ -15,10 +19,6 @@ from care.emr.resources.clinical_text import (
     ClinicalTextStatus,
     serialize_clinical_text_resource,
 )
-from care.facility.models import Facility
-from care.security.authorization import AuthorizationController
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.clinical_text import ClinicalTextResource
 
 
 class ClinicalTextResourceViewSet(

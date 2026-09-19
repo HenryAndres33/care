@@ -9,11 +9,13 @@ from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
 from care.emr.models.scheduling import SchedulableResource, TokenBooking, TokenSlot
-from care.emr.resources.scheduling.operation_plan import validate_planned_form_identity
 from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.schedule import SchedulePermissions
 from care.utils.tests.base import CareAPITestBase
 from care_suriname.models.operation_plan import OperationPlan
+from care_suriname.resources.scheduling.operation_plan import (
+    validate_planned_form_identity,
+)
 
 
 @override_settings(CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES=["*"])

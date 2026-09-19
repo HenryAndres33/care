@@ -16,7 +16,6 @@ from model_bakery import baker
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient
 
-from care.emr.correspondence.correction import create_finalized_form_series_head
 from care.emr.models.encounter import EncounterOrganization
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.questionnaire import (
@@ -27,15 +26,6 @@ from care.emr.models.questionnaire import (
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.models.report.template import Template
 from care.emr.models.tag_config import TagConfig
-from care.emr.reports.correspondence_compiler import (
-    CorrespondenceCompilationError,
-    compile_correspondence_html,
-    readable_form_html,
-)
-from care.emr.resources.correspondence import (
-    CompileCorrespondenceSpec,
-    canonical_correspondence_command_hash_v1,
-)
 from care.emr.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
 )
@@ -52,9 +42,19 @@ from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.security.permissions.template import TemplatePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.correspondence.correction import create_finalized_form_series_head
 from care_suriname.models.correspondence import (
     CorrespondenceCompilation,
     CorrespondenceCompileCommand,
+)
+from care_suriname.reports.correspondence_compiler import (
+    CorrespondenceCompilationError,
+    compile_correspondence_html,
+    readable_form_html,
+)
+from care_suriname.resources.correspondence import (
+    CompileCorrespondenceSpec,
+    canonical_correspondence_command_hash_v1,
 )
 
 

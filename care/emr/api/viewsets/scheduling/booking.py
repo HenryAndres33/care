@@ -20,7 +20,6 @@ from care.emr.api.viewsets.base import (
     EMRUpdateMixin,
 )
 from care.emr.api.viewsets.scheduling import lock_create_appointment
-from care.emr.api.viewsets.scheduling.operation_plan import OperationPlanMixin
 from care.emr.api.viewsets.scheduling.schedule import get_schedulable_resource
 from care.emr.models import TokenSlot
 from care.emr.models.organization import (
@@ -54,6 +53,7 @@ from care.utils.filters.dummy_filter import DummyCharFilter
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.lock import Lock
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.operation_plan import OperationPlanMixin
 
 
 class CancelBookingSpec(BaseModel):

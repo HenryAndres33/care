@@ -16,11 +16,6 @@ from care.emr.models.patient import Patient
 from care.emr.registries.system_questionnaire.system_questionnaire import (
     InternalQuestionnaireRegistry,
 )
-from care.emr.resources.condition.idempotency import (
-    IdempotentDiagnosisCreateResponseSpec,
-    IdempotentDiagnosisCreateSpec,
-    canonical_diagnosis_hash,
-)
 from care.emr.resources.condition.spec import (
     CategoryChoices,
     ConditionReadSpec,
@@ -31,6 +26,11 @@ from care.emr.resources.questionnaire.spec import SubjectType
 from care.security.authorization import AuthorizationController
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.resources.condition_idempotency import (
+    IdempotentDiagnosisCreateResponseSpec,
+    IdempotentDiagnosisCreateSpec,
+    canonical_diagnosis_hash,
+)
 
 
 class ValidateEncounterMixin:
@@ -254,9 +254,7 @@ class DiagnosisViewSet(
                     code__system=request_spec.code.system,
                     code__code=request_spec.code.code,
                     clinical_status__in=["active", "recurrence", "relapse"],
-                ).exclude(
-                    verification_status__in=["entered_in_error", "refuted"]
-                )
+                ).exclude(verification_status__in=["entered_in_error", "refuted"])
                 if duplicate.exists():
                     return Response(
                         {

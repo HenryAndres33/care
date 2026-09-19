@@ -23,9 +23,6 @@ from care.emr.models.scheduling.schedule import (
     SchedulableResource,
     Schedule,
 )
-from care.emr.resources.scheduling.schedule.conflicts import (
-    assert_no_resource_schedule_conflict,
-)
 from care.emr.resources.scheduling.schedule.spec import (
     AvailabilityCreateSpec,
     AvailabilityForScheduleSpec,
@@ -39,6 +36,9 @@ from care.security.authorization import AuthorizationController
 from care.users.models import User
 from care.utils.lock import Lock
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.resources.scheduling.conflicts import (
+    assert_no_resource_schedule_conflict,
+)
 
 
 class ChargeItemDefinitionSetSpec(BaseModel):

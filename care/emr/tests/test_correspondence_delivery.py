@@ -15,19 +15,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient
 
-from care.emr.correspondence.delivery import (
-    CorrespondenceDispatchNotCurrentError,
-)
-from care.emr.correspondence.delivery_adapters import (
-    CorrespondenceDeliveryAdapterUnavailableError,
-    SyntheticCorrespondenceDeliveryAdapter,
-)
 from care.emr.models.report.report_upload import ReportUpload
-from care.emr.resources.correspondence import canonical_sha256
-from care.emr.resources.correspondence_delivery import (
-    correspondence_synthetic_provider_receipt_hash,
-    correspondence_synthetic_provider_request_hash,
-)
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
 )
@@ -35,16 +23,15 @@ from care.emr.signals.patient.name_identifier import NameIdentifierConfig
 from care.emr.signals.patient.phone_number_identifier import (
     PhoneNumberIdentifierConfig,
 )
-from care.emr.tasks.correspondence_delivery import (
-    _claim_pending_attempt,
-    _dispatch_claimed_attempt,
-    _prepare_claimed_attempt,
-    dispatch_correspondence_delivery_attempt,
-    reconcile_correspondence_delivery_attempt,
-    scan_correspondence_delivery_outbox,
-)
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.correspondence.delivery import (
+    CorrespondenceDispatchNotCurrentError,
+)
+from care_suriname.correspondence.delivery_adapters import (
+    CorrespondenceDeliveryAdapterUnavailableError,
+    SyntheticCorrespondenceDeliveryAdapter,
+)
 from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionOutbox,
     CorrespondenceSourceCorrection,
@@ -58,6 +45,19 @@ from care_suriname.models.correspondence_delivery import (
 )
 from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.resources.correspondence import canonical_sha256
+from care_suriname.resources.correspondence_delivery import (
+    correspondence_synthetic_provider_receipt_hash,
+    correspondence_synthetic_provider_request_hash,
+)
+from care_suriname.tasks.correspondence_delivery import (
+    _claim_pending_attempt,
+    _dispatch_claimed_attempt,
+    _prepare_claimed_attempt,
+    dispatch_correspondence_delivery_attempt,
+    reconcile_correspondence_delivery_attempt,
+    scan_correspondence_delivery_outbox,
+)
 
 SYNTHETIC_PDF = b"%PDF-1.7\nsynthetic-delivery-artifact"
 
@@ -275,7 +275,7 @@ class TestCorrespondenceDeliveryAPI(
         delivery = CorrespondenceDelivery.objects.get()
         attempt = delivery.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="fail_once",
         ):
             dispatch_correspondence_delivery_attempt(str(attempt.external_id))
@@ -301,7 +301,7 @@ class TestCorrespondenceDeliveryAPI(
         self.assertEqual(retry.status_code, HTTPStatus.CREATED, retry.json())
         second = delivery.attempts.get(attempt_number=2)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="fail_once",
         ):
             dispatch_correspondence_delivery_attempt(str(second.external_id))
@@ -318,7 +318,7 @@ class TestCorrespondenceDeliveryAPI(
         delivery = CorrespondenceDelivery.objects.get()
         attempt = delivery.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="outcome_unknown",
         ):
             dispatch_correspondence_delivery_attempt(str(attempt.external_id))
@@ -341,7 +341,7 @@ class TestCorrespondenceDeliveryAPI(
         self.assertEqual(response.status_code, HTTPStatus.CONFLICT)
         self.assertEqual(delivery.attempts.count(), 1)
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.lookup",
             side_effect=RuntimeError("synthetic lookup failure"),
         ):
@@ -361,7 +361,7 @@ class TestCorrespondenceDeliveryAPI(
         delivery = CorrespondenceDelivery.objects.get()
         attempt = delivery.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver",
             side_effect=RuntimeError("synthetic provider ambiguity"),
         ):
@@ -395,7 +395,7 @@ class TestCorrespondenceDeliveryAPI(
         receipt.save(force_insert=True)
 
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver"
         ) as deliver:
             reconcile_correspondence_delivery_attempt(str(attempt.external_id))
@@ -403,7 +403,7 @@ class TestCorrespondenceDeliveryAPI(
         self.assertFalse(deliver.called)
         self.assertEqual(delivery.events.latest("sequence").event_type, "acknowledged")
         with patch(
-            "care.emr.tasks.correspondence_delivery."
+            "care_suriname.tasks.correspondence_delivery."
             "reconcile_correspondence_delivery_attempt.delay"
         ) as queued:
             scan_correspondence_delivery_outbox()
@@ -417,7 +417,7 @@ class TestCorrespondenceDeliveryAPI(
         self.assertEqual(_claim_pending_attempt(str(attempt.external_id)), attempt.id)
 
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver"
         ) as deliver:
             reconcile_correspondence_delivery_attempt(str(attempt.external_id))
@@ -444,7 +444,7 @@ class TestCorrespondenceDeliveryAPI(
         )
 
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver"
         ) as deliver:
             reconcile_correspondence_delivery_attempt(str(attempt.external_id))
@@ -461,11 +461,11 @@ class TestCorrespondenceDeliveryAPI(
 
         with (
             patch(
-                "care.emr.tasks.correspondence_delivery.write_report_authorizer",
+                "care_suriname.tasks.correspondence_delivery.write_report_authorizer",
                 side_effect=PermissionDenied("revoked"),
             ),
             patch(
-                "care.emr.correspondence.delivery_adapters."
+                "care_suriname.correspondence.delivery_adapters."
                 "SyntheticCorrespondenceDeliveryAdapter.deliver"
             ) as deliver,
         ):
@@ -492,7 +492,7 @@ class TestCorrespondenceDeliveryAPI(
         attempt = delivery.attempts.get(attempt_number=1)
 
         with patch(
-            "care.emr.tasks.correspondence_delivery."
+            "care_suriname.tasks.correspondence_delivery."
             "get_correspondence_delivery_adapter",
             side_effect=CorrespondenceDeliveryAdapterUnavailableError,
         ):
@@ -511,7 +511,7 @@ class TestCorrespondenceDeliveryAPI(
         attempt = delivery.attempts.get(attempt_number=1)
 
         with patch(
-            "care.emr.tasks.correspondence_delivery._assert_dispatch_authorized",
+            "care_suriname.tasks.correspondence_delivery._assert_dispatch_authorized",
             side_effect=PermissionDenied("revoked"),
         ):
             claimed = _claim_pending_attempt(str(attempt.external_id))
@@ -529,7 +529,7 @@ class TestCorrespondenceDeliveryAPI(
         attempt = delivery.attempts.get(attempt_number=1)
 
         with patch(
-            "care.emr.tasks.correspondence_delivery."
+            "care_suriname.tasks.correspondence_delivery."
             "lock_and_assert_correspondence_dispatch_current",
             side_effect=CorrespondenceDispatchNotCurrentError,
         ):
@@ -550,12 +550,12 @@ class TestCorrespondenceDeliveryAPI(
 
         with (
             patch(
-                "care.emr.tasks.correspondence_delivery."
+                "care_suriname.tasks.correspondence_delivery."
                 "lock_and_assert_correspondence_dispatch_current",
                 side_effect=CorrespondenceDispatchNotCurrentError,
             ),
             patch(
-                "care.emr.correspondence.delivery_adapters."
+                "care_suriname.correspondence.delivery_adapters."
                 "SyntheticCorrespondenceDeliveryAdapter.deliver"
             ) as deliver,
         ):
@@ -576,12 +576,12 @@ class TestCorrespondenceDeliveryAPI(
 
         with (
             patch(
-                "care.emr.tasks.correspondence_delivery."
+                "care_suriname.tasks.correspondence_delivery."
                 "get_correspondence_delivery_adapter",
                 side_effect=CorrespondenceDeliveryAdapterUnavailableError,
             ),
             patch(
-                "care.emr.correspondence.delivery_adapters."
+                "care_suriname.correspondence.delivery_adapters."
                 "SyntheticCorrespondenceDeliveryAdapter.deliver"
             ) as deliver,
         ):
@@ -603,7 +603,7 @@ class TestCorrespondenceDeliveryAPI(
         )
 
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver"
         ) as deliver:
             dispatch_correspondence_delivery_attempt(str(attempt.external_id))
@@ -626,7 +626,7 @@ class TestCorrespondenceDeliveryAPI(
         )
 
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver"
         ) as deliver:
             _dispatch_claimed_attempt(attempt.id)
@@ -663,11 +663,13 @@ class TestCorrespondenceDeliveryAPI(
         attempt = delivery.attempts.get(attempt_number=1)
         with (
             patch(
-                "care.emr.correspondence.delivery_adapters."
+                "care_suriname.correspondence.delivery_adapters."
                 "SyntheticCorrespondenceDeliveryAdapter.deliver",
                 side_effect=RuntimeError("secret patient payload"),
             ),
-            patch("care.emr.tasks.correspondence_delivery.logger.warning") as warning,
+            patch(
+                "care_suriname.tasks.correspondence_delivery.logger.warning"
+            ) as warning,
         ):
             dispatch_correspondence_delivery_attempt(str(attempt.external_id))
 

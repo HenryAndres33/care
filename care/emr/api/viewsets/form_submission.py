@@ -18,13 +18,6 @@ from care.emr.api.viewsets.base import (
     EMRRetrieveMixin,
     EMRUpdateMixin,
 )
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.correction import (
-    FormSubmissionSeriesHeadIntegrityError,
-    advance_finalized_form_series,
-    create_finalized_form_series_head,
-    lock_current_finalized_form_series,
-)
 from care.emr.models.encounter import Encounter
 from care.emr.models.patient import Patient
 from care.emr.models.questionnaire import (
@@ -38,19 +31,7 @@ from care.emr.reports.authorizers.utils import (
     read_report_authorizer,
     write_report_authorizer,
 )
-from care.emr.reports.form_submission_artifact import (
-    MalformedFinalizedSnapshotError,
-    build_form_submission_artifact_html,
-    render_form_submission_artifact_pdf,
-    validate_response_dump,
-)
 from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
-from care.emr.resources.form_submission.artifact import (
-    FormSubmissionArtifactCommandResponseSpec,
-    GenerateFormSubmissionArtifactSpec,
-    canonical_artifact_command_hash,
-    has_unresolved_placeholder,
-)
 from care.emr.resources.form_submission.commands import (
     AmendFormSubmissionSpec,
     CreateDraftFormSubmissionSpec,
@@ -69,20 +50,17 @@ from care.emr.resources.form_submission.spec import (
     FormSubmissionUpdateSpec,
     FormSubmissionWriteSpec,
 )
-from care.emr.resources.form_submission.structured_actions import (
-    InvalidStructuredClinicalActionLink,
-    clone_structured_clinical_action_links,
-)
-from care.emr.resources.form_submission.urology_operation import (
-    UROLOGY_OPERATIONS_QUESTIONNAIRE,
-    InvalidUrologyOperationResponseError,
-    validate_urology_operation_response_dump,
-)
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization.base import AuthorizationController
 from care.utils.filters.dummy_filter import DummyUUIDFilter
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.correction import (
+    FormSubmissionSeriesHeadIntegrityError,
+    advance_finalized_form_series,
+    create_finalized_form_series_head,
+    lock_current_finalized_form_series,
+)
 from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionOutbox,
     CorrespondenceSourceCorrection,
@@ -94,6 +72,28 @@ from care_suriname.models.form_submission_artifact_command import (
 from care_suriname.models.form_submission_command import (
     FormSubmissionCommand,
 )
+from care_suriname.reports.form_submission_artifact import (
+    MalformedFinalizedSnapshotError,
+    build_form_submission_artifact_html,
+    render_form_submission_artifact_pdf,
+    validate_response_dump,
+)
+from care_suriname.resources.form_submission.artifact import (
+    FormSubmissionArtifactCommandResponseSpec,
+    GenerateFormSubmissionArtifactSpec,
+    canonical_artifact_command_hash,
+    has_unresolved_placeholder,
+)
+from care_suriname.resources.form_submission.structured_actions import (
+    InvalidStructuredClinicalActionLink,
+    clone_structured_clinical_action_links,
+)
+from care_suriname.resources.form_submission.urology_operation import (
+    UROLOGY_OPERATIONS_QUESTIONNAIRE,
+    InvalidUrologyOperationResponseError,
+    validate_urology_operation_response_dump,
+)
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -777,7 +777,7 @@ class FormSubmissionViewSet(
             patient = Patient.objects.select_for_update().get(pk=patient.pk)
             self._authorize_write(patient=patient)
         self._authorize_questionnaire_submission(questionnaire)
-        from care.emr.resources.scheduling.operation_plan import (
+        from care_suriname.resources.scheduling.operation_plan import (
             validate_planned_form_identity,
         )
 

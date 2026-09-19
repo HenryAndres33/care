@@ -4,11 +4,11 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from model_bakery import baker
 
-from care.emr.clinical_text_catalogs.urology_turp import (
+from care.facility.models import Facility
+from care_suriname.clinical_text_catalogs.urology_turp import (
     TURP_CLINICAL_TEXT_CATALOG,
     TURP_TEMPLATE_BODY,
 )
-from care.facility.models import Facility
 from care_suriname.models.clinical_text import ClinicalTextResource
 
 

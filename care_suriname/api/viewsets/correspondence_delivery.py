@@ -10,8 +10,14 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.delivery import (
+from care.emr.reports.authorizers.utils import (
+    read_report_authorizer,
+    write_report_authorizer,
+)
+from care.security.authorization.base import AuthorizationController
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.delivery import (
     CorrespondenceDeliveryIntegrityError,
     CorrespondenceDispatchNotCurrentError,
     append_delivery_event,
@@ -22,15 +28,16 @@ from care.emr.correspondence.delivery import (
     lock_correspondence_dispatch_source_current,
     read_and_verify_correspondence_artifact,
 )
-from care.emr.correspondence.delivery_adapters import (
+from care_suriname.correspondence.delivery_adapters import (
     CorrespondenceDeliveryAdapterUnavailableError,
     get_correspondence_delivery_adapter,
 )
-from care.emr.reports.authorizers.utils import (
-    read_report_authorizer,
-    write_report_authorizer,
+from care_suriname.models.correspondence_delivery import (
+    CorrespondenceDelivery,
+    CorrespondenceDeliveryAttempt,
 )
-from care.emr.resources.correspondence_delivery import (
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.resources.correspondence_delivery import (
     CorrespondenceDeliveryCommandResponseSpec,
     CorrespondenceDeliveryListSpec,
     RetryCorrespondenceDeliverySpec,
@@ -40,17 +47,10 @@ from care.emr.resources.correspondence_delivery import (
     correspondence_delivery_hash,
     correspondence_delivery_provider_key,
 )
-from care.emr.tasks.correspondence_delivery import (
+from care_suriname.tasks.correspondence_delivery import (
     dispatch_correspondence_delivery_attempt,
 )
-from care.emr.workflow_capabilities import require_correspondence_delivery_enabled
-from care.security.authorization.base import AuthorizationController
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.correspondence_delivery import (
-    CorrespondenceDelivery,
-    CorrespondenceDeliveryAttempt,
-)
-from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.workflow_capabilities import require_correspondence_delivery_enabled
 
 logger = logging.getLogger(__name__)
 

@@ -5,12 +5,12 @@ from unittest.mock import patch
 from django.test import override_settings
 from django.urls import reverse
 
-from care.emr.tasks.correspondence_delivery import _prepare_reconciliation_lookup
-from care.emr.workflow_capabilities import (
+from care.utils.tests.base import CareAPITestBase
+from care_suriname.tasks.correspondence_delivery import _prepare_reconciliation_lookup
+from care_suriname.workflow_capabilities import (
     WorkflowCapabilityDisabled,
     require_correspondence_delivery_enabled,
 )
-from care.utils.tests.base import CareAPITestBase
 
 
 class TestWorkflowCapabilities(CareAPITestBase):
@@ -100,15 +100,15 @@ class TestWorkflowCapabilities(CareAPITestBase):
         attempt = SimpleNamespace(delivery_id=1)
         with (
             patch(
-                "care.emr.tasks.correspondence_delivery._locked_attempt",
+                "care_suriname.tasks.correspondence_delivery._locked_attempt",
                 return_value=attempt,
             ),
             patch(
-                "care.emr.tasks.correspondence_delivery._locked_delivery",
+                "care_suriname.tasks.correspondence_delivery._locked_delivery",
                 return_value=delivery,
             ),
             patch(
-                "care.emr.tasks.correspondence_delivery.latest_delivery_event"
+                "care_suriname.tasks.correspondence_delivery.latest_delivery_event"
             ) as latest_event,
         ):
             result = _prepare_reconciliation_lookup(

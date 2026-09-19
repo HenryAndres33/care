@@ -11,31 +11,44 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.correction import (
-    FormSubmissionSeriesHeadIntegrityError,
-    lock_current_finalized_form_series,
-)
-from care.emr.correspondence.letter import (
-    correspondence_artifact_frozen_integrity_valid,
-    correspondence_revision_artifact_status,
-    correspondence_revision_frozen_integrity_valid,
-)
-from care.emr.correspondence.review import (
-    reviewed_binding_available,
-    reviewed_binding_frozen_integrity_valid,
-)
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.reports.authorizers.utils import (
     read_report_authorizer,
     write_report_authorizer,
 )
-from care.emr.reports.correspondence_letter import (
+from care.security.authorization.base import AuthorizationController
+from care.utils.pagination.care_pagination import CareLimitOffsetPagination
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.correction import (
+    FormSubmissionSeriesHeadIntegrityError,
+    lock_current_finalized_form_series,
+)
+from care_suriname.correspondence.letter import (
+    correspondence_artifact_frozen_integrity_valid,
+    correspondence_revision_artifact_status,
+    correspondence_revision_frozen_integrity_valid,
+)
+from care_suriname.correspondence.review import (
+    reviewed_binding_available,
+    reviewed_binding_frozen_integrity_valid,
+)
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_letter import (
+    CorrespondenceLetter,
+    CorrespondenceLetterCommand,
+    CorrespondenceLetterRevision,
+)
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceReview,
+)
+from care_suriname.reports.correspondence_letter import (
     CorrespondenceLetterRenderError,
     build_correspondence_letter_html,
     render_correspondence_letter_pdf,
 )
-from care.emr.resources.correspondence_letter import (
+from care_suriname.resources.correspondence_letter import (
     DEFAULT_CORRESPONDENCE_LETTER_PAGE_SIZE,
     MAX_CORRESPONDENCE_LETTER_PAGE_SIZE,
     CorrespondenceLetterCommandResponseSpec,
@@ -47,21 +60,8 @@ from care.emr.resources.correspondence_letter import (
     correspondence_letter_body_hash,
     correspondence_letter_revision_hash,
 )
-from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
-from care.security.authorization.base import AuthorizationController
-from care.utils.pagination.care_pagination import CareLimitOffsetPagination
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.correspondence import CorrespondenceCompilation
-from care_suriname.models.correspondence_letter import (
-    CorrespondenceLetter,
-    CorrespondenceLetterCommand,
-    CorrespondenceLetterRevision,
-)
-from care_suriname.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceReview,
-)
+from care_suriname.resources.form_submission.artifact import has_unresolved_placeholder
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 logger = logging.getLogger(__name__)
 SHA256_HEX_LENGTH = 64

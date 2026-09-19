@@ -17,14 +17,14 @@ racy and could be bypassed by native or third-party API clients.
 ## Touched files
 
 - `care/emr/api/viewsets/scheduling/schedule.py`
-- `care/emr/resources/scheduling/schedule/conflicts.py`
+- `care_suriname/resources/scheduling/conflicts.py`
 - `care/emr/resources/scheduling/schedule/spec.py`
 - `care/emr/tests/test_schedule_api.py`
 - `docs/development/schedule-overlap-core-patch.md`
 
 ## Implementation
 
-- `care/emr/resources/scheduling/schedule/conflicts.py` contains the shared
+- `care_suriname/resources/scheduling/conflicts.py` contains the shared
   cross-template conflict check.
 - Schedule create/update and availability create acquire a database row lock on
   the related `SchedulableResource` inside `transaction.atomic()` before the
@@ -81,7 +81,7 @@ Lint the complete controlled patch:
 
 ```bash
 docker compose exec backend bash -c \
-  "ruff check care/emr/api/viewsets/scheduling/schedule.py care/emr/resources/scheduling/schedule/conflicts.py care/emr/resources/scheduling/schedule/spec.py care/emr/tests/test_schedule_api.py"
+  "ruff check care/emr/api/viewsets/scheduling/schedule.py care_suriname/resources/scheduling/conflicts.py care/emr/resources/scheduling/schedule/spec.py care/emr/tests/test_schedule_api.py"
 ```
 
 ## Rollback

@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from care.emr.reports.correspondence_body import render_correspondence_body
+from care_suriname.reports.correspondence_body import render_correspondence_body
 
 
 class TestCorrespondenceBody(SimpleTestCase):

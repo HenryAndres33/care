@@ -7,8 +7,16 @@ from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.correction import (
+from care.emr.models.questionnaire import FormSubmission
+from care.emr.models.report.report_upload import ReportUpload
+from care.emr.reports.authorizers.utils import (
+    read_report_authorizer,
+    write_report_authorizer,
+)
+from care.security.authorization.base import AuthorizationController
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.correction import (
     CorrespondenceCorrectionIntegrityError,
     authoritative_form_artifact,
     build_correspondence_change_set,
@@ -16,34 +24,20 @@ from care.emr.correspondence.correction import (
     form_submission_series_head_integrity_valid,
     source_correction_integrity_valid,
 )
-from care.emr.correspondence.letter import (
+from care_suriname.correspondence.letter import (
     correspondence_revision_actionable,
     correspondence_revision_artifact_status,
     correspondence_revision_frozen_integrity_valid,
 )
-from care.emr.correspondence.replacement import serialize_replacement_workflow
-from care.emr.correspondence.review import (
+from care_suriname.correspondence.replacement import serialize_replacement_workflow
+from care_suriname.correspondence.review import (
     reviewed_binding_available,
     reviewed_binding_frozen_integrity_valid,
 )
-from care.emr.correspondence.source import (
+from care_suriname.correspondence.source import (
     compilation_frozen_integrity_valid,
     compilation_sources_available,
 )
-from care.emr.models.questionnaire import FormSubmission
-from care.emr.models.report.report_upload import ReportUpload
-from care.emr.reports.authorizers.utils import (
-    read_report_authorizer,
-    write_report_authorizer,
-)
-from care.emr.resources.correspondence_continuity import (
-    CORRESPONDENCE_CONTINUITY_CONTRACT_VERSION,
-    CorrespondenceContinuityQuerySpec,
-    CorrespondenceContinuityReadSpec,
-    correspondence_continuity_hash,
-)
-from care.security.authorization.base import AuthorizationController
-from care.utils.shortcuts import get_object_or_404
 from care_suriname.models.correspondence import CorrespondenceCompilation
 from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionCase,
@@ -57,6 +51,12 @@ from care_suriname.models.correspondence_letter import (
     CorrespondenceLetterRevision,
 )
 from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.resources.correspondence_continuity import (
+    CORRESPONDENCE_CONTINUITY_CONTRACT_VERSION,
+    CorrespondenceContinuityQuerySpec,
+    CorrespondenceContinuityReadSpec,
+    correspondence_continuity_hash,
+)
 
 IN_FLIGHT_DELIVERY_STATES = {
     "dispatch_pending",
@@ -322,7 +322,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
 
     @staticmethod
     def _schedule_delivery_refresh(delivery):
-        from care.emr.tasks.correspondence_correction import (
+        from care_suriname.tasks.correspondence_correction import (
             refresh_correspondence_correction_delivery,
         )
 
@@ -397,7 +397,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
                 .first()
             )
         if delivery:
-            from care.emr.correspondence.delivery import (
+            from care_suriname.correspondence.delivery import (
                 CorrespondenceDeliveryIntegrityError,
                 latest_delivery_event,
                 lock_and_verify_delivery_ledger,
@@ -687,7 +687,7 @@ class CorrespondenceContinuityViewSet(ClinicalNoStoreResponseMixin, viewsets.Vie
             ]
         ):
             return False
-        from care.emr.correspondence.delivery import (
+        from care_suriname.correspondence.delivery import (
             CorrespondenceDeliveryIntegrityError,
             latest_delivery_event,
             lock_and_verify_delivery_ledger,

@@ -5,21 +5,21 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.extensions.base import ExtensionResource
 from care.emr.models import Encounter
 from care.emr.registries.extensions.registry import ExtensionRegistry
-from care.emr.resources.encounter.admission_note import (
-    SetEncounterAdmissionNoteSpec,
-)
 from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
 from care.emr.resources.encounter.spec import EncounterRetrieveSpec
-from care.emr.workflow_capabilities import WorkflowCapabilityDisabled
 from care.security.authorization import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care_suriname.extensions.encounter_admission_note import (
     ADMISSION_NOTE_EXTENSION_NAME,
 )
+from care_suriname.resources.encounter.admission_note import (
+    SetEncounterAdmissionNoteSpec,
+)
+from care_suriname.workflow_capabilities import WorkflowCapabilityDisabled
 
 
 class EncounterAdmissionNoteViewSet(

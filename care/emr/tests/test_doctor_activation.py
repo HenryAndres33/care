@@ -139,7 +139,7 @@ class DoctorActivationTests(CareAPITestBase):
     def test_audit_failure_rolls_back_membership_and_verification(self):
         with (
             patch(
-                "care.emr.staff_activation.LogEntry.objects.create",
+                "care_suriname.staff_activation.LogEntry.objects.create",
                 side_effect=RuntimeError,
             ),
             self.assertRaises(RuntimeError),

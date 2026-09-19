@@ -13,25 +13,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.api.viewsets.device import disassociate_device_from_encounter
 from care.emr.api.viewsets.location import close_related_location_from_encounter
-from care.emr.correspondence.correction import (
-    FormSubmissionSeriesHeadIntegrityError,
-    correction_case_integrity_valid,
-    lock_current_finalized_form_series,
-    review_frozen_integrity_valid,
-)
-from care.emr.correspondence.delivery import (
-    CorrespondenceDeliveryIntegrityError,
-    latest_delivery_event,
-    lock_and_verify_delivery_ledger,
-)
-from care.emr.correspondence.letter import (
-    correspondence_revision_artifact_status,
-    correspondence_revision_frozen_integrity_valid,
-)
-from care.emr.correspondence.source import compilation_frozen_integrity_valid
 from care.emr.models.device import Device
 from care.emr.models.encounter import Encounter, EncounterOrganization
 from care.emr.models.location import FacilityLocation
@@ -42,8 +25,50 @@ from care.emr.models.report.report_upload import ReportUpload
 from care.emr.models.scheduling.booking import TokenBooking
 from care.emr.models.scheduling.token import Token, TokenSubQueue
 from care.emr.reports.authorizers.utils import read_report_authorizer
-from care.emr.reports.form_submission_artifact import validate_response_dump
-from care.emr.resources.consult_closure import (
+from care.emr.resources.encounter.constants import (
+    CLINICALLY_CLOSED_CHOICES,
+    StatusChoices,
+)
+from care.emr.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
+)
+from care.emr.resources.scheduling.slot.spec import BookingStatusChoices
+from care.emr.resources.scheduling.token.spec import TokenStatusOptions
+from care.security.authorization.base import AuthorizationController
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.correction import (
+    FormSubmissionSeriesHeadIntegrityError,
+    correction_case_integrity_valid,
+    lock_current_finalized_form_series,
+    review_frozen_integrity_valid,
+)
+from care_suriname.correspondence.delivery import (
+    CorrespondenceDeliveryIntegrityError,
+    latest_delivery_event,
+    lock_and_verify_delivery_ledger,
+)
+from care_suriname.correspondence.letter import (
+    correspondence_revision_artifact_status,
+    correspondence_revision_frozen_integrity_valid,
+)
+from care_suriname.correspondence.source import compilation_frozen_integrity_valid
+from care_suriname.models.consult_closure import (
+    ConsultClosure,
+    ConsultClosureCommand,
+    ConsultClosureRecoveryTask,
+)
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_correction import (
+    CorrespondenceCorrectionCase,
+    CorrespondenceCorrectionOutbox,
+    CorrespondenceSourceCorrection,
+)
+from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
+from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
+from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.reports.form_submission_artifact import validate_response_dump
+from care_suriname.resources.consult_closure import (
     CONSULT_CLOSE_POLICY_ID,
     CONSULT_CLOSE_POLICY_VERSION,
     CONSULT_CLOSE_PREFLIGHT_VERSION,
@@ -66,33 +91,8 @@ from care.emr.resources.consult_closure import (
     consult_closure_recovery_resolution_payload_hash,
     consult_closure_snapshot_hash,
 )
-from care.emr.resources.encounter.constants import (
-    CLINICALLY_CLOSED_CHOICES,
-    StatusChoices,
-)
-from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
-from care.emr.resources.scheduling.slot.spec import BookingStatusChoices
-from care.emr.resources.scheduling.token.spec import TokenStatusOptions
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
-from care.security.authorization.base import AuthorizationController
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.consult_closure import (
-    ConsultClosure,
-    ConsultClosureCommand,
-    ConsultClosureRecoveryTask,
-)
-from care_suriname.models.correspondence import CorrespondenceCompilation
-from care_suriname.models.correspondence_correction import (
-    CorrespondenceCorrectionCase,
-    CorrespondenceCorrectionOutbox,
-    CorrespondenceSourceCorrection,
-)
-from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
-from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
-from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.resources.form_submission.artifact import has_unresolved_placeholder
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 logger = logging.getLogger(__name__)
 

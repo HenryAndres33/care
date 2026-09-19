@@ -56,7 +56,7 @@ the registry first would make later writes silently omit the unknown key.
 
 - `care/emr/extensions/__init__.py`: startup registration import.
 - `care_suriname/extensions/encounter_admission_note.py`: schema and governance metadata.
-- `care/emr/resources/encounter/admission_note.py`: exact command request contract.
+- `care_suriname/resources/encounter/admission_note.py`: exact command request contract.
 - `care_suriname/api/viewsets/encounter_admission_note.py`: locked, extension-only
   command implementation.
 - `care/emr/resources/encounter/spec.py`: native list rendering through the

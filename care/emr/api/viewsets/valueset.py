@@ -14,12 +14,12 @@ from care.emr.models.valueset import (
     UserValueSetPreference,
     ValueSet,
 )
-from care.emr.resources.clinical_term_translation import (
+from care.emr.resources.common.coding import Coding
+from care.emr.resources.valueset.spec import ValueSetReadSpec, ValueSetSpec
+from care_suriname.resources.clinical_term_translation import (
     resolve_concepts,
     search_approved_translation_concepts,
 )
-from care.emr.resources.common.coding import Coding
-from care.emr.resources.valueset.spec import ValueSetReadSpec, ValueSetSpec
 
 
 class ExpandRequest(BaseModel):

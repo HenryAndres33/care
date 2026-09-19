@@ -11,27 +11,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet, EMRRetrieveMixin
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.author import (
-    InvalidVerifiedAuthorError,
-    verified_author_snapshot,
-)
-from care.emr.correspondence.correction import (
-    FormSubmissionSeriesHeadIntegrityError,
-    lock_current_finalized_form_series,
-)
-from care.emr.correspondence.recipient import (
-    MAX_VERIFIED_RECIPIENT_RESULTS,
-    InvalidVerifiedRecipientError,
-    recipient_content_hash,
-    recipient_snapshot,
-    validate_verified_recipient,
-)
-from care.emr.correspondence.review import (
-    correspondence_review_hash,
-    reviewed_binding_frozen_integrity_valid,
-)
-from care.emr.correspondence.source import compilation_sources_available
 from care.emr.models.encounter import Encounter
 from care.emr.models.organization import (
     FacilityOrganization,
@@ -42,7 +21,40 @@ from care.emr.reports.authorizers.utils import (
     read_report_authorizer,
     write_report_authorizer,
 )
-from care.emr.resources.correspondence_review import (
+from care.facility.models import Facility
+from care.security.authorization.base import AuthorizationController
+from care.security.models import RoleModel
+from care.users.models import User
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.author import (
+    InvalidVerifiedAuthorError,
+    verified_author_snapshot,
+)
+from care_suriname.correspondence.correction import (
+    FormSubmissionSeriesHeadIntegrityError,
+    lock_current_finalized_form_series,
+)
+from care_suriname.correspondence.recipient import (
+    MAX_VERIFIED_RECIPIENT_RESULTS,
+    InvalidVerifiedRecipientError,
+    recipient_content_hash,
+    recipient_snapshot,
+    validate_verified_recipient,
+)
+from care_suriname.correspondence.review import (
+    correspondence_review_hash,
+    reviewed_binding_frozen_integrity_valid,
+)
+from care_suriname.correspondence.source import compilation_sources_available
+from care_suriname.models.correspondence import CorrespondenceCompilation
+from care_suriname.models.correspondence_review import (
+    CorrespondenceRecipient,
+    CorrespondenceRecipientCommand,
+    CorrespondenceReview,
+    CorrespondenceReviewCommand,
+)
+from care_suriname.resources.correspondence_review import (
     BindCorrespondenceReviewResponseSpec,
     BindCorrespondenceReviewSpec,
     CorrespondenceRecipientReadSpec,
@@ -54,19 +66,7 @@ from care.emr.resources.correspondence_review import (
     canonical_manual_recipient_command_hash,
     canonical_review_command_hash,
 )
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
-from care.facility.models import Facility
-from care.security.authorization.base import AuthorizationController
-from care.security.models import RoleModel
-from care.users.models import User
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.correspondence import CorrespondenceCompilation
-from care_suriname.models.correspondence_review import (
-    CorrespondenceRecipient,
-    CorrespondenceRecipientCommand,
-    CorrespondenceReview,
-    CorrespondenceReviewCommand,
-)
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 logger = logging.getLogger(__name__)
 

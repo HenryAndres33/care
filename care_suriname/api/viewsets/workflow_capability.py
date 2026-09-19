@@ -4,14 +4,14 @@ from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.models.organization import FacilityOrganizationUser
-from care.emr.workflow_capabilities import (
+from care.facility.models import Facility
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.workflow_capabilities import (
     correspondence_delivery_enabled,
     workflow_mutations_enabled,
 )
-from care.facility.models import Facility
-from care.utils.shortcuts import get_object_or_404
 
 UUID_V4 = 4
 

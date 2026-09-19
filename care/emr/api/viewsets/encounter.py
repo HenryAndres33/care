@@ -11,7 +11,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
-from care.emr.api.viewsets.admission_documentation import AdmissionDocumentationMixin
 from care.emr.api.viewsets.base import (
     EMRBaseViewSet,
     EMRCreateMixin,
@@ -21,7 +20,6 @@ from care.emr.api.viewsets.base import (
     EMRUpdateMixin,
 )
 from care.emr.api.viewsets.device import disassociate_device_from_encounter
-from care.emr.api.viewsets.emergency_admission import EmergencyAdmissionMixin
 from care.emr.api.viewsets.location import close_related_location_from_encounter
 from care.emr.models import (
     Encounter,
@@ -62,6 +60,10 @@ from care.users.models import User
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.shortcuts import get_object_or_404
 from care.utils.time_util import care_now
+from care_suriname.api.viewsets.admission_documentation import (
+    AdmissionDocumentationMixin,
+)
+from care_suriname.api.viewsets.emergency_admission import EmergencyAdmissionMixin
 from care_suriname.models.consult_closure import (
     ConsultClosure,
 )

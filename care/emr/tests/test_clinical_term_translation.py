@@ -9,11 +9,11 @@ from care.emr.fhir.resources.code_concept import MinimalCodeConcept
 from care.emr.models import (
     ValueSet,
 )
-from care.emr.resources.clinical_term_translation import parse_csv_import
 from care.utils.tests.base import CareAPITestBase
 from care_suriname.models.clinical_term_translation import (
     ClinicalTermTranslation,
 )
+from care_suriname.resources.clinical_term_translation import parse_csv_import
 
 SYSTEM = "http://snomed.info/sct"
 
@@ -241,7 +241,8 @@ class TestClinicalTermTranslationAPI(CareAPITestBase):
 
     def test_user_reviewed_urology_catalog_has_verified_care_codes(self):
         fixture_path = (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[3]
+            / "care_suriname"
             / "fixtures"
             / "nl_sr_urology_user_reviewed_terms.csv"
         )
@@ -312,7 +313,8 @@ class TestClinicalTermTranslationAPI(CareAPITestBase):
 
     def test_user_reviewed_urology_procedure_catalog_has_care_codes(self):
         fixture_path = (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[3]
+            / "care_suriname"
             / "fixtures"
             / "nl_sr_urology_user_reviewed_procedures.csv"
         )

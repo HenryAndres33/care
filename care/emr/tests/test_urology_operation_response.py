@@ -4,7 +4,7 @@ from django.test import SimpleTestCase
 from rest_framework.exceptions import PermissionDenied
 
 from care.emr.api.viewsets.form_submission import FormSubmissionViewSet
-from care.emr.resources.form_submission.urology_operation import (
+from care_suriname.resources.form_submission.urology_operation import (
     InvalidUrologyOperationResponseError,
     validate_urology_operation_response_dump,
 )

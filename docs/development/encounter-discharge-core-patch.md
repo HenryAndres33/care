@@ -84,8 +84,8 @@ queryable command evidence and may contain clinical advice.
 ## Files
 
 - `care_suriname/api/viewsets/encounter_discharge.py`
-- `care/emr/resources/encounter/discharge.py`
-- `care/emr/resources/encounter/discharge_state.py`
+- `care_suriname/resources/encounter/discharge.py`
+- `care_suriname/resources/encounter/discharge_state.py`
 - `care/emr/models/encounter_discharge.py`
 - `care/emr/migrations/0099_encounter_discharge_command.py`
 - `care/emr/tests/test_encounter_discharge.py`
@@ -143,8 +143,8 @@ Run from the canonical backend checkout:
 ```bash
 docker compose exec backend bash -c "/.venv/bin/ruff check \
 care_suriname/api/viewsets/encounter_discharge.py \
-care/emr/resources/encounter/discharge.py \
-care/emr/resources/encounter/discharge_state.py \
+care_suriname/resources/encounter/discharge.py \
+care_suriname/resources/encounter/discharge_state.py \
 care/emr/models/encounter_discharge.py \
 care/emr/migrations/0099_encounter_discharge_command.py \
 care/emr/tests/test_encounter_discharge.py \

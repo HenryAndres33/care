@@ -27,15 +27,15 @@ artifact store; only the direction of the link changed.
 
 ## Touched backend files
 
-- `care/emr/reports/correspondence_letter.py`
-- `care/emr/reports/correspondence_letter_styles.py`
-- `care/emr/reports/correspondence_compiler.py`
-- `care/emr/correspondence/presentation.py`
+- `care_suriname/reports/correspondence_letter.py`
+- `care_suriname/reports/correspondence_letter_styles.py`
+- `care_suriname/reports/correspondence_compiler.py`
+- `care_suriname/correspondence/presentation.py`
 - `care_suriname/api/viewsets/correspondence.py`
 - `care_suriname/api/viewsets/correspondence_review.py`
 - `care/emr/models/correspondence_review.py`
-- `care/emr/resources/correspondence.py`
-- `care/emr/resources/correspondence_review.py`
+- `care_suriname/resources/correspondence.py`
+- `care_suriname/resources/correspondence_review.py`
 - `care/emr/migrations/0097_correspondence_recipient_command.py`
 - `care/emr/tests/test_correspondence_compilation.py`
 - `care/emr/tests/test_correspondence_letter.py`
@@ -113,11 +113,11 @@ before replacing this patch. Never move final PDF generation to the browser.
 Review changes in:
 
 1. `care_suriname/api/viewsets/correspondence_letter.py`;
-2. `care/emr/reports/correspondence_letter.py`;
-3. `care/emr/reports/correspondence_compiler.py`;
+2. `care_suriname/reports/correspondence_letter.py`;
+3. `care_suriname/reports/correspondence_compiler.py`;
 4. `care/emr/models/correspondence_letter.py`;
 5. `care/emr/models/correspondence_review.py`.
-6. `care/emr/resources/correspondence.py` command-fingerprint semantics.
+6. `care_suriname/resources/correspondence.py` command-fingerprint semantics.
 
 Controleer bij een upstream-update bovendien of er een native idempotente
 opdracht voor vrije/postale ontvangers is toegevoegd. Migreer pas daarna en
@@ -128,11 +128,11 @@ behoud de bevroren ontvangersnapshot van bestaande brieven.
 ```bash
 docker compose exec backend ruff check \
   care_suriname/api/viewsets/correspondence.py \
-  care/emr/correspondence/presentation.py \
-  care/emr/reports/correspondence_compiler.py \
-  care/emr/reports/correspondence_letter.py \
-  care/emr/reports/correspondence_letter_styles.py \
-  care/emr/resources/correspondence.py \
+  care_suriname/correspondence/presentation.py \
+  care_suriname/reports/correspondence_compiler.py \
+  care_suriname/reports/correspondence_letter.py \
+  care_suriname/reports/correspondence_letter_styles.py \
+  care_suriname/resources/correspondence.py \
   care/emr/tests/test_correspondence_compilation.py \
   care/emr/tests/test_correspondence_letter.py
 docker compose exec backend python manage.py test \

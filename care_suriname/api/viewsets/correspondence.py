@@ -12,20 +12,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet, EMRRetrieveMixin
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.author import (
-    InvalidVerifiedAuthorError,
-    verified_author_snapshot,
-)
-from care.emr.correspondence.correction import (
-    FormSubmissionSeriesHeadIntegrityError,
-    lock_current_finalized_form_series,
-)
-from care.emr.correspondence.presentation import (
-    correspondence_presentation_reason,
-    dutch_correspondence_date,
-)
-from care.emr.correspondence.source import compilation_frozen_integrity_valid
 from care.emr.models.encounter import Encounter, EncounterOrganization
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import (
@@ -45,15 +31,42 @@ from care.emr.reports.authorizers.utils import (
     read_report_authorizer,
     write_report_authorizer,
 )
-from care.emr.reports.correspondence_compiler import (
+from care.emr.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
+)
+from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
+from care.facility.models import Facility
+from care.security.authorization.base import AuthorizationController
+from care.security.models import RoleModel
+from care.users.models import User
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.correspondence.author import (
+    InvalidVerifiedAuthorError,
+    verified_author_snapshot,
+)
+from care_suriname.correspondence.correction import (
+    FormSubmissionSeriesHeadIntegrityError,
+    lock_current_finalized_form_series,
+)
+from care_suriname.correspondence.presentation import (
+    correspondence_presentation_reason,
+    dutch_correspondence_date,
+)
+from care_suriname.correspondence.source import compilation_frozen_integrity_valid
+from care_suriname.models.correspondence import (
+    CorrespondenceCompilation,
+    CorrespondenceCompileCommand,
+)
+from care_suriname.reports.correspondence_compiler import (
     CorrespondenceCompilationError,
     compile_correspondence_html,
     readable_form_html,
     readable_medications_html,
 )
-from care.emr.reports.form_submission_artifact import validate_response_dump
-from care.emr.reports.template_versioning import calculate_template_content_hash
-from care.emr.resources.correspondence import (
+from care_suriname.reports.form_submission_artifact import validate_response_dump
+from care_suriname.reports.template_versioning import calculate_template_content_hash
+from care_suriname.resources.correspondence import (
     CompileCorrespondenceResponseSpec,
     CompileCorrespondenceSpec,
     CorrespondenceCompilationReadSpec,
@@ -61,21 +74,8 @@ from care.emr.resources.correspondence import (
     canonical_correspondence_command_hash_v1,
     canonical_sha256,
 )
-from care.emr.resources.form_submission.artifact import has_unresolved_placeholder
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
-from care.emr.resources.form_submission.spec import FormSubmissionStatusChoices
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
-from care.facility.models import Facility
-from care.security.authorization.base import AuthorizationController
-from care.security.models import RoleModel
-from care.users.models import User
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.correspondence import (
-    CorrespondenceCompilation,
-    CorrespondenceCompileCommand,
-)
+from care_suriname.resources.form_submission.artifact import has_unresolved_placeholder
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 logger = logging.getLogger(__name__)
 CONFIRMED_MEDICATION_STATUSES = {"active", "completed"}

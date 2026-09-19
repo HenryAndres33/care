@@ -80,7 +80,7 @@ class CorrespondenceRecipient(EMRBaseModel):
         ]
 
     def save(self, *args, **kwargs):
-        from care.emr.correspondence.recipient import (
+        from care_suriname.correspondence.recipient import (
             InvalidRecipientDirectoryPayloadError,
             recipient_content_hash,
             validate_recipient_directory_payloads,

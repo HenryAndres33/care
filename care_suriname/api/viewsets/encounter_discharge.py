@@ -7,10 +7,13 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.api.viewsets.device import disassociate_device_from_encounter
 from care.emr.models.encounter import Encounter
-from care.emr.resources.encounter.discharge import (
+from care.security.authorization.base import AuthorizationController
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.models.encounter_discharge import EncounterDischargeCommand
+from care_suriname.resources.encounter.discharge import (
     EncounterDischargeCommandResponseSpec,
     EncounterDischargeCommandSpec,
     EncounterDischargeConflictResponseSpec,
@@ -19,19 +22,16 @@ from care.emr.resources.encounter.discharge import (
     encounter_discharge_command_hash,
     encounter_discharge_payload_hash,
 )
-from care.emr.resources.encounter.discharge_documentation import (
+from care_suriname.resources.encounter.discharge_documentation import (
     lock_discharge_documentation,
 )
-from care.emr.resources.encounter.discharge_state import (
+from care_suriname.resources.encounter.discharge_state import (
     apply_encounter_discharge,
     discharge_snapshot_matches_encounter,
     encounter_discharge_blockers,
     lock_discharge_context,
 )
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
-from care.security.authorization.base import AuthorizationController
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.models.encounter_discharge import EncounterDischargeCommand
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 
 class EncounterDischargeViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):

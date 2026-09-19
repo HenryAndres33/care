@@ -8,7 +8,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRModelViewSet, EMRQuestionnaireResponseMixin
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.api.viewsets.encounter_authz_base import EncounterBasedAuthorizationBase
 from care.emr.models.encounter import Encounter
 from care.emr.models.medication_request import MedicationRequest
@@ -17,11 +16,6 @@ from care.emr.registries.system_questionnaire.system_questionnaire import (
 )
 from care.emr.resources.encounter.constants import CLINICALLY_CLOSED_CHOICES
 from care.emr.resources.inventory.product_knowledge.spec import ProductTypeOptions
-from care.emr.resources.medication.request.idempotency import (
-    IdempotentMedicationRequestCreateResponseSpec,
-    IdempotentMedicationRequestCreateSpec,
-    canonical_medication_request_hash,
-)
 from care.emr.resources.medication.request.spec import (
     MedicationRequestReadSpec,
     MedicationRequestSpec,
@@ -29,12 +23,18 @@ from care.emr.resources.medication.request.spec import (
     resolve_created_prescription,
 )
 from care.emr.resources.questionnaire.spec import SubjectType
-from care.emr.workflow_capabilities import require_workflow_mutations_enabled
 from care.security.authorization import AuthorizationController
 from care.users.models import User
 from care.utils.filters.multiselect import MultiSelectFilter
 from care.utils.filters.null_filter import NullFilter
 from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.resources.medication_request_idempotency import (
+    IdempotentMedicationRequestCreateResponseSpec,
+    IdempotentMedicationRequestCreateSpec,
+    canonical_medication_request_hash,
+)
+from care_suriname.workflow_capabilities import require_workflow_mutations_enabled
 
 
 class MedicationFilter(filters.BooleanFilter):

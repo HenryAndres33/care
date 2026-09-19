@@ -33,10 +33,6 @@ from care.emr.models.scheduling.token import (
 )
 from care.emr.resources.scheduling.slot.spec import BookingStatusChoices
 from care.emr.resources.scheduling.token.spec import TokenStatusOptions
-from care.emr.tasks.correspondence_correction import project_correspondence_correction
-from care.emr.tasks.correspondence_delivery import (
-    dispatch_correspondence_delivery_attempt,
-)
 from care.emr.tests.test_correspondence_compilation import (
     CorrespondenceCompilationTestMixin,
 )
@@ -56,6 +52,12 @@ from care_suriname.models.correspondence_correction import (
 from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
 from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.tasks.correspondence_correction import (
+    project_correspondence_correction,
+)
+from care_suriname.tasks.correspondence_delivery import (
+    dispatch_correspondence_delivery_attempt,
+)
 
 SYNTHETIC_PDF = b"%PDF-1.7\nconsult-closure-correspondence"
 REQUIRED_FORMS = {"urology department": ["generic-correspondence-form"]}
@@ -543,7 +545,7 @@ class ConsultClosureWorkflowTests(
         delivery = CorrespondenceDelivery.objects.get()
         attempt = delivery.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="ack",
         ):
             dispatch_correspondence_delivery_attempt(str(attempt.external_id))
@@ -556,7 +558,7 @@ class ConsultClosureWorkflowTests(
         self._artifact(current)
         outbox = CorrespondenceCorrectionOutbox.objects.get()
         with patch(
-            "care.emr.tasks.correspondence_correction."
+            "care_suriname.tasks.correspondence_correction."
             "refresh_correspondence_correction_delivery.delay"
         ):
             project_correspondence_correction(str(outbox.external_id))

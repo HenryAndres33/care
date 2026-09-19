@@ -11,15 +11,25 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
-from care.emr.correspondence.correction import (
+from care.emr.models.encounter import Encounter
+from care.emr.models.report.report_upload import ReportUpload
+from care.emr.reports.authorizers.utils import (
+    read_report_authorizer,
+    write_report_authorizer,
+)
+from care.security.authorization.base import AuthorizationController
+from care.utils.shortcuts import get_object_or_404
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.api.viewsets.correspondence import CorrespondenceCompilationViewSet
+from care_suriname.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
+from care_suriname.correspondence.correction import (
     CorrespondenceCorrectionIntegrityError,
     correction_case_integrity_valid,
     lock_current_finalized_form_series,
     paper_attestation_integrity_valid,
     replacement_attempt_integrity_valid,
 )
-from care.emr.correspondence.delivery import (
+from care_suriname.correspondence.delivery import (
     CorrespondenceDeliveryIntegrityError,
     CorrespondenceDispatchNotCurrentError,
     append_delivery_event,
@@ -28,60 +38,21 @@ from care.emr.correspondence.delivery import (
     lock_and_verify_delivery_ledger,
     read_and_verify_correspondence_artifact,
 )
-from care.emr.correspondence.delivery_adapters import (
+from care_suriname.correspondence.delivery_adapters import (
     CorrespondenceDeliveryAdapterUnavailableError,
     get_correspondence_delivery_adapter,
 )
-from care.emr.correspondence.recipient import (
+from care_suriname.correspondence.recipient import (
     InvalidVerifiedRecipientError,
     recipient_content_hash,
     recipient_snapshot,
     validate_verified_recipient,
 )
-from care.emr.correspondence.replacement import (
+from care_suriname.correspondence.replacement import (
     command_response,
     commit_case_command,
 )
-from care.emr.correspondence.review import correspondence_review_hash
-from care.emr.models.encounter import Encounter
-from care.emr.models.report.report_upload import ReportUpload
-from care.emr.reports.authorizers.utils import (
-    read_report_authorizer,
-    write_report_authorizer,
-)
-from care.emr.reports.correspondence_letter import (
-    CorrespondenceLetterRenderError,
-    build_controlled_correction_copy_html,
-    render_correspondence_letter_pdf,
-)
-from care.emr.resources.correspondence import (
-    CompileCorrespondenceSpec,
-    canonical_sha256,
-)
-from care.emr.resources.correspondence_delivery import (
-    correspondence_delivery_attempt_hash,
-    correspondence_delivery_hash,
-    correspondence_delivery_provider_key,
-)
-from care.emr.resources.correspondence_replacement import (
-    CorrespondenceCorrectionCommandResponseSpec,
-    CorrespondenceCorrectionCommandSpec,
-    canonical_correction_command_payload_hash,
-    correspondence_correction_command_hash,
-    correspondence_paper_attestation_hash,
-    correspondence_replacement_attempt_hash,
-)
-from care.emr.tasks.correspondence_delivery import (
-    dispatch_correspondence_delivery_attempt,
-)
-from care.emr.workflow_capabilities import (
-    require_correspondence_delivery_enabled,
-    require_workflow_mutations_enabled,
-)
-from care.security.authorization.base import AuthorizationController
-from care.utils.shortcuts import get_object_or_404
-from care_suriname.api.viewsets.correspondence import CorrespondenceCompilationViewSet
-from care_suriname.api.viewsets.correspondence_letter import CorrespondenceLetterViewSet
+from care_suriname.correspondence.review import correspondence_review_hash
 from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionCase,
     CorrespondenceCorrectionCommand,
@@ -98,6 +69,35 @@ from care_suriname.models.correspondence_letter import (
 from care_suriname.models.correspondence_review import (
     CorrespondenceRecipient,
     CorrespondenceReview,
+)
+from care_suriname.reports.correspondence_letter import (
+    CorrespondenceLetterRenderError,
+    build_controlled_correction_copy_html,
+    render_correspondence_letter_pdf,
+)
+from care_suriname.resources.correspondence import (
+    CompileCorrespondenceSpec,
+    canonical_sha256,
+)
+from care_suriname.resources.correspondence_delivery import (
+    correspondence_delivery_attempt_hash,
+    correspondence_delivery_hash,
+    correspondence_delivery_provider_key,
+)
+from care_suriname.resources.correspondence_replacement import (
+    CorrespondenceCorrectionCommandResponseSpec,
+    CorrespondenceCorrectionCommandSpec,
+    canonical_correction_command_payload_hash,
+    correspondence_correction_command_hash,
+    correspondence_paper_attestation_hash,
+    correspondence_replacement_attempt_hash,
+)
+from care_suriname.tasks.correspondence_delivery import (
+    dispatch_correspondence_delivery_attempt,
+)
+from care_suriname.workflow_capabilities import (
+    require_correspondence_delivery_enabled,
+    require_workflow_mutations_enabled,
 )
 
 logger = logging.getLogger(__name__)

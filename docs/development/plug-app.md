@@ -179,3 +179,36 @@ back with the state), or restore the backup set.
 **Caution:** rolling back the migrations while keeping the new code running lets
 `post_migrate` create `care_suriname` content types, after which a later forward
 migration fails closed by design. Roll code and state back together.
+
+## Phase 2 step 3 (19 September 2026): the remaining custom code modules move, no schema
+
+76 files moved with `git mv` into mirrored paths under `care_suriname/`: the
+correspondence services (`correspondence/`), the PDF and letter renderers and
+their documents (`reports/`), the custom resources and specs (`resources/`, with
+`condition_idempotency.py` and `medication_request_idempotency.py` flattened),
+the clinical-text catalogs and their fixture CSVs, the correspondence Celery
+tasks (`tasks/` is now a package whose `__init__` still registers the four
+scans), `workflow_capabilities.py`, `staff_activation.py`, and the five mixins
+core viewsets import (`api/viewsets/`). 70 files had dotted imports rewritten;
+no migration imports any of them, so migration history is unaffected.
+
+Celery task names follow the module path and therefore changed from
+`care.emr.tasks.correspondence_*` to `care_suriname.tasks.correspondence_*`.
+Nothing enqueues by name string, and the delivery/correction design is
+outbox-based with 60 s rescans, so a message in flight across the deploy
+restart is re-driven rather than lost.
+
+Deliberately left in core, with the reason:
+- `care/emr/resources/form_submission/{commands,note_labs,note_lab_text}.py`
+  and `NOTE_LABS.md`: another agent has uncommitted work in them; move after
+  that lands.
+- `care/users/draft_recovery/` and `config/draft_recovery_auth.py`: the key
+  model lives in the `users` app (migration users/0028); moving it is a second
+  state-only relocation of one table, separate decision.
+- The import lines in the patched core files (`form_submission.py`,
+  `encounter.py`, `booking.py`, `user.py`, `medication_request.py`,
+  `condition.py`, `schedule.py`, `report/template.py`, `valueset.py`): the
+  patches themselves stay; only their imports now point at the plug.
+
+After step 3 the custom code under `care/` is those two exceptions plus the
+core patches documented in `docs/development/*-core-patch.md`.

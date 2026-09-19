@@ -15,11 +15,6 @@ from django.utils import timezone
 from model_bakery import baker
 from rest_framework.test import APIClient
 
-from care.emr.correspondence.correction import (
-    create_finalized_form_series_head,
-    form_submission_series_head_integrity_valid,
-    source_correction_integrity_valid,
-)
 from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.questionnaire import (
     FormSubmission,
@@ -28,13 +23,6 @@ from care.emr.models.questionnaire import (
 )
 from care.emr.registries.system_questionnaire.system_questionnaire import (
     InternalQuestionnaireRegistry,
-)
-from care.emr.reports.form_submission_artifact import (
-    MAX_SNAPSHOT_BYTES,
-    MAX_SNAPSHOT_DEPTH,
-    MAX_SNAPSHOT_NODES,
-    MalformedFinalizedSnapshotError,
-    validate_response_dump,
 )
 from care.emr.resources.encounter.constants import StatusChoices
 from care.emr.resources.form_submission.commands import (
@@ -52,6 +40,11 @@ from care.security.permissions.encounter import EncounterPermissions
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.questionnaire import QuestionnairePermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.correspondence.correction import (
+    create_finalized_form_series_head,
+    form_submission_series_head_integrity_valid,
+    source_correction_integrity_valid,
+)
 from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionOutbox,
     CorrespondenceSourceCorrection,
@@ -59,6 +52,13 @@ from care_suriname.models.correspondence_correction import (
 )
 from care_suriname.models.form_submission_command import (
     FormSubmissionCommand,
+)
+from care_suriname.reports.form_submission_artifact import (
+    MAX_SNAPSHOT_BYTES,
+    MAX_SNAPSHOT_DEPTH,
+    MAX_SNAPSHOT_NODES,
+    MalformedFinalizedSnapshotError,
+    validate_response_dump,
 )
 
 

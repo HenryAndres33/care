@@ -15,11 +15,6 @@ from rest_framework.test import APIClient
 
 from care.emr.models.patient import PatientIdentifierConfig
 from care.emr.models.report.report_upload import ReportUpload
-from care.emr.reports.correspondence_letter import build_correspondence_letter_html
-from care.emr.resources.correspondence_letter import (
-    correspondence_letter_body_hash,
-    correspondence_letter_revision_hash,
-)
 from care.emr.signals.patient.facility_name_identifier import (
     FacilityPatientNameIdentifierConfig,
 )
@@ -35,6 +30,11 @@ from care_suriname.models.correspondence_letter import (
     CorrespondenceLetterRevision,
 )
 from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.reports.correspondence_letter import build_correspondence_letter_html
+from care_suriname.resources.correspondence_letter import (
+    correspondence_letter_body_hash,
+    correspondence_letter_revision_hash,
+)
 
 
 class TestCorrespondenceLetterAPI(

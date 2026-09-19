@@ -4,10 +4,10 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 
-from care.emr.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care.emr.api.viewsets.form_submission import FormSubmissionViewSet
 from care.emr.api.viewsets.medication_request import MedicationRequestViewSet
 from care.emr.api.viewsets.report.report_upload import ReportUploadViewSet
+from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
 from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
 from care_suriname.api.viewsets.correspondence import CorrespondenceCompilationViewSet
 from care_suriname.api.viewsets.correspondence_continuity import (

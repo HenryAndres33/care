@@ -7,38 +7,20 @@ from uuid import uuid4
 from django.urls import reverse
 from django.utils import timezone
 
-from care.emr.correspondence.correction import (
+from care.emr.models.questionnaire import FormSubmission
+from care.emr.models.report.report_upload import ReportUpload
+from care.emr.resources.form_submission.commands import (
+    finalized_form_submission_snapshot_hash,
+)
+from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
+from care.utils.tests.base import CareAPITestBase
+from care_suriname.correspondence.correction import (
     CorrespondenceCorrectionIntegrityError,
     build_correspondence_change_set,
     correction_case_integrity_valid,
     materialize_claimed_correction_outbox,
 )
-from care.emr.correspondence.delivery import append_delivery_event
-from care.emr.models.questionnaire import FormSubmission
-from care.emr.models.report.report_upload import ReportUpload
-from care.emr.resources.correspondence_continuity import (
-    MAX_CORRESPONDENCE_CONTINUITY_CHANGES,
-    correspondence_continuity_hash,
-    correspondence_correction_case_hash,
-    correspondence_correction_event_hash,
-)
-from care.emr.resources.form_submission.commands import (
-    finalized_form_submission_snapshot_hash,
-)
-from care.emr.tasks.correspondence_correction import (
-    _claim_correction_outbox,
-    _release_claim,
-    _terminal_claim,
-    project_correspondence_correction,
-    refresh_correspondence_correction_delivery,
-    refresh_correspondence_replacement_delivery,
-    scan_correspondence_correction_delivery_cases,
-)
-from care.emr.tasks.correspondence_delivery import (
-    dispatch_correspondence_delivery_attempt,
-)
-from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
-from care.utils.tests.base import CareAPITestBase
+from care_suriname.correspondence.delivery import append_delivery_event
 from care_suriname.models.correspondence_correction import (
     CorrespondenceCorrectionCase,
     CorrespondenceCorrectionCommand,
@@ -50,6 +32,24 @@ from care_suriname.models.correspondence_correction import (
 from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
 from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.resources.correspondence_continuity import (
+    MAX_CORRESPONDENCE_CONTINUITY_CHANGES,
+    correspondence_continuity_hash,
+    correspondence_correction_case_hash,
+    correspondence_correction_event_hash,
+)
+from care_suriname.tasks.correspondence_correction import (
+    _claim_correction_outbox,
+    _release_claim,
+    _terminal_claim,
+    project_correspondence_correction,
+    refresh_correspondence_correction_delivery,
+    refresh_correspondence_replacement_delivery,
+    scan_correspondence_correction_delivery_cases,
+)
+from care_suriname.tasks.correspondence_delivery import (
+    dispatch_correspondence_delivery_attempt,
+)
 
 SYNTHETIC_PDF = b"%PDF-1.7\nsynthetic-continuity-artifact"
 
@@ -450,11 +450,11 @@ class TestCorrespondenceContinuityDeliveredBranch(
             "dispatch_correspondence_delivery_attempt.delay"
         )
         self.refresh_patcher = patch(
-            "care.emr.tasks.correspondence_correction."
+            "care_suriname.tasks.correspondence_correction."
             "refresh_correspondence_correction_delivery.delay"
         )
         self.replacement_refresh_patcher = patch(
-            "care.emr.tasks.correspondence_correction."
+            "care_suriname.tasks.correspondence_correction."
             "refresh_correspondence_replacement_delivery.delay"
         )
         self.put_patcher.start()
@@ -545,7 +545,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
     def _dispatch(self, mode):
         attempt = self.delivery.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value=mode,
         ):
             dispatch_correspondence_delivery_attempt(str(attempt.external_id))
@@ -735,7 +735,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
         self.assertEqual(CorrespondenceDelivery.objects.count(), 2)
         first_replacement_attempt = replacement.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="fail_once",
         ):
             dispatch_correspondence_delivery_attempt(
@@ -767,7 +767,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
         self.assertEqual(self.delivery.attempts.get().id, original_attempt.id)
         second_replacement_attempt = replacement.attempts.get(attempt_number=2)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="fail_once",
         ):
             dispatch_correspondence_delivery_attempt(
@@ -864,7 +864,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
         self.assertEqual(attested.status_code, HTTPStatus.CREATED, attested.json())
         first_delivery_attempt = replacement.attempts.get(attempt_number=1)
         with patch(
-            "care.emr.tasks.correspondence_delivery.synthetic_delivery_mode",
+            "care_suriname.tasks.correspondence_delivery.synthetic_delivery_mode",
             return_value="fail_terminal",
         ):
             dispatch_correspondence_delivery_attempt(
@@ -1066,7 +1066,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
         pending = self._get()
         self.assertEqual(pending.status_code, HTTPStatus.SERVICE_UNAVAILABLE)
         with patch(
-            "care.emr.tasks.correspondence_correction."
+            "care_suriname.tasks.correspondence_correction."
             "refresh_correspondence_correction_delivery.delay"
         ) as queued:
             scan_correspondence_correction_delivery_cases()
@@ -1136,13 +1136,13 @@ class TestCorrespondenceContinuityDeliveredBranch(
         pending = self._get()
         self.assertEqual(pending.status_code, HTTPStatus.SERVICE_UNAVAILABLE)
         with patch(
-            "care.emr.tasks.correspondence_correction."
+            "care_suriname.tasks.correspondence_correction."
             "refresh_correspondence_correction_delivery.delay"
         ) as queued:
             scan_correspondence_correction_delivery_cases()
         queued.assert_called_with(str(self.delivery.external_id))
         with patch(
-            "care.emr.correspondence.delivery_adapters."
+            "care_suriname.correspondence.delivery_adapters."
             "SyntheticCorrespondenceDeliveryAdapter.deliver"
         ) as provider_deliver:
             refresh_correspondence_correction_delivery(str(self.delivery.external_id))
@@ -1176,7 +1176,7 @@ class TestCorrespondenceContinuityDeliveredBranch(
         pending = self._get()
         self.assertEqual(pending.status_code, HTTPStatus.SERVICE_UNAVAILABLE)
         with patch(
-            "care.emr.tasks.correspondence_correction."
+            "care_suriname.tasks.correspondence_correction."
             "refresh_correspondence_correction_delivery.delay"
         ) as queued:
             scan_correspondence_correction_delivery_cases()
