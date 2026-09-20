@@ -5,38 +5,17 @@ from typing import Any
 UROLOGY_OPERATIONS_QUESTIONNAIRE = "urology-operaties"
 OPERATION_SCHEMA = "care.urology.operation-documentation"
 
-_REQUIRED_COMPANION_SECTIONS = {
-    "turp": {
-        "basis",
-        "introductie",
-        "spc",
-        "anatomie",
-        "resectie",
-        "hemostase",
-        "chips",
-        "postkatheter",
-        "complicaties",
-        "beleid",
-        "contact",
-    },
-    "urs": {
-        "basis",
-        "introductie",
-        "toegang",
-        "concrement",
-        "afronding",
-        "complicaties",
-        "contact",
-    },
-}
-
 
 class InvalidUrologyOperationResponseError(ValueError):
     pass
 
 
 def validate_urology_operation_response_dump(response_dump: Any) -> None:
-    """Reject an operation finalization that lacks explicit clinical review."""
+    """Reject an operation finalization whose content cannot stand as a record.
+
+    Finalize/amend commands set ``operation.clinicalConfirmation`` themselves;
+    the clinician's explicit act is pressing finalize, not a separate checkbox.
+    """
 
     if not isinstance(response_dump, dict):
         raise InvalidUrologyOperationResponseError(
@@ -58,20 +37,5 @@ def validate_urology_operation_response_dump(response_dump: Any) -> None:
         raise InvalidUrologyOperationResponseError("Operation schema is invalid")
     if values.get("operation.clinicalConfirmation") is not True:
         raise InvalidUrologyOperationResponseError(
-            "Explicit clinical confirmation is required"
-        )
-
-    procedure_key = values.get("operation.procedureKey")
-    required_sections = _REQUIRED_COMPANION_SECTIONS.get(procedure_key)
-    if required_sections is None:
-        return
-    raw_confirmed = values.get("operation.confirmedCompanionSectionKeys")
-    if not isinstance(raw_confirmed, str):
-        raise InvalidUrologyOperationResponseError(
-            "Companion section confirmations are missing"
-        )
-    confirmed = {key.strip() for key in raw_confirmed.split(",") if key.strip()}
-    if not required_sections.issubset(confirmed):
-        raise InvalidUrologyOperationResponseError(
-            "Every Companion section must be explicitly reviewed"
+            "Finalized operation content must carry clinicalConfirmation"
         )

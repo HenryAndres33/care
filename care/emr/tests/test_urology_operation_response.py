@@ -10,14 +10,13 @@ from care_suriname.resources.form_submission.urology_operation import (
 )
 
 
-def _response_dump(*, confirmed=True, sections=""):
+def _response_dump(*, confirmed=True, note_text="Operatieverslag"):
     return {
         "content": {
-            "noteText": "Operatieverslag",
+            "noteText": note_text,
             "values": {
                 "operation.clinicalConfirmation": confirmed,
-                "operation.confirmedCompanionSectionKeys": sections,
-                "operation.procedureKey": "urs",
+                "operation.procedureKey": "turp",
                 "operation.schema": "care.urology.operation-documentation",
                 "operation.schemaVersion": "1",
             },
@@ -30,19 +29,12 @@ class UrologyOperationResponseValidationTest(SimpleTestCase):
         with self.assertRaises(InvalidUrologyOperationResponseError):
             validate_urology_operation_response_dump(_response_dump(confirmed=False))
 
-    def test_rejects_untouched_companion_defaults(self):
+    def test_rejects_empty_narrative(self):
         with self.assertRaises(InvalidUrologyOperationResponseError):
-            validate_urology_operation_response_dump(_response_dump())
+            validate_urology_operation_response_dump(_response_dump(note_text=" "))
 
-    def test_accepts_explicitly_reviewed_companion(self):
-        validate_urology_operation_response_dump(
-            _response_dump(
-                sections=(
-                    "basis,introductie,toegang,concrement,afronding,"
-                    "complicaties,contact"
-                )
-            )
-        )
+    def test_accepts_finalized_structured_report_without_section_review(self):
+        validate_urology_operation_response_dump(_response_dump())
 
 
 class QuestionnaireSubmissionAuthorizationTest(SimpleTestCase):

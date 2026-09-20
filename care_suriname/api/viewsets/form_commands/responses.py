@@ -132,7 +132,7 @@ class ResponsesMethods:
                 {
                     "errors": [
                         {
-                            "type": "urology_operation_confirmation_required",
+                            "type": "urology_operation_invalid",
                             "msg": str(exc),
                         }
                     ]
