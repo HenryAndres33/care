@@ -5,13 +5,15 @@ This inventory follows all eight groups and the completed-department policy move
 [inventory](2026-09-19-final-backend-separation-hunks.md) remains historical.
 See the [decision](2026-09-19-patient-access-ownership.md): no feature-specific
 implementation remains outside the documented native safety/integration/config scope.
+The owner-approved nullable Observation read-schema parity hunk added on
+20 September is included in the current counts below.
 
 A: native safety/table contract; B: plugin integration; C: generic upstream
 candidate; D: configuration/non-production/history; E: possible redundancy;
 F: embedded custom implementation. Categories overlap and are not percentages.
 
-Native non-test care/config Python: 37 files, 175 hunks,
-+1314/−249. Test settings, root wiring and four generic
+Native non-test care/config Python: 38 files, 176 hunks,
++1315/−250. Test settings, root wiring and four generic
 plugs modules appear separately in the same table. No environment values shown.
 
 ## Source classification
@@ -45,6 +47,7 @@ plugs modules appear separately in the same table. No environment values shown.
 | `care/emr/resources/encounter/spec.py` | 3 / 2 | C | ExtensionListRenderer and super() include registered extensions in list/read rendering. Generic extension correctness fix. |
 | `care/emr/resources/form_submission/spec.py` | 50 / 8 | A/C | Versioned draft/update/read contract, extra-field rejection and patient/encounter consistency; native resource remains native. Shared native model contract is not an independently movable custom model. |
 | `care/emr/resources/medication/request/spec.py` | 26 / 21 | C | Extract existing prescription construction into reusable resolve_created_prescription; no copied native model. Generic reuse refactor. |
+| `care/emr/resources/observation/spec.py` | 1 / 1 | A/C | Owner-approved nullable effective-datetime parity with the existing native nullable column. Generic upstream candidate; no plug import, model or migration. |
 | `care/emr/resources/report/report_upload/spec.py` | 18 / 2 | A/C | Expose native generated-artifact provenance and optional template/uploader fields; keep aligned with native table schema. |
 | `care/emr/resources/report/template/spec.py` | 2 / 0 | A/C | Expose native template resource_version/content_hash used by immutable artifact provenance. |
 | `care/emr/resources/scheduling/schedule/spec.py` | 2 / 2 | C | Strict interval overlap allows adjacent intervals. Generic validation fix. |
@@ -393,6 +396,14 @@ plugs modules appear separately in the same table. No environment values shown.
 ```diff
 @@ -209,0 +210,23 @@ class CreatePrescription(BaseModel):
 @@ -264,21 +287,3 @@ class MedicationRequestSpec(BaseMedicationRequestSpec):
+```
+
+### `care/emr/resources/observation/spec.py`
+
++1/−1; 1 hunk; 149 source lines.
+
+```diff
+@@ -74 +74 @@ class BaseObservationSpec(EMRResource):
 ```
 
 ### `care/emr/resources/report/report_upload/spec.py`

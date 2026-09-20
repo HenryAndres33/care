@@ -132,7 +132,7 @@ No port-4000/shared-service restart, migration or deployment occurred.
 Every remaining native production hunk was reconciled with the prior full review;
 unclaimed runtime hashes prove only the PatientAccess hunk changed in native
 care/config. The [current complete inventory](2026-09-19-ownership-closure-hunks.md)
-records **37 files, 175 hunks, +1,314/−249** versus fork. Test settings, root wiring
+records **38 files, 176 hunks, +1,315/−250** versus fork. Test settings, root wiring
 and four generic plugs modules are separately listed. No unclassified native
 hunk remains. PatientAccess is reclassified from B/F to B/C (generic integration).
 No remaining F implementation was found. The additional hunk is a generic
@@ -140,6 +140,15 @@ care-team nominee authorization correction suitable for upstream. Added native c
 nested model Meta classes and the native FormSubmissionMutableSpec table/API
 contract. No standalone custom production module/model/action engine remains.
 Eight previously restored core paths remain byte-identical to fork.
+
+The one-file/one-hunk increase was explicitly owner-approved on 20 September:
+`care/emr/resources/observation/spec.py` now admits null effective datetimes in
+the native read schema, matching its existing nullable model column and update
+schema. It is generic serialization parity and an upstream candidate, with no
+plugin import, specialty policy, model, migration or route change. Focused
+plugin/native HTTP evidence proves an explicit unknown date remains null through
+Observation list and embedded DiagnosticReport serialization. Roll back only by
+reversing that line after proving no stored null observations remain.
 
 The 12 direct plugin imports across ten native files are unchanged and rechecked:
 

@@ -71,7 +71,7 @@ class BaseObservationSpec(EMRResource):
 
     encounter: UUID4 | None = None
 
-    effective_datetime: datetime
+    effective_datetime: datetime | None
 
     performer: Performer | None = None
 

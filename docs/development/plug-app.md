@@ -14,7 +14,7 @@ certification. The final source gate retained 16 baseline failures; see the
 
 The [final report](2026-09-19-patient-access-ownership.md) records evidence and
 browser limitations. The [current hunk inventory](2026-09-19-ownership-closure-hunks.md)
-records 37 native production files, 175 hunks, +1,314/−249 against fork
+records 38 native production files, 176 hunks, +1,315/−250 against fork
 `ece71a878b3764a476d713a163a2f5515db57581`. Root wiring, generic `plugs` modules
 and test settings are separately counted. Earlier audits are historical.
 
@@ -77,6 +77,22 @@ locks, closed-write vetoes, immutability, provenance, constraints and native tab
 API fields remain intentional. Configuration and applied `emr`/`users` migrations
 also remain. The audit-log exclusion branch is retained pending parity proof.
 The current inventory is the complete residual list, not just this import table.
+
+### Owner-approved nullable Observation timestamp parity
+
+On 20 September 2026 the owner approved one additional native schema hunk in
+`care/emr/resources/observation/spec.py`: `BaseObservationSpec.effective_datetime`
+is `datetime | None`, matching the existing nullable native Observation model
+column and the already-optional update contract. This generic serialization
+parity contains no plug import or Suriname policy and lets any native
+Observation with an unknown effective time serialize honestly instead of
+raising response validation.
+
+This is an upstream candidate because the resource contract should match the
+native nullable field for every CARE client. Rollback is the exact one-line
+annotation reversal. Before rollback, prove there are no persisted Observations
+with a null `effective_datetime`; otherwise native reads would fail again. No
+migration, model, route, write behavior or direct native plugin import was added.
 
 ## Migration and deployment procedure
 
