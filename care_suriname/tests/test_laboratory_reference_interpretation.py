@@ -202,3 +202,25 @@ class LaboratoryReferenceInterpretationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_year_of_birth_only_gives_an_age_interval(self):
+        common = {
+            "loinc": "2160-0",
+            "unit_system": "http://unitsofmeasure.org",
+            "unit_code": "umol/L",
+            "value": Decimal(200),
+            "collected_at": datetime(2026, 9, 20, tzinfo=UTC),
+            "birth_date": None,
+            "sex": "male",
+            "specimen": "serum",
+            "method": None,
+        }
+        adult = interpret_governed_laboratory_reference(birth_year=1986, **common)
+        straddling = interpret_governed_laboratory_reference(birth_year=2008, **common)
+        child = interpret_governed_laboratory_reference(birth_year=2015, **common)
+        unknown = interpret_governed_laboratory_reference(birth_year=None, **common)
+        self.assertEqual(adult.status, "interpreted")
+        self.assertEqual(adult.category, "high")
+        self.assertEqual(straddling.reason, "age_at_collection_required")
+        self.assertEqual(child.reason, "pediatric_reference_not_available")
+        self.assertEqual(unknown.reason, "age_at_collection_required")

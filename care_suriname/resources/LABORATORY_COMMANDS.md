@@ -214,3 +214,15 @@ are recorded in the native ownership documentation. Rollback remains unsafe
 while any persisted Observation has a null effective date, because restoring
 the non-null read schema would make those valid records unreadable through
 native Observation and DiagnosticReport APIs.
+## Age at collection with a year of birth only — 22 September 2026
+
+Native CARE may hold `year_of_birth` without `date_of_birth`. The governed
+reference evaluation then uses an inclusive age interval (two consecutive ages,
+because the birthday within that year is unknown); a rule applies only when
+every age in the interval satisfies it. An interval that straddles 18 stays
+`age_at_collection_required`; one entirely below 18 stays
+`pediatric_reference_not_available`. The stored `reference_context` gains
+`birth_year` only when `birth_date` is null, so rows written before this change
+keep an identical context when a date of birth exists, while an added or changed
+year of birth is detected as `reference_context_changed`. Plugin-only; no native
+change.

@@ -128,11 +128,7 @@ def validate_reference_snapshot(observation, definition):
     stored_context = provenance.get("reference_context")
     current_context = {
         "collected_at": provenance.get("collected_at"),
-        "birth_date": (
-            observation.patient.date_of_birth.isoformat()
-            if observation.patient.date_of_birth
-            else None
-        ),
+        **patient_birth_context(observation.patient),
         "recorded_sex": observation.patient.gender or None,
         "specimen": provenance.get("specimen"),
         "confirmed": provenance.get("confirmed_reference_context", []),
@@ -206,14 +202,27 @@ def _result_meta(meta, *, observation, row, source, reference, correction_reason
     return updated
 
 
+def patient_birth_context(patient) -> dict:
+    """Birth facts that drive age-at-collection.
+
+    ``birth_year`` is recorded only when the exact date is absent, so rows
+    stored before year-of-birth support keep an identical context when a date
+    of birth exists, and a later added or changed year of birth is detected.
+    """
+    context = {
+        "birth_date": (
+            patient.date_of_birth.isoformat() if patient.date_of_birth else None
+        ),
+    }
+    if patient.date_of_birth is None:
+        context["birth_year"] = patient.year_of_birth
+    return context
+
+
 def _reference_context_snapshot(row, observation):
     return {
         "collected_at": row.collected_at.model_dump(mode="json"),
-        "birth_date": (
-            observation.patient.date_of_birth.isoformat()
-            if observation.patient.date_of_birth
-            else None
-        ),
+        **patient_birth_context(observation.patient),
         "recorded_sex": observation.patient.gender or None,
         "specimen": row.specimen,
         "confirmed": row.confirmed_reference_context,

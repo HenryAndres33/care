@@ -43,6 +43,7 @@ def evaluate_reference(observation, definition, context_flags, specimen):
         value=Decimal(str(observation.value.get("value"))),
         collected_at=observation.effective_datetime,
         birth_date=observation.patient.date_of_birth,
+        birth_year=observation.patient.year_of_birth,
         sex=observation.patient.gender or None,
         specimen=specimen,
         method=method,

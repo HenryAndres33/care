@@ -212,6 +212,28 @@ class LaboratoryCommandTests(CareAPITestBase):
             "reference_context_changed",
         )
 
+    def test_year_of_birth_only_patient_gets_a_reference_and_context_drift(self):
+        patient = self.context["patient"]
+        patient.date_of_birth = None
+        patient.year_of_birth = 1986
+        patient.save(update_fields=["date_of_birth", "year_of_birth", "modified_date"])
+
+        command, created = self.create()
+
+        row = created.data["report"]["rows"][0]
+        self.assertEqual(row["reference_provenance"]["status"], "interpreted")
+        self.assertEqual(row["interpretation"]["code"]["code"], "N")
+        patient.year_of_birth = 2010
+        patient.save(update_fields=["year_of_birth", "modified_date"])
+
+        context_changed = self.post(later_command(command, "finalize", 1))
+
+        self.assertEqual(context_changed.status_code, 409)
+        self.assertEqual(
+            context_changed.data["errors"][0]["type"],
+            "reference_context_changed",
+        )
+
     def test_finalize_correction_audit_and_history(self):
         group_id = str(uuid4())
         rows = [

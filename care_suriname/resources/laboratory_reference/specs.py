@@ -74,11 +74,27 @@ class ReferenceCatalogueEntry:
 
 @dataclass(frozen=True)
 class ReferenceContext:
+    """Patient context at collection.
+
+    ``age_at_collection_years`` is the lowest possible age and
+    ``age_at_collection_years_upper`` the highest. They are equal when the exact
+    date of birth is known; with only a year of birth (a native CARE option)
+    the age at collection spans two consecutive years. A rule applies only when
+    every age in that interval satisfies it.
+    """
+
     age_at_collection_years: int | None
     sex: str | None
     specimen: str | None
     method: str | None
     context_flags: frozenset[str] = frozenset()
+    age_at_collection_years_upper: int | None = None
+
+    @property
+    def age_upper(self) -> int | None:
+        if self.age_at_collection_years_upper is None:
+            return self.age_at_collection_years
+        return self.age_at_collection_years_upper
 
 
 @dataclass(frozen=True)

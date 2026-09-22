@@ -74,6 +74,7 @@ def interpret_governed_laboratory_reference(
     specimen: str | None,
     method: str | None,
     context_flags: frozenset[str] = frozenset(),
+    birth_year: int | None = None,
 ) -> ReferenceResult:
     entry = next(
         (
@@ -92,16 +93,17 @@ def interpret_governed_laboratory_reference(
             catalogue_version=CATALOGUE_VERSION,
         ),
     )
-    age = _age_at_collection(collected_at, birth_date)
+    age_lower, age_upper = _age_at_collection(collected_at, birth_date, birth_year)
     return interpret_textbook_reference(
         entry,
         value,
         ReferenceContext(
-            age_at_collection_years=age,
+            age_at_collection_years=age_lower,
             sex=sex,
             specimen=specimen,
             method=method,
             context_flags=context_flags,
+            age_at_collection_years_upper=age_upper,
         ),
     )
 
@@ -109,23 +111,35 @@ def interpret_governed_laboratory_reference(
 def _age_at_collection(
     collected_at: datetime | None,
     birth_date: date | None,
-) -> int | None:
+    birth_year: int | None = None,
+) -> tuple[int | None, int | None]:
+    """Inclusive age interval at collection; (None, None) when unknown.
+
+    An exact date of birth gives one age. A year of birth alone (native CARE
+    allows registering age only) gives two candidate ages, because the birthday
+    within that year is unknown.
+    """
     if (
         collected_at is None
         or collected_at.tzinfo is None
         or collected_at.utcoffset() is None
-        or birth_date is None
     ):
-        return None
+        return (None, None)
     collected_date = collected_at.astimezone(SURINAME_TIME_ZONE).date()
-    return (
-        collected_date.year
-        - birth_date.year
-        - (
-            (collected_date.month, collected_date.day)
-            < (birth_date.month, birth_date.day)
+    if birth_date is not None:
+        age = (
+            collected_date.year
+            - birth_date.year
+            - (
+                (collected_date.month, collected_date.day)
+                < (birth_date.month, birth_date.day)
+            )
         )
-    )
+        return (age, age)
+    if birth_year is not None:
+        upper = collected_date.year - birth_year
+        return (max(upper - 1, 0), upper)
+    return (None, None)
 
 
 def _unavailable(entry: ReferenceCatalogueEntry, reason):
@@ -144,10 +158,13 @@ def _missing_context_reason(
     entry: ReferenceCatalogueEntry,
     context: ReferenceContext,
 ):
-    if context.age_at_collection_years is None:
+    if context.age_at_collection_years is None or context.age_upper is None:
         reason = "age_at_collection_required"
-    elif context.age_at_collection_years < ADULT_MINIMUM_AGE:
+    elif context.age_upper < ADULT_MINIMUM_AGE:
         reason = "pediatric_reference_not_available"
+    elif context.age_at_collection_years < ADULT_MINIMUM_AGE:
+        # Year of birth only and the interval straddles adulthood.
+        reason = "age_at_collection_required"
     elif any(
         rule.applicability.sex != "any"
         or rule.applicability.nonpregnant_required_for_female
@@ -186,11 +203,13 @@ def _missing_context_reason(
 
 def _applies(rule: TextbookReferenceRule, context: ReferenceContext) -> bool:
     age = context.age_at_collection_years
+    age_upper = context.age_upper
     maximum = rule.applicability.maximum_age_years
     return (
         age is not None
+        and age_upper is not None
         and age >= rule.applicability.minimum_age_years
-        and (maximum is None or age <= maximum)
+        and (maximum is None or age_upper <= maximum)
         and rule.applicability.sex in ("any", context.sex)
         and not (
             context.sex == "female"
