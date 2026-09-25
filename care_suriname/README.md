@@ -52,6 +52,7 @@ The main areas are:
 - `extensions/` — CARE extension registrations;
 - `draft_recovery/` — owner-bound encrypted-draft key release and authentication proof;
 - `management/commands/` — operational commands;
+- `resources/facility_setup/` — export/import of one facility's setup without patients (clean-start server);
 - `migrations/` — plug-owned migration state;
 - `models/` — plug-owned models;
 - `resources/form_submission/` — custom command contracts and note-lab parsing/registration; and
