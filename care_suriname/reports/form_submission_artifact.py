@@ -10,6 +10,9 @@ from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
     WeasyPrintGeneratorOptions,
 )
+from care_suriname.reports.correspondence_letter_metadata import (
+    patient_record_identifier,
+)
 from care_suriname.reports.form_submission_artifact_metadata import (
     date_of_birth,
     encounter_date,
@@ -134,8 +137,12 @@ def build_form_submission_artifact_html(
         for label, value in patient_rows
     )
     clinical_content = render_clinical_content(submission.response_dump)
+    # Same record number as the GP letter, so the printed note can be filed
+    # in the right paper dossier.
     running_patient = render_running_patient_header(
-        name=patient.name, date_of_birth=date_of_birth(patient)
+        name=patient.name,
+        date_of_birth=date_of_birth(patient),
+        identifier=patient_record_identifier(patient, encounter),
     )
 
     return f"""<!doctype html>
