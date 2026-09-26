@@ -10,7 +10,8 @@
 # Usage, from <root>/care/deploy:
 #
 #   bash make-env.sh care.example.sr     # once: writes .env with fresh secrets
-#   docker compose build                 # ~15 min the first time
+#   docker compose build                 # backend, ~15 min the first time
+#   bash care/deploy/ship-frontend.sh    # from the laptop: the frontend image
 #   docker compose up -d
 #
 # Only Caddy publishes ports (80/443). Postgres, Redis, MinIO and the Django
@@ -29,6 +30,13 @@ volumes:
   caddy-data:
   caddy-config:
 
+# Docker keeps container logs forever by default; cap each at 5 x 20 MB.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 x-backend: &backend
   image: care-suriname-backend:${APP_VERSION:-local}
   build:
@@ -38,11 +46,17 @@ x-backend: &backend
       APP_VERSION: ${APP_VERSION:-local}
   env_file: .env
   restart: unless-stopped
+  logging: *logging
+  volumes:
+    # Draft-recovery keyring (care_suriname/draft_recovery/README.md). Unset,
+    # /dev/null is mounted and recovery stays unavailable, as intended.
+    - ${DRAFT_RECOVERY_KEYS_HOST_FILE:-/dev/null}:/run/secrets/care-draft-recovery-keys.json:ro
 
 services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -60,6 +74,7 @@ services:
   redis:
     image: redis:8-alpine
     restart: unless-stopped
+    logging: *logging
     volumes:
       - redis-data:/data
     healthcheck:
@@ -72,6 +87,7 @@ services:
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     restart: unless-stopped
+    logging: *logging
     environment:
       MINIO_ROOT_USER: ${BUCKET_KEY}
       MINIO_ROOT_PASSWORD: ${BUCKET_SECRET}
@@ -125,24 +141,20 @@ services:
     expose:
       - "9000"
 
+  # Built on the laptop and shipped as an image by ship-frontend.sh, never
+  # here: the 4 GB server cannot build it while serving, and only that script
+  # sets every build-time setting (e.g. the letter download host).
   frontend:
     image: care-suriname-frontend:${APP_VERSION:-local}
-    build:
-      context: ../../care_fe
-      args:
-        # Baked into the static bundle at build time (Vite). Same origin as
-        # the frontend, so the API needs no CORS.
-        REACT_CARE_API_URL: https://${CARE_DOMAIN}
-        REACT_PUBLIC_URL: https://${CARE_DOMAIN}
-        GIT_COMMIT: ${FRONTEND_COMMIT:-unknown}
-        GIT_BRANCH: ${FRONTEND_BRANCH:-unknown}
     restart: unless-stopped
+    logging: *logging
     expose:
       - "80"
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       CARE_DOMAIN: ${CARE_DOMAIN}
     ports:

@@ -40,7 +40,9 @@ to the React bundle, `https://files.DOMAIN` to MinIO (presigned PDF links).
    Check `CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES` in `.env` matches
    the facility UUID(s) that will exist after the data restore (step 5).
 
-4. **Build and start** (first build ≈ 15 min):
+4. **Build and start** (first build ≈ 15 min). The frontend is never built
+   here: ship its image from the laptop first (`bash care/deploy/ship-frontend.sh`,
+   with `CARE_DOMAIN` set), then:
 
        docker compose build
        docker compose up -d
