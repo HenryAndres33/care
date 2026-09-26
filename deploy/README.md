@@ -105,3 +105,9 @@ See [local-test/README.md](local-test/README.md).
 - No Sentry, no CDN, no draft-recovery key file — same as the laptop.
 - `DJANGO_SECURE_SSL_REDIRECT=false`: Caddy already forces HTTPS, and the
   container healthcheck talks plain HTTP to itself.
+
+## Routine updates (agents)
+
+The binding procedure for updating the server, including asking the owner
+first, is `care_fe/CODING_RULES.md` §7.
+
