@@ -35,6 +35,8 @@ to the React bundle, `https://files.DOMAIN` to MinIO (presigned PDF links).
 
        bash make-env.sh DOMAIN
 
+   `.env` sets `PATIENT_GLOBAL_EDIT_ACCESS_ENABLED=true` so front office can
+   open and edit the administrative patient record (owner decision, 26 Sep 2026).
    Check `CLINICAL_WORKFLOW_MUTATIONS_ENABLED_FACILITIES` in `.env` matches
    the facility UUID(s) that will exist after the data restore (step 5).
 
