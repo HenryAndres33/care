@@ -10,12 +10,16 @@ from django.urls import reverse
 from rest_framework import status
 
 from care.security.permissions.patient import PatientPermissions
+from care.security.permissions.tag_config import TagConfigPermissions
 from care.utils.tests.base import CareAPITestBase
 
 SECRETARY_PERMISSIONS = [
     PatientPermissions.can_create_patient.name,
     PatientPermissions.can_list_patients.name,
     PatientPermissions.can_write_patient.name,
+    # The chart reads the patient with ?facility=, which makes CARE require
+    # reading the facility's tag definitions (labels, no patient data).
+    TagConfigPermissions.can_read_tag_config.name,
 ]
 
 
@@ -24,8 +28,8 @@ class FrontOfficePatientAccessTests(CareAPITestBase):
         super().setUp()
         self.geo = self.create_organization(org_type="govt")
         self.secretary = self.create_user()
-        facility = self.create_facility(user=self.create_user())
-        administration = self.create_facility_organization(facility=facility)
+        self.facility = self.create_facility(user=self.create_user())
+        administration = self.create_facility_organization(facility=self.facility)
         self.attach_role_facility_organization_user(
             administration,
             self.secretary,
@@ -62,7 +66,10 @@ class FrontOfficePatientAccessTests(CareAPITestBase):
 
     @override_settings(PATIENT_GLOBAL_EDIT_ACCESS_ENABLED=True)
     def test_front_office_can_open_and_edit_the_administrative_record(self):
-        response = self.client.get(self.detail)
+        # Exactly as the urology chart reads it.
+        response = self.client.get(
+            self.detail, {"facility": str(self.facility.external_id)}
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertNotIn(
             PatientPermissions.can_view_clinical_data.name,
