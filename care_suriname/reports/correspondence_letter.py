@@ -69,7 +69,9 @@ def build_correspondence_letter_html(*, artifact_id, revision, generated_at):
         str(department_name or "Medische correspondentie").upper(),
     )
     letterhead = render_letterhead(
-        facility_name=str(facility_name), department_title=letterhead_title
+        facility_name=str(facility_name),
+        department_title=letterhead_title,
+        document_title=_document_title(compilation),
     )
     return f"""<!doctype html>
 <html lang="nl">
@@ -197,6 +199,13 @@ def _presentation_date(compilation):
     if isinstance(encounter, dict) and encounter.get("date"):
         return encounter["date"]
     return getattr(compilation.encounter, "start_date", None)
+
+
+def _document_title(compilation):
+    provenance = getattr(compilation, "source_provenance", {}) or {}
+    template = provenance.get("template") if isinstance(provenance, dict) else None
+    name = template.get("name") if isinstance(template, dict) else None
+    return name.strip() if isinstance(name, str) and name.strip() else "Medische brief"
 
 
 def _template_option(compilation, key, default):

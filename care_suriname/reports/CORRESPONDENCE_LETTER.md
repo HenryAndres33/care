@@ -166,3 +166,31 @@ the editable body even though the official metadata already rejects it.
 
 Existing compilations and finalized PDFs are immutable and are not rewritten.
 Rollback: remove the normalizer call/module; no schema or data migration exists.
+
+## AZP Flow design — 26 September 2026
+
+New AZP correspondence PDFs use the owner-selected Flow layout: embedded AZP
+logo on a green header with an inline SVG curve, a pale patient metadata panel,
+and shaded clinical headings. The header's document title uses the already
+frozen `source_provenance.template.name`; older snapshots without a title print
+`Medische brief`. Template content and clinical revisions are not edited to
+implement the design. Other facilities receive no AZP assets.
+
+Long clinical sections and paragraphs may flow across pages. Headings stay
+with following text, the author block stays together, and the existing running
+patient header and page counters remain on continuation pages. Controlled
+correction copies retain their prominent replacement banner. Finalized stored
+PDFs remain immutable; the new design applies when a new artifact is generated.
+All graphics are embedded, so rendering does not fetch assets from the internet.
+
+Production files: `correspondence_letter.py` 282 lines,
+`correspondence_letter_branding.py` 184, `correspondence_letter_styles.py` 48.
+Focused rendering tests: `care_suriname.tests.test_correspondence_letter_flow`
+(six tests, real WeasyPrint output; no database records required). Short and
+three-page synthetic PDFs were visually inspected. The owner confirmed the
+local app works on 26 September. Detailed evidence is in
+`care_fe/docs/simulations/2026-09-26-flow-letter-design.md` in the companion
+frontend repository. No remote deployment is implied.
+
+Rollback: reverse the three presentation-file changes together. No migration,
+clinical-data update, permission change or stored PDF regeneration is needed.

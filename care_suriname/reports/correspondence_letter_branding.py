@@ -122,11 +122,18 @@ def correspondence_brand(facility_name: str) -> CorrespondenceBrand:
     return CorrespondenceBrand()
 
 
-def render_letterhead(*, facility_name: str, department_title: str) -> str:
+def render_letterhead(
+    *, facility_name: str, department_title: str, document_title: str = "Medische brief"
+) -> str:
     brand = correspondence_brand(facility_name)
-    logo = ""
     if brand.logo_data_uri:
-        logo = f'<img class="letterhead-logo" src="{brand.logo_data_uri}" alt="AZP">'
+        return _render_flow_letterhead(
+            brand=brand,
+            facility_name=facility_name,
+            department_title=department_title,
+            document_title=document_title,
+        )
+    logo = ""
     contact_values = (
         brand.address,
         brand.central_phone,
@@ -143,4 +150,35 @@ def render_letterhead(*, facility_name: str, department_title: str) -> str:
         f'<div class="specialty-name">{escape(department_title)}</div>'
         f'<div class="facility-contact">{contact}</div>'
         "</div></header>"
+    )
+
+
+_FLOW_WAVE = (
+    '<svg class="flow-wave" xmlns="http://www.w3.org/2000/svg" '
+    'viewBox="0 0 600 65" preserveAspectRatio="none" aria-hidden="true">'
+    '<path fill="#ffffff" d="M0 0H600V65H0Z"/>'
+    '<path fill="#e1f1e6" d="M0 0H600V30C420 90 220 0 0 58Z"/>'
+    '<path fill="#127b4e" d="M0 0H600V8C420 68 220 -20 0 35Z"/>'
+    "</svg>"
+)
+
+
+def _render_flow_letterhead(*, brand, facility_name, department_title, document_title):
+    contact = " · ".join(
+        escape(value)
+        for value in (brand.address, brand.central_phone, brand.department_phone)
+        if value
+    )
+    return (
+        '<header class="letterhead flow-letterhead">'
+        '<div class="flow-identity">'
+        '<div class="letterhead-brand">'
+        f'<img class="letterhead-logo" src="{brand.logo_data_uri}" alt="AZP">'
+        '</div><div class="letterhead-identity">'
+        f'<div class="facility-name">{escape(facility_name)}</div>'
+        f'<div class="specialty-name">{escape(department_title)}</div>'
+        f'<h1 class="document-title">{escape(document_title)}</h1>'
+        "</div></div>"
+        f'<div class="facility-contact">{contact}</div>'
+        f"{_FLOW_WAVE}</header>"
     )
