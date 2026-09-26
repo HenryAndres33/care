@@ -40,6 +40,9 @@ ln -s "$fe/node_modules" "$out/src/node_modules"
 (
   cd "$out/src"
   export REACT_CARE_API_URL="https://$domain" REACT_PUBLIC_URL="https://$domain"
+  # Letter PDFs are downloaded from MinIO's own host; the letter screen only
+  # accepts download links from hosts approved at build time.
+  export REACT_CORRESPONDENCE_DOWNLOAD_HOSTS="files.$domain"
   export GIT_COMMIT="$commit" GIT_BRANCH="$branch"
   npm run -s build:meta && npm run -s supported-browsers
   npx cross-env NODE_ENV=production vite build --outDir "$out/build" --logLevel warn
