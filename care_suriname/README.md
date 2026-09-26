@@ -185,3 +185,16 @@ and list behavior is unchanged. All custom model state and feature implementatio
 is plugin-owned under the documented definition; native safeguards, generic
 seams, config/history and 12 direct integration imports remain explicit.
 [Verification, browser limitations and exact residual inventory](../docs/development/2026-09-19-patient-access-ownership.md).
+
+## 26 September 2026 — manual letter recipient requires a letter author
+
+`POST correspondence_recipient/idempotent-manual` stores a *verified* recipient
+but only checked clinical **read** access. It now also requires one of the
+letter-author permissions (`can_write_encounter` or
+`can_generate_report_for_completed_encounter`) in the user's roles on the
+patient, like the other correspondence writes
+(`api/viewsets/correspondence_review.py`, `_authorize_letter_author`). Test:
+`tests/test_correspondence_recipient_authorization.py`. Front-office access
+contract under `PATIENT_GLOBAL_EDIT_ACCESS_ENABLED`:
+`tests/test_front_office_patient_access.py`.
+

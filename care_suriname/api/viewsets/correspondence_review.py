@@ -23,7 +23,10 @@ from care.emr.reports.authorizers.utils import (
 )
 from care.facility.models import Facility
 from care.security.authorization.base import AuthorizationController
-from care.security.models import RoleModel
+from care.security.authorization.patient import PatientAccess
+from care.security.models import RoleModel, RolePermission
+from care.security.permissions.encounter import EncounterPermissions
+from care.security.permissions.template import TemplatePermissions
 from care.users.models import User
 from care.utils.shortcuts import get_object_or_404
 from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
@@ -93,6 +96,7 @@ class CorrespondenceRecipientViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSe
             is_active=True,
         )
         _authorize_clinical_read(request.user, patient)
+        _authorize_letter_author(request.user, patient)
         _require_facility_membership(request.user, facility)
         payload_hash = canonical_manual_recipient_command_hash(
             request_spec,
@@ -852,6 +856,27 @@ def _authorize_clinical_read(user, patient):
         )
     ):
         raise PermissionDenied("Permission denied for correspondence review")
+
+
+# The permissions that let a user write an encounter report (letter): active
+# encounters need can_write_encounter, completed ones the completed-report
+# permission (see EncounterAccess.can_generate_report_for_encounter).
+_LETTER_AUTHOR_PERMISSIONS = (
+    EncounterPermissions.can_write_encounter.name,
+    TemplatePermissions.can_generate_report_for_completed_encounter.name,
+)
+
+
+def _authorize_letter_author(user, patient):
+    """A manual recipient is stored as verified: a letter-author write, which
+    viewing clinical data alone must not allow."""
+    if user.is_superuser:
+        return
+    roles = PatientAccess().find_roles_on_patient(user, patient)
+    if not RolePermission.objects.filter(
+        role__in=roles, permission__slug__in=_LETTER_AUTHOR_PERMISSIONS
+    ).exists():
+        raise PermissionDenied("Permission denied for correspondence recipient")
 
 
 def _authorize_compilation_read(user, compilation):
