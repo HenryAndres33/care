@@ -1,4 +1,6 @@
-from datetime import date
+from datetime import date, datetime
+
+from django.utils import timezone
 
 _DUTCH_MONTHS = (
     "januari",
@@ -16,10 +18,31 @@ _DUTCH_MONTHS = (
 )
 
 
+def local_calendar_date(value) -> date | None:
+    """The calendar day of a date, datetime or ISO string in the clinic's zone.
+
+    Timestamps are stored in UTC; after 21:00 in Paramaribo (UTC-3) the UTC
+    day is already tomorrow, so aware values are converted to TIME_ZONE first.
+    Naive values and plain dates are taken as written.
+    """
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.strip())
+        except ValueError:
+            try:
+                return date.fromisoformat(value.strip()[:10])
+            except ValueError:
+                return None
+    if isinstance(value, datetime):
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
+        return value.date()
+    return value if isinstance(value, date) else None
+
+
 def dutch_correspondence_date(value: str) -> str:
-    try:
-        parsed = date.fromisoformat(value[:10])
-    except (TypeError, ValueError):
+    parsed = local_calendar_date(value)
+    if parsed is None:
         return value
     return f"{parsed.day} {_DUTCH_MONTHS[parsed.month - 1]} {parsed.year}"
 

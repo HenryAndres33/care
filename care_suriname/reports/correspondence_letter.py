@@ -1,11 +1,13 @@
-from datetime import UTC
 from html import escape
 
 from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
     WeasyPrintGeneratorOptions,
 )
-from care_suriname.correspondence.presentation import correspondence_presentation_reason
+from care_suriname.correspondence.presentation import (
+    correspondence_presentation_reason,
+    local_calendar_date,
+)
 from care_suriname.reports.correspondence_body import render_correspondence_body
 from care_suriname.reports.correspondence_letter_branding import render_letterhead
 from care_suriname.reports.correspondence_letter_metadata import (
@@ -270,13 +272,7 @@ def _signature_html(*, body_text, author, author_details, department_name):
 def _display_date(value):
     if not value:
         return "Niet vastgelegd"
-    if hasattr(value, "astimezone"):
-        if value.tzinfo is not None:
-            value = value.astimezone(UTC)
-        return value.strftime("%d-%m-%Y")
-    text = str(value)
-    try:
-        year, month, day = text[:10].split("-")
-        return f"{day}-{month}-{year}"
-    except ValueError:
-        return text
+    parsed = local_calendar_date(value)
+    if parsed is None:
+        return str(value)
+    return parsed.strftime("%d-%m-%Y")
