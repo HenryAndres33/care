@@ -14,6 +14,9 @@ from care_suriname.correspondence.correction import (
     advance_finalized_form_series,
     create_finalized_form_series_head,
 )
+from care_suriname.resources.closure_medications import (
+    retract_orders_of_discarded_note,
+)
 from care_suriname.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
 )
@@ -142,4 +145,7 @@ class MutationsMethods:
             target.resource_version += 1
             update_fields.append("resource_version")
         target.save(update_fields=update_fields)
+        # Owner decision 27 Sep 2026: prescriptions made from a discarded note
+        # are retracted with it (closure_medications.py).
+        retract_orders_of_discarded_note(target, self.request.user)
         return target

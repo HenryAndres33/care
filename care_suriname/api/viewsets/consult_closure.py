@@ -1,5 +1,4 @@
 import logging
-from collections import Counter
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -18,9 +17,8 @@ from care.emr.api.viewsets.location import close_related_location_from_encounter
 from care.emr.models.device import Device
 from care.emr.models.encounter import Encounter, EncounterOrganization
 from care.emr.models.location import FacilityLocation
-from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.organization import FacilityOrganization
-from care.emr.models.questionnaire import FormSubmission, QuestionnaireResponse
+from care.emr.models.questionnaire import FormSubmission
 from care.emr.models.report.report_upload import ReportUpload
 from care.emr.models.scheduling.booking import TokenBooking
 from care.emr.models.scheduling.token import Token, TokenSubQueue
@@ -34,6 +32,13 @@ from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.security.authorization.base import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
 from care_suriname.api.viewsets.clinical_no_store import ClinicalNoStoreResponseMixin
+from care_suriname.api.viewsets.consult_closure_medication import (
+    authorize_consult_closure_read,
+)
+from care_suriname.api.viewsets.consult_closure_outcomes import (
+    finalized_paper_letter_revisions,
+    with_derived_outcomes,
+)
 from care_suriname.correspondence.correction import (
     FormSubmissionSeriesHeadIntegrityError,
     correction_case_integrity_valid,
@@ -65,6 +70,7 @@ from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
 from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 from care_suriname.models.correspondence_review import CorrespondenceReview
 from care_suriname.reports.form_submission_artifact import validate_response_dump
+from care_suriname.resources.closure_medications import evaluate_closure_medications
 from care_suriname.resources.consult_closure import (
     CONSULT_CLOSE_POLICY_ID,
     CONSULT_CLOSE_POLICY_VERSION,
@@ -96,7 +102,6 @@ from care_suriname.workflow_capabilities import require_workflow_mutations_enabl
 
 logger = logging.getLogger(__name__)
 
-CONFIRMED_MEDICATION_STATUSES = {"active", "completed"}
 SHA256_LENGTH = 64
 
 
@@ -488,6 +493,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         if not artifact or not self._valid_form_artifact(source, artifact):
             blockers.add("form_artifact_invalid")
 
+        request_spec = with_derived_outcomes(request_spec, source, encounter)
         medication_actions = self._medication_actions(
             source,
             encounter,
@@ -588,63 +594,14 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         }
 
     def _medication_actions(self, source, encounter, outcome, blockers):
-        responses = list(
-            QuestionnaireResponse._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-            .filter(
-                form_submission=source,
-                structured_response_type="medication_request",
-            )
-            .order_by("pk")
-        )
-        response_counts = Counter()
-        malformed = False
-        for response in responses:
-            value = response.structured_responses
-            medication_data = (
-                value.get("medication_request", {}) if isinstance(value, dict) else {}
-            )
-            medication_id = medication_data.get("id")
-            if response.deleted or response.status != "completed" or not medication_id:
-                malformed = True
-            else:
-                response_counts[str(medication_id)] += 1
-        medications = list(
-            MedicationRequest._base_manager.select_for_update(of=("self",))  # noqa: SLF001
-            .filter(encounter=encounter, deleted=False)
-            .order_by("external_id")
-        )
-        by_id = {str(item.external_id): item for item in medications}
-        if set(by_id) != set(response_counts):
-            malformed = True
-        actions = []
-        for medication_id, medication in by_id.items():
-            count = response_counts.get(medication_id, 0)
-            if (
-                count != 1
-                or medication.patient_id != source.patient_id
-                or medication.encounter_id != encounter.id
-                or medication.deleted
-                or medication.status not in CONFIRMED_MEDICATION_STATUSES
-                or medication.intent != "order"
-                or medication.do_not_perform
-                or not medication.client_request_id
-                or not self._valid_sha256(medication.client_request_payload_hash)
-            ):
-                malformed = True
-                continue
-            actions.append(
-                {
-                    "id": medication.external_id,
-                    "client_request_id": medication.client_request_id,
-                }
-            )
-        if malformed or len(actions) != len(medications):
+        evaluation = evaluate_closure_medications(source, encounter, lock=True)
+        if not evaluation.complete:
             blockers.add("medication_incomplete")
-        if outcome == "completed" and not actions:
+        if outcome == "completed" and not evaluation.actions:
             blockers.add("medication_incomplete")
-        if outcome == "not_required" and (responses or actions):
+        if outcome == "not_required" and (evaluation.linked or evaluation.actions):
             blockers.add("medication_incomplete")
-        return actions
+        return evaluation.actions
 
     def _correspondence_evidence(self, source, encounter, spec, blockers):  # noqa: PLR0911, PLR0912, PLR0915
         empty = {
@@ -790,21 +747,9 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         prepared_revision = None
         if spec.correspondence_outcome == "paper_prepared":
             prepared_revision = (
-                CorrespondenceLetterRevision._base_manager.select_for_update(  # noqa: SLF001
-                    of=("self",)
-                )
+                finalized_paper_letter_revisions(source)
+                .select_for_update(of=("self",))
                 .select_related("letter__review__compilation")
-                .filter(
-                    letter__review__compilation__form_submission=source,
-                    letter__review__compilation__deleted=False,
-                    letter__review__deleted=False,
-                    letter__deleted=False,
-                    status="finalized",
-                    deleted=False,
-                    final_artifact__deleted=False,
-                    final_artifact__is_archived=False,
-                    final_artifact__upload_completed=True,
-                )
                 .order_by("-finalized_at", "-pk")
                 .first()
             )
@@ -1453,24 +1398,7 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
         )
 
     def _authorize_encounter_read(self, encounter):
-        if AuthorizationController.call(
-            "can_view_clinical_data",
-            self.request.user,
-            encounter.patient,
-        ) or (
-            AuthorizationController.call(
-                "can_view_encounter_obj",
-                self.request.user,
-                encounter,
-            )
-            and AuthorizationController.call(
-                "can_view_encounter_clinical_data",
-                self.request.user,
-                encounter,
-            )
-        ):
-            return
-        raise PermissionDenied("Permission denied for consult close")
+        authorize_consult_closure_read(self.request.user, encounter)
 
     def _reference_encounter(self):
         return get_object_or_404(

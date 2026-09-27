@@ -54,13 +54,20 @@ class ConsultClosePreflightSpec(BaseModel):
     facility: UUID4
     department: UUID4
     form_submission: UUID4
-    medication_outcome: MedicationOutcome
-    correspondence_outcome: CorrespondenceOutcome
+    # Omitted outcomes are derived by CARE from the saved record (27 Sep 2026).
+    medication_outcome: MedicationOutcome | None = None
+    correspondence_outcome: CorrespondenceOutcome | None = None
     correspondence_compilation: UUID4 | None = None
 
     @model_validator(mode="after")
     def validate_correspondence_shape(self):
         has_compilation = self.correspondence_compilation is not None
+        if self.correspondence_outcome is None:
+            if has_compilation:
+                raise ValueError(
+                    "correspondence_compilation requires a correspondence_outcome"
+                )
+            return self
         if (
             self.correspondence_outcome == "delivery_acknowledged"
             and not has_compilation

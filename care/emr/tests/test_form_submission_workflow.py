@@ -214,6 +214,67 @@ class TestFormSubmissionVersionedWorkflow(CareAPITestBase):
         values.update(link_overrides)
         return medication, baker.make(QuestionnaireResponse, **values)
 
+    def _grant_clinical_write(self):
+        role = self.create_role_with_permissions(
+            [EncounterPermissions.can_write_encounter_clinical_data.name]
+        )
+        self.attach_role_facility_organization_user(self.organization, self.user, role)
+
+    def test_discarding_a_note_retracts_the_prescriptions_made_from_it(self):
+        self._grant_clinical_write()
+        medication, _link = self._linked_medication(self.submission)
+
+        response = self._enter_in_error()
+
+        self.assertEqual(response.status_code, HTTPStatus.OK, response.data)
+        medication.refresh_from_db()
+        self.assertEqual(medication.status, "entered_in_error")
+        self.assertEqual(medication.updated_by, self.user)
+
+    def test_discard_keeps_a_prescription_another_live_note_still_carries(self):
+        self._grant_clinical_write()
+        medication, _link = self._linked_medication(self.submission)
+        other = self._draft()
+        self._linked_medication_link(other, medication)
+
+        response = self._enter_in_error()
+
+        self.assertEqual(response.status_code, HTTPStatus.OK, response.data)
+        medication.refresh_from_db()
+        self.assertEqual(medication.status, "active")
+
+    def test_discard_without_clinical_write_refuses_and_keeps_note_and_order(self):
+        medication, _link = self._linked_medication(self.submission)
+
+        response = self._enter_in_error()
+
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN, response.data)
+        medication.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertEqual(medication.status, "active")
+        self.assertEqual(
+            self.submission.status, FormSubmissionStatusChoices.draft.value
+        )
+
+    def _linked_medication_link(self, submission, medication):
+        return baker.make(
+            QuestionnaireResponse,
+            subject_id=submission.patient.external_id,
+            patient=submission.patient,
+            encounter=submission.encounter,
+            form_submission=submission,
+            status="completed",
+            structured_response_type="medication_request",
+            structured_responses={
+                "medication_request": {
+                    "submit_type": "CREATE",
+                    "id": str(medication.external_id),
+                }
+            },
+            created_by=self.user,
+            updated_by=self.user,
+        )
+
     def test_draft_update_requires_version_and_returns_versioned_contract(self):
         payload = self._command(response_dump={"field": "updated"})
 

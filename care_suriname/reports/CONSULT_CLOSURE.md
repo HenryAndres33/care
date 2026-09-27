@@ -1,5 +1,32 @@
 # Consult closure workflow (Slice 12)
 
+## Prescriptions that keep a consult open — 27 September 2026
+
+Owner-approved. `resources/closure_medications.py` is the single rule for which
+orders must be on the final note (used by preflight, derivation and the issue
+list). Entered-in-error/cancelled orders are ignored. `form_commands/mutations.py`
+`_enter_in_error` retracts (status `entered_in_error`, native model, nothing
+deleted) the orders linked from the discarded note unless another live note
+carries them; skipped on a clinically closed encounter; refused (403, nothing
+changed) without `can_update_encounter_clinical_data`. Amendments no longer
+carry links to retracted/cancelled orders (`structured_actions.py`). New plug
+endpoints `consult_closure_medication.py` at `/api/care_suriname/consult-closure/…`
+(list, retract; 409 on a closed consult; replay-safe). No native file, no
+migration. Rollback: revert these files; retracted orders stay retracted.
+
+## Derived medication and GP-letter outcomes — 27 September 2026
+
+Owner-approved. `ConsultClosePreflightSpec.medication_outcome` and
+`correspondence_outcome` are optional. When omitted, `consult_closure_outcomes.py`
+derives them from the locked encounter and finalized note before the existing
+`_medication_actions` / `_correspondence_evidence` checks run; a declared value
+is still honoured. Blockers and the closure ledger are unchanged, as are the
+policy hash and stored values. No native CARE file or migration. Tests:
+`care/emr/tests/test_consult_closure.py` (derived close, unlinked order still
+blocks, not-required derivation, compilation without outcome rejected, derived
+paper-prepared equals declared candidate). Rollback: revert the two files; old
+frontends send explicit outcomes and are unaffected either way.
+
 ## Approved unscheduled-emergency extension — 11 September 2026
 
 Owner: CARE Suriname maintainers. Code: `care_suriname/api/viewsets/consult_closure.py` (plug app since 18 September 2026),

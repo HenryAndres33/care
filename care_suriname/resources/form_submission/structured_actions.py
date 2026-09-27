@@ -10,10 +10,13 @@ from care.emr.models.questionnaire import FormSubmission, QuestionnaireResponse
 from care.emr.registries.system_questionnaire.system_questionnaire import (
     InternalQuestionnaireRegistry,
 )
+from care_suriname.resources.closure_medications import (
+    CONFIRMED_MEDICATION_STATUSES,
+    IGNORED_MEDICATION_STATUSES,
+)
 
 MAX_STRUCTURED_ACTION_LINKS = 100
 MEDICATION_REQUEST_TYPE = "medication_request"
-CONFIRMED_MEDICATION_STATUSES = {"active", "completed"}
 UUID_VERSION_4 = 4
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -73,6 +76,13 @@ def clone_structured_clinical_action_links(
             raise InvalidStructuredClinicalActionLink(
                 "Structured clinical-action target is unavailable"
             )
+        if (
+            parsed.response_type == MEDICATION_REQUEST_TYPE
+            and resource.status in IGNORED_MEDICATION_STATUSES
+        ):
+            # A retracted/cancelled order counts as never given (27 Sep 2026,
+            # closure_medications.py); the amendment does not carry it.
+            continue
         target_provenance = _validate_linked_resource(
             parsed.response_type,
             resource,

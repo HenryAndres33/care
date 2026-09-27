@@ -39,6 +39,9 @@ from care.emr.tests.test_correspondence_compilation import (
 from care.emr.tests.test_correspondence_review import CorrespondenceReviewTestMixin
 from care.utils.tests.base import CareAPITestBase
 from care_suriname.api.viewsets.consult_closure import ConsultClosureViewSet
+from care_suriname.api.viewsets.consult_closure_outcomes import (
+    derive_medication_outcome,
+)
 from care_suriname.models.consult_closure import (
     ConsultClosure,
     ConsultClosureCommand,
@@ -52,6 +55,7 @@ from care_suriname.models.correspondence_correction import (
 from care_suriname.models.correspondence_delivery import CorrespondenceDelivery
 from care_suriname.models.correspondence_letter import CorrespondenceLetterRevision
 from care_suriname.models.correspondence_review import CorrespondenceReview
+from care_suriname.resources.consult_closure import ConsultClosePreflightSpec
 from care_suriname.tasks.correspondence_correction import (
     project_correspondence_correction,
 )
@@ -738,6 +742,157 @@ class ConsultClosureWorkflowTests(
         self.assertFalse(incomplete.data["ready"])
         self.assertIn("medication_incomplete", incomplete.data["blocker_codes"])
 
+    def test_omitted_outcomes_are_derived_from_the_saved_record(self):
+        body = self._preflight_body()
+        del body["medication_outcome"], body["correspondence_outcome"]
+        derived = self.client.post(self.preflight_url, body, format="json")
+        self.assertEqual(derived.status_code, 200, derived.data)
+        self.assertTrue(derived.data["ready"], derived.data)
+        candidate = derived.data["command_candidate"]
+        self.assertEqual(candidate["medication_outcome"], "completed")
+        self.assertEqual(
+            [str(item["id"]) for item in candidate["medication_actions"]],
+            [str(self.medication.external_id)],
+        )
+        self.assertEqual(candidate["correspondence_outcome"], "not_required")
+        closed, _payload = self._close(candidate)
+        self.assertEqual(closed.status_code, 201, closed.data)
+        self.assertEqual(closed.data["closure"]["medication_outcome"], "completed")
+
+    def test_derived_outcomes_still_block_an_unlinked_prescription(self):
+        baker.make(
+            type(self.medication),
+            patient=self.patient,
+            encounter=self.encounter,
+            status="active",
+            intent="order",
+            do_not_perform=False,
+            client_request_id=uuid4(),
+            client_request_payload_hash="c" * 64,
+        )
+        body = self._preflight_body()
+        del body["medication_outcome"], body["correspondence_outcome"]
+        blocked = self.client.post(self.preflight_url, body, format="json")
+        self.assertEqual(blocked.status_code, 200, blocked.data)
+        self.assertFalse(blocked.data["ready"])
+        self.assertEqual(blocked.data["blocker_codes"], ["medication_incomplete"])
+
+    def test_medication_outcome_without_prescriptions_is_not_required(self):
+        self.assertEqual(
+            derive_medication_outcome(self.submission, self.encounter), "completed"
+        )
+        self.assertEqual(derive_medication_outcome(-1, -1), "not_required")
+
+    def test_derived_outcome_rejects_compilation_without_outcome(self):
+        body = self._preflight_body(correspondence_compilation=str(uuid4()))
+        del body["correspondence_outcome"]
+        with self.assertRaises(ValueError):
+            ConsultClosePreflightSpec.model_validate(body)
+
+    def _derived_preflight(self):
+        body = self._preflight_body()
+        del body["medication_outcome"], body["correspondence_outcome"]
+        return self.client.post(self.preflight_url, body, format="json")
+
+    def _unlinked_order(self, **overrides):
+        values = {
+            "patient": self.patient,
+            "encounter": self.encounter,
+            "status": "active",
+            "intent": "order",
+            "do_not_perform": False,
+            "medication": {"code": "T-1", "display": "Tamsulosine 0,4 mg"},
+            "client_request_id": uuid4(),
+            "client_request_payload_hash": "c" * 64,
+        }
+        values.update(overrides)
+        return baker.make(type(self.medication), **values)
+
+    def test_retracted_and_cancelled_orders_do_not_block_closure(self):
+        self._unlinked_order(status="entered_in_error")
+        self._unlinked_order(status="cancelled")
+
+        derived = self._derived_preflight()
+
+        self.assertTrue(derived.data["ready"], derived.data)
+        self.assertEqual(
+            [
+                str(item["id"])
+                for item in derived.data["command_candidate"]["medication_actions"]
+            ],
+            [str(self.medication.external_id)],
+        )
+
+    def test_issue_list_names_the_order_and_retraction_unblocks_closure(self):
+        order = self._unlinked_order()
+        issues_url = reverse(
+            "consult-closure-medication-issues",
+            kwargs={"encounter_id": self.encounter.external_id},
+        )
+        retract_url = reverse(
+            "consult-closure-medication-retractions",
+            kwargs={"encounter_id": self.encounter.external_id},
+        )
+        self.assertEqual(
+            self._derived_preflight().data["blocker_codes"], ["medication_incomplete"]
+        )
+
+        listed = self.client.get(
+            issues_url, {"form_submission": str(self.submission.external_id)}
+        )
+        self.assertEqual(listed.status_code, 200, listed.data)
+        self.assertEqual(
+            [(str(i["id"]), i["display"], i["reason"]) for i in listed.data["issues"]],
+            [(str(order.external_id), "Tamsulosine 0,4 mg", "not_on_note")],
+        )
+        self.assertFalse(listed.data["unnamed_link_problem"])
+
+        body = {"medication_request": str(order.external_id)}
+        retracted = self.client.post(retract_url, body, format="json")
+        replayed = self.client.post(retract_url, body, format="json")
+        self.assertEqual(retracted.status_code, 200, retracted.data)
+        self.assertFalse(retracted.data["replayed"])
+        self.assertTrue(replayed.data["replayed"])
+        order.refresh_from_db()
+        self.assertEqual(order.status, "entered_in_error")
+        self.assertTrue(self._derived_preflight().data["ready"])
+
+    def test_retraction_refuses_a_closed_consult_and_foreign_orders(self):
+        retract_url = reverse(
+            "consult-closure-medication-retractions",
+            kwargs={"encounter_id": self.encounter.external_id},
+        )
+        foreign = self.client.post(
+            retract_url, {"medication_request": str(uuid4())}, format="json"
+        )
+        self.assertEqual(foreign.status_code, 404)
+        closed, _payload = self._close()
+        self.assertEqual(closed.status_code, 201, closed.data)
+        refused = self.client.post(
+            retract_url,
+            {"medication_request": str(self.medication.external_id)},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 409, refused.data)
+        self.medication.refresh_from_db()
+        self.assertEqual(self.medication.status, "active")
+
+    def test_amendment_drops_the_link_to_a_retracted_order(self):
+        self.medication.status = "entered_in_error"
+        self.medication.save(update_fields=["status"])
+
+        amended = self._amend_source()
+
+        self.assertEqual(amended.status_code, 201, amended.json())
+        result = FormSubmission.objects.get(
+            external_id=amended.json()["form_submission"]["id"]
+        )
+        self.assertFalse(
+            result.questionnaireresponse_set.filter(
+                structured_response_type="medication_request"
+            ).exists()
+        )
+
     def test_preflight_allows_selected_final_note_among_multiple_note_series(self):
         other_submission = self._finalized_submission(
             response_dump={"assessment": "Earlier finalized note"}
@@ -878,6 +1033,9 @@ class ConsultClosureWorkflowTests(
                 ),
                 format="json",
             )
+            derived_body = self._preflight_body()
+            del derived_body["correspondence_outcome"]
+            derived = self.client.post(self.preflight_url, derived_body, format="json")
         self.assertEqual(preflight.status_code, 200, preflight.data)
         self.assertTrue(preflight.data["ready"], preflight.data)
         candidate = preflight.data["command_candidate"]
@@ -886,6 +1044,8 @@ class ConsultClosureWorkflowTests(
             str(compilation.external_id),
         )
         self.assertIsNone(candidate["correspondence_delivery"])
+        self.assertEqual(derived.status_code, 200, derived.data)
+        self.assertEqual(derived.data["command_candidate"], candidate)
         closed, _payload = self._close(candidate)
         self.assertEqual(closed.status_code, 201, closed.data)
         closure = closed.data["closure"]
