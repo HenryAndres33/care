@@ -41,6 +41,8 @@ python-slugify = "==8.0.4"
 pywebpush = "==2.1.2"
 redis = { extras = ["hiredis"], version = "==7.1.0" }
 requests = "==2.33.0"
+# CARE Suriname scribe (care_suriname/scribe/): Vertex AI auth, owner-approved 27 Sep 2026
+google-auth = "==2.58.1"
 simplejson = "==3.20.2"
 sentry-sdk = "==2.58.0"
 whitenoise = "==6.11.0"

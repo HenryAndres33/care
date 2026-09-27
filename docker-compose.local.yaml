@@ -10,9 +10,15 @@ services:
       - ./docker/.local.env
     environment:
       DRAFT_RECOVERY_WRAPPING_KEYS_FILE: /run/secrets/care-draft-recovery-keys.json
+      # AI scribe (care_suriname/scribe/README.md): local test with the owner's
+      # own Google sign-in (`gcloud auth application-default login`).
+      SCRIBE_ENABLED: "true"
+      SCRIBE_GCP_PROJECT: openemr-test-483717
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcloud-adc.json
     volumes:
       - .:/app
       - ../.local-secrets/draft-recovery-keyring.json:/run/secrets/care-draft-recovery-keys.json:ro
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/run/secrets/gcloud-adc.json:ro
     entrypoint: ["bash", "scripts/start-dev.sh"]
     ports:
       - "9000:9000"

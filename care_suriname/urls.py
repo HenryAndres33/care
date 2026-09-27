@@ -6,6 +6,7 @@ from care_suriname.api.viewsets.laboratory import (
     LaboratoryReportListView,
     LaboratoryReportView,
 )
+from care_suriname.scribe.views import ScribeFieldDraftView
 
 # Mounted by CARE at `api/care_suriname/` (config/urls.py, PLUGIN_APPS loop).
 urlpatterns = [
@@ -28,5 +29,10 @@ urlpatterns = [
         "laboratory/reports/<uuid:report_id>/",
         LaboratoryReportView.as_view(),
         name="laboratory-report-detail",
+    ),
+    path(
+        "scribe/field-drafts/",
+        ScribeFieldDraftView.as_view(),
+        name="scribe-field-drafts",
     ),
 ]
