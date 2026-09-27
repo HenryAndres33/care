@@ -63,12 +63,13 @@ Authentication is Google Application Default Credentials via `google-auth`
   `docker exec care-backend-1 pip install google-auth==2.58.1`.
   Without it the scribe answers 502 `scribe_credentials_unavailable`; the rest
   of CARE is unaffected (the import is lazy).
-- **Server (not yet done):** a dedicated `care-scribe` service account with the
-  Vertex AI User role attached to the VM, plus `SCRIBE_*` in the server `.env`.
-  The prod image installs `google-auth` from the lock. The gunicorn worker
-  timeout must exceed `SCRIBE_TIMEOUT_SECONDS`: the server runs
-  `--timeout=120` (27 September 2026), so set `SCRIBE_TIMEOUT_SECONDS=100`
-  there or raise the gunicorn timeout.
+- **Server (live since 27 September 2026):** the VM runs as service account
+  `care-scribe@openemr-test-483717.iam.gserviceaccount.com` (Vertex AI User,
+  Logs Writer, Monitoring Metric Writer; scope cloud-platform). The server
+  `.env` has `SCRIBE_ENABLED=true`, `SCRIBE_GCP_PROJECT=openemr-test-483717`,
+  `SCRIBE_TIMEOUT_SECONDS=100` (gunicorn runs `--timeout=120`); previous file
+  kept as `deploy/.env.bak-scribe-20260927`. Backup before the change:
+  `care-suriname-backups/20260927-121736` (laptop copy verified).
 
 ## Rollback
 
