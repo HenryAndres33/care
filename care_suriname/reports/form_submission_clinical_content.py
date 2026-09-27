@@ -20,12 +20,19 @@ _TECHNICAL_KEYS = {
 }
 
 
+# Prescribed from inside the note (frontend forms/note-medication); CARE holds
+# the order, the draft keeps the confirmed line so the paper PDF lists it.
+_NOTE_MEDICATION_SLOT_PREFIX = "medication-request:"
+
+
 def render_clinical_content(response_dump: dict[str, Any]) -> str:
     content = response_dump.get("content")
     if isinstance(content, dict):
         narrative = _first_text(content, _NARRATIVE_KEYS)
         if narrative:
-            return _narrative_paragraph(narrative)
+            return _narrative_paragraph(narrative) + _note_medication_section(
+                content.get("clinicalActions")
+            )
         values = content.get("values")
         if isinstance(values, dict):
             return _render_clinical_fields(values)
@@ -43,6 +50,29 @@ def render_clinical_content(response_dump: dict[str, Any]) -> str:
     if fields:
         parts.append(_render_clinical_fields(fields))
     return "".join(parts) or '<p class="empty">Geen gegevens vastgelegd.</p>'
+
+
+def _note_medication_section(clinical_actions: Any) -> str:
+    actions = (
+        clinical_actions.get("actions") if isinstance(clinical_actions, dict) else None
+    )
+    lines = [
+        action["narrative"].strip()
+        for action in actions or []
+        if isinstance(action, dict)
+        and action.get("state") == "confirmed"
+        and str(action.get("actionSlot", "")).startswith(_NOTE_MEDICATION_SLOT_PREFIX)
+        and isinstance(action.get("narrative"), str)
+        and action["narrative"].strip()
+    ]
+    if not lines:
+        return ""
+    items = "".join(f"<li>{escape(line)}</li>" for line in lines)
+    return (
+        '<section class="note-medication">'
+        "<h3>Medicatie vastgelegd in CARE tijdens dit consult</h3>"
+        f"<ul>{items}</ul></section>"
+    )
 
 
 def _narrative_paragraph(narrative: str) -> str:
