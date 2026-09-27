@@ -1,4 +1,5 @@
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import uuid4
 
 from django.test import override_settings
@@ -10,6 +11,9 @@ from care.emr.models.service_request import ServiceRequest
 from care.security.permissions.patient import PatientPermissions
 from care.security.permissions.service_request import ServiceRequestPermissions
 from care.utils.tests.base import CareAPITestBase
+from care_suriname.resources.form_submission.note_lab_concepts import (
+    discard_lab_concepts_of_discarded_note,
+)
 from care_suriname.resources.laboratory_commands.projection import aggregate_fingerprint
 from care_suriname.tests.laboratory_fixtures import (
     create_command,
@@ -233,6 +237,72 @@ class LaboratoryCommandTests(CareAPITestBase):
             context_changed.data["errors"][0]["type"],
             "reference_context_changed",
         )
+
+    def test_discard_draft_cancels_a_concept_and_hides_it(self):
+        command, _ = self.create()
+        discarded = self.post(later_command(command, "discard_draft", 1))
+        replay_command = later_command(command, "discard_draft", 1)
+        self.assertEqual(discarded.status_code, 200, discarded.data)
+        self.assertEqual(discarded.data["report"]["status"], "entered_in_error")
+        self.assertEqual(discarded.data["report"]["rows"], [])
+        report = DiagnosticReport.objects.get()
+        self.assertEqual(report.service_request.status, "entered_in_error")
+        self.assertFalse(
+            Observation.objects.exclude(status="entered_in_error").exists()
+        )
+
+        refused = self.post(later_command(command, "finalize", 2))
+        self.assertEqual(refused.status_code, 409, refused.data)
+        self.assertEqual(refused.data["errors"][0]["type"], "state_conflict")
+        stale = self.post(replay_command)
+        self.assertEqual(stale.status_code, 409)
+
+        listing = self.client.get(
+            reverse("laboratory-report-list"),
+            {"patient": command["patient"], "facility": command["facility"]},
+        )
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(listing.data["count"], 0)
+
+    def test_discarding_a_note_cancels_its_lab_concepts_only(self):
+        concept, _ = self.create()
+        final, _ = self.create()
+        self.post(later_command(final, "finalize", 1))
+        note = SimpleNamespace(
+            encounter_id=self.context["encounter"].id,
+            response_dump={
+                "content": {
+                    "clinicalActions": {
+                        "staged": [
+                            {
+                                "kind": "lab-report",
+                                "reportId": item["report_id"],
+                                "state": "concept",
+                            }
+                            for item in (concept, final)
+                        ]
+                    }
+                }
+            },
+        )
+
+        cancelled = discard_lab_concepts_of_discarded_note(note, self.context["user"])
+
+        self.assertEqual(cancelled, 1)
+        statuses = dict(DiagnosticReport.objects.values_list("external_id", "status"))
+        self.assertEqual(
+            {str(key): value for key, value in statuses.items()},
+            {concept["report_id"]: "entered_in_error", final["report_id"]: "final"},
+        )
+
+    def test_discard_draft_refuses_a_final_report(self):
+        command, _ = self.create()
+        self.assertEqual(
+            self.post(later_command(command, "finalize", 1)).status_code, 200
+        )
+        refused = self.post(later_command(command, "discard_draft", 2))
+        self.assertEqual(refused.status_code, 409, refused.data)
+        self.assertEqual(DiagnosticReport.objects.get().status, "final")
 
     def test_finalize_correction_audit_and_history(self):
         group_id = str(uuid4())

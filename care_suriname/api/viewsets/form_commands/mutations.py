@@ -20,6 +20,9 @@ from care_suriname.resources.closure_medications import (
 from care_suriname.resources.form_submission.commands import (
     finalized_form_submission_snapshot_hash,
 )
+from care_suriname.resources.form_submission.note_lab_concepts import (
+    discard_lab_concepts_of_discarded_note,
+)
 from care_suriname.resources.form_submission.note_labs import register_note_labs
 from care_suriname.resources.form_submission.structured_actions import (
     InvalidStructuredClinicalActionLink,
@@ -145,7 +148,9 @@ class MutationsMethods:
             target.resource_version += 1
             update_fields.append("resource_version")
         target.save(update_fields=update_fields)
-        # Owner decision 27 Sep 2026: prescriptions made from a discarded note
-        # are retracted with it (closure_medications.py).
+        # Owner decisions 27 Sep 2026: prescriptions made from a discarded note
+        # are retracted with it (closure_medications.py) and its lab concepts
+        # are cancelled (note_lab_concepts.py).
         retract_orders_of_discarded_note(target, self.request.user)
+        discard_lab_concepts_of_discarded_note(target, self.request.user)
         return target

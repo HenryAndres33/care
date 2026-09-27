@@ -110,8 +110,8 @@ class LaboratoryReportRead(StrictSpec):
     patient: UUID4
     facility: UUID4
     encounter: UUID4
-    status: Literal["preliminary", "final"]
-    service_request_status: Literal["draft", "completed"]
+    status: Literal["preliminary", "final", "entered_in_error"]
+    service_request_status: Literal["draft", "completed", "entered_in_error"]
     source: ExternalLaboratorySource
     audit: LaboratoryReportAudit
     rows: list[LaboratoryResultRead]

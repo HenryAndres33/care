@@ -239,6 +239,13 @@ class FinalizeCommand(CommandContext):
     expected_version: StrictPositiveInt
 
 
+class DiscardDraftCommand(CommandContext):
+    """Cancels a draft report (a note's lab concept; owner, 27 Sep 2026)."""
+
+    action: Literal["discard_draft"]
+    expected_version: StrictPositiveInt
+
+
 class CorrectionReplacement(StrictSpec):
     replaces_observation_id: UUID4
     row: LaboratoryResultRow
@@ -281,7 +288,11 @@ def _validate_collection_groups(rows):
 
 
 LaboratoryCommand = Annotated[
-    CreateDraftCommand | UpdateDraftCommand | FinalizeCommand | CorrectCommand,
+    CreateDraftCommand
+    | UpdateDraftCommand
+    | FinalizeCommand
+    | DiscardDraftCommand
+    | CorrectCommand,
     Field(discriminator="action"),
 ]
 LABORATORY_COMMAND_ADAPTER = TypeAdapter(LaboratoryCommand)

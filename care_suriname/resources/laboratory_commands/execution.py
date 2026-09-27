@@ -76,6 +76,8 @@ def _execute_locked(command, actor, payload_hash):
         report = _update_draft(context, command, actor)
     elif command.action == "finalize":
         report = _finalize(context, actor)
+    elif command.action == "discard_draft":
+        report = _discard_draft(context, actor)
     else:
         report = _correct(context, command, actor)
     version = record_success(report, command, actor, payload_hash)
@@ -166,6 +168,29 @@ def _finalize(context, actor):
     )
     report.service_request = context.service_request
     update_audit(report, "finalized", actor)
+    return report
+
+
+def _discard_draft(context, actor):
+    """A draft that never became a result is marked entered-in-error, not deleted."""
+    report = context.report
+    if report.status != "preliminary" or context.service_request.status != "draft":
+        raise conflict("state_conflict", "Only a draft report can be discarded.")
+    for observation in lock_observations(report):
+        if observation.deleted or observation.status == "entered_in_error":
+            continue
+        observation.status = "entered_in_error"
+        observation.updated_by = actor
+        observation.save(update_fields=["status", "updated_by", "modified_date"])
+    report.status = "entered_in_error"
+    report.updated_by = actor
+    report.save(update_fields=["status", "updated_by", "modified_date"])
+    context.service_request.status = "entered_in_error"
+    context.service_request.updated_by = actor
+    context.service_request.save(
+        update_fields=["status", "updated_by", "modified_date"]
+    )
+    report.service_request = context.service_request
     return report
 
 

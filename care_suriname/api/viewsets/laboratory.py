@@ -135,6 +135,8 @@ class LaboratoryReportListView(ClinicalNoStoreResponseMixin, APIView):
                 meta__care_suriname__laboratory_command__contract="v1",
                 service_request__deleted=False,
             )
+            # A discarded draft never became a result (discard_draft).
+            .exclude(status="entered_in_error")
             .select_related("service_request", "patient", "facility", "encounter")
             .order_by("-modified_date", "-external_id")
         )
