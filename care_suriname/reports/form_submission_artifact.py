@@ -222,6 +222,11 @@ def build_form_submission_artifact_html(
     .clinical-table th {{ color: #475569; font-weight: 600; width: 38%; }}
     ul {{ margin: 3px 0; padding-left: 18px; }}
     .empty {{ color: #64748b; font-style: italic; }}
+    .note-drawing {{ break-inside: avoid; margin: 8px 0 14px; width: 50%; }}
+    .note-drawing-figure {{ border: 1px solid #cbd5e1; height: auto; width: 100%; }}
+    .note-drawing figcaption {{ font-size: 9.5pt; line-height: 1.4; margin-top: 4px; }}
+    .note-drawing figcaption p {{ margin: 0; }}
+    .note-drawing-caption {{ font-weight: 700; }}
     .status {{
       color: #047857;
       font-size: 8.5pt;

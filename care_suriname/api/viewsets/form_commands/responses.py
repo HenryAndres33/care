@@ -12,6 +12,10 @@ from care_suriname.reports.form_submission_artifact import (
     MalformedFinalizedSnapshotError,
     validate_response_dump,
 )
+from care_suriname.reports.note_drawings_validation import (
+    InvalidNoteDrawingsError,
+    validate_note_drawings,
+)
 from care_suriname.resources.form_submission.urology_operation import (
     UROLOGY_OPERATIONS_QUESTIONNAIRE,
     InvalidUrologyOperationResponseError,
@@ -137,6 +141,18 @@ class ResponsesMethods:
                         }
                     ]
                 },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        return None
+
+    @staticmethod
+    def _note_drawings_validation_response(response_dump):
+        """Drawings in a note must print exactly as drawn (NOTE_DRAWINGS.md)."""
+        try:
+            validate_note_drawings(response_dump)
+        except InvalidNoteDrawingsError as exc:
+            return Response(
+                {"errors": [{"type": "note_drawings_invalid", "msg": str(exc)}]},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
         return None

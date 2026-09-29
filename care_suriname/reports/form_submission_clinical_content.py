@@ -3,6 +3,7 @@ from html import escape
 from typing import Any
 
 from care_suriname.reports.clinical_narrative import render_clinical_narrative_html
+from care_suriname.reports.note_drawings import render_narrative_with_drawings
 
 _NARRATIVE_KEYS = ("noteText", "narrativePreview", "narrative", "note")
 _TECHNICAL_KEYS = {
@@ -30,9 +31,9 @@ def render_clinical_content(response_dump: dict[str, Any]) -> str:
     if isinstance(content, dict):
         narrative = _first_text(content, _NARRATIVE_KEYS)
         if narrative:
-            return _narrative_paragraph(narrative) + _note_medication_section(
-                content.get("clinicalActions")
-            )
+            return render_narrative_with_drawings(
+                narrative, response_dump, _narrative_paragraph
+            ) + _note_medication_section(content.get("clinicalActions"))
         values = content.get("values")
         if isinstance(values, dict):
             return _render_clinical_fields(values)

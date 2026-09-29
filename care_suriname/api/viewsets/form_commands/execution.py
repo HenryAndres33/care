@@ -135,6 +135,12 @@ class ExecutionMethods:
                     )
                 ):
                     return response
+                if command_type == "finalize" and (
+                    response := self._note_drawings_validation_response(
+                        target.response_dump
+                    )
+                ):
+                    return response
                 if command_type == "amend" and (
                     response := self._response_dump_validation_response(
                         target.response_dump,
@@ -146,6 +152,12 @@ class ExecutionMethods:
                     response := self._urology_operation_validation_response(
                         request_spec.response_dump,
                         questionnaire_slug=target.questionnaire.slug,
+                    )
+                ):
+                    return response
+                if command_type == "amend" and (
+                    response := self._note_drawings_validation_response(
+                        request_spec.response_dump
                     )
                 ):
                     return response

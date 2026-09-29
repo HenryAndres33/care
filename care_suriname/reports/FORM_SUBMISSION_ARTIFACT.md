@@ -84,3 +84,13 @@ label the date "Opnamedatum" instead of "Consultdatum". Nothing new is stored;
 the slot kind already lives on `AdmissionDocumentation`. Existing artifacts are
 immutable and keep their old title. Tests: two in
 `tests/test_form_submission_artifact.py`.
+
+## Note drawings — 29 September 2026
+
+A Medisch Dossier note's `content.clinicalActions.drawings` print inside the
+narrative: each drawing replaces its own note line ("- Afbeelding N: …") with
+an inline SVG of the schematic (numbered stamps, freehand lines) and a
+footnote legend under it; a drawing without a line prints after the text. Images are
+plug package data inlined as data URIs. `finalize` and `amend` refuse
+malformed drawings with 422 `note_drawings_invalid`. Details, limits and
+rollback: `NOTE_DRAWINGS.md`.
