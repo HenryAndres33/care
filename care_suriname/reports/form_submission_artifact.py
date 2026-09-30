@@ -10,6 +10,7 @@ from care.emr.reports.renderer.generators.weasyprint_generator import (
     WeasyPrintGenerator,
     WeasyPrintGeneratorOptions,
 )
+from care_suriname.extensions.patient_insurance import insurance_display
 from care_suriname.reports.correspondence_letter_metadata import (
     patient_record_identifier,
 )
@@ -126,6 +127,7 @@ def build_form_submission_artifact_html(
     patient_rows = [
         ("Patient", patient.name),
         ("Geboortedatum", date_of_birth(patient)),
+        ("Verzekering", insurance_display(patient.extensions) or "Niet geregistreerd"),
         (encounter_date_label(encounter), encounter_date(encounter.period)),
         ("Behandelaar", user_name(finalizer)),
     ]

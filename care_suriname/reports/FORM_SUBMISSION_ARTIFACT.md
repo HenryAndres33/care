@@ -94,3 +94,11 @@ its free text (owner, 30 Sep 2026). Images are
 plug package data inlined as data URIs. `finalize` and `amend` refuse
 malformed drawings with 422 `note_drawings_invalid`. Details, limits and
 rollback: `NOTE_DRAWINGS.md`.
+
+## Insurance row — 30 September 2026
+
+The patient block prints **Verzekering** under Geboortedatum from the patient
+extension `care_suriname_insurance` (e.g. `SURVAM · PZS-basis · nr. 12345`),
+falling back to the older free text, else "Niet geregistreerd". It reflects
+the patient record when the PDF is rendered; PDFs already stored keep what they
+printed. Details and rollback: `../extensions/PATIENT_INSURANCE.md`.

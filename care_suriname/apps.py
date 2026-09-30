@@ -14,6 +14,8 @@ class CareSurinameConfig(AppConfig):
         import_module("care_suriname.checks")
         # Encounter extension: admission note (ExtensionRegistry.register at import).
         import_module("care_suriname.extensions.encounter_admission_note")
+        # Patient extension: insurance (registration, patient edit, note PDF).
+        import_module("care_suriname.extensions.patient_insurance")
 
         from care_suriname.authorization import register_authorization_handlers
 
