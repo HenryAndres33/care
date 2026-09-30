@@ -4,6 +4,9 @@ from care_suriname.api.viewsets.consult_closure_medication import (
     ClosureMedicationIssuesView,
     ClosureMedicationRetractionView,
 )
+from care_suriname.api.viewsets.declaration_codes import (
+    DeclarationCodeEnteredInErrorView,
+)
 from care_suriname.api.viewsets.laboratory import (
     LaboratoryCommandView,
     LaboratoryDefinitionListView,
@@ -23,6 +26,11 @@ urlpatterns = [
         "consult-closure/<uuid:encounter_id>/medication-retractions/",
         ClosureMedicationRetractionView.as_view(),
         name="consult-closure-medication-retractions",
+    ),
+    path(
+        "declaration-codes/charge-items/<uuid:charge_item_id>/enter-in-error/",
+        DeclarationCodeEnteredInErrorView.as_view(),
+        name="declaration-code-entered-in-error",
     ),
     path(
         "laboratory/definitions/",
