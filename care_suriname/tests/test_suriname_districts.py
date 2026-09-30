@@ -69,6 +69,40 @@ class SurinameDistrictTests(CareAPITestBase):
         self.assertEqual(unmarked.metadata, {})
         self.assertFalse(self.districts(unmarked).exists())
 
+    def test_mark_country_types_existing_rows_and_adds_the_rest(self):
+        unmarked = Organization.objects.create(org_type="govt", name="Suriname")
+        paramaribo = Organization.objects.create(
+            org_type="govt", name="Paramaribo", parent=unmarked
+        )
+        other = Organization.objects.create(
+            org_type="govt", name="Elders", parent=unmarked
+        )
+        self.assertIn("to mark", run("--mark-country"))
+        unmarked.refresh_from_db()
+        self.assertEqual(unmarked.metadata, {})
+        output = run("--apply", "--mark-country")
+        self.assertIn("marked: country + 1 district(s)", output)
+        unmarked.refresh_from_db()
+        paramaribo.refresh_from_db()
+        other.refresh_from_db()
+        self.assertEqual(unmarked.metadata["govt_org_type"], "country")
+        self.assertEqual(unmarked.metadata["govt_org_children_type"], "district")
+        self.assertEqual(paramaribo.metadata, {"govt_org_type": "district"})
+        self.assertEqual(other.metadata, {})
+        names = set(self.districts(unmarked).values_list("name", flat=True))
+        self.assertEqual(names, {*DISTRICTS, "Elders"})
+        self.assertEqual(
+            Organization.objects.filter(parent=unmarked, name="Paramaribo").count(), 1
+        )
+        self.assertIn("nothing to do", run("--apply", "--mark-country"))
+
+    def test_mark_country_refuses_a_suriname_of_another_type(self):
+        Organization.objects.create(
+            org_type="govt", name="Suriname", metadata={"govt_org_type": "state"}
+        )
+        with self.assertRaises(CommandError):
+            run("--apply", "--mark-country")
+
     def test_dry_run_lists_the_top_level(self):
         self.country()
         Organization.objects.create(org_type="govt", name="Elders")
