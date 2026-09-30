@@ -33,10 +33,8 @@ hash-covered finalized note and of every corrected version.
   rules.
 - `note_drawings.py` — `render_narrative_with_drawings`, used for the
   narrative in `form_submission_clinical_content.py`: each figure (picture
-  plus caption "Afbeelding 1 – Cystoscopie" and a footnote legend, no table)
-  takes the place of its own note line `- Afbeelding N: …` under the
-  schematic's heading ("Cystoscopie:" / "URS:"); a drawing whose line was
-  removed prints after the text. CSS in `form_submission_artifact.py`. A
+  plus caption "Afbeelding 1 – Cystoscopie", a footnote legend and the free
+  text, no table) in a left column beside the note text. CSS in `form_submission_artifact.py`. A
   malformed list (never finalizable) prints "konden niet worden weergegeven"
   instead of a half drawing. The first test version's "- Tekening N (Blaas)"
   lines are recognised too.
@@ -45,6 +43,14 @@ hash-covered finalized note and of every corrected version.
   line along its side's ureter (x < 561 = rechts), curled in pelvis and
   bladder, under the other stamps. Same points as the frontend's
   `drawingStentPaths.ts` (SHA-256 checked by tests on both sides).
+
+Owner decisions, 30 Sep 2026: the note text carries no drawing line; the
+pictures stand in a column on the left of the PDF with the note text beside
+them (`.note-drawings-column`, float), as in the note on screen. Each drawing
+may hold `text` (one free text, printed under its footnote; optional, max 500
+characters). `section` (max 60) was written only by that morning's test
+build and is accepted but not used. First-version lines ("- Afbeelding N: …",
+"- Tekening N (…)") of existing drawings are left out of the text.
 
 Owner decisions, 29 Sep 2026 (after the first live test): the schematics are
 named **Cystoscopie** and **URS**; the word "Tekeningen" does not appear on

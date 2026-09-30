@@ -48,6 +48,10 @@ MAX_STROKES = 30
 MAX_POINTS_CHARS = 3000
 MAX_SIZE_CHARS = 40
 MAX_NOTE_CHARS = 160
+# Owner, 30 Sep 2026: the picture sits under a chosen note heading and has
+# one free text; both optional (older drawings have neither).
+MAX_SECTION_CHARS = 60
+MAX_TEXT_CHARS = 500
 SCALE_MIN = 0.5
 SCALE_MAX = 3
 

@@ -1,13 +1,14 @@
-"""The note's drawings on its PDF (owner, 29 September 2026).
+"""The note's drawings on its PDF (owner, 29-30 September 2026).
 
 Drawn only from the stored note (``content.clinicalActions.drawings``): the
 schematic, the numbered stamps and the freehand lines as one inline SVG, with
-a footnote legend under it ("1 Tumor 5 cm, rechter zijwand"), no table. The
-figure takes the place of its own note line ("- Afbeelding 1: …", under the
-schematic's heading such as "Cystoscopie:"), so the page does not repeat it;
-a drawing whose line was removed from the text is printed after the text.
-Every image is an inline data URI from the plug's own assets, so WeasyPrint
-fetches nothing. Mirrors the frontend DrawingFigure.tsx / NoteDrawingFigures.
+a footnote legend and the drawing's free text under it, no table. The
+pictures stand in a column on the left with the note text flowing beside
+them, as in the note on screen (NoteDrawingLayout.tsx). The note text
+carries no drawing line; lines written by the first versions
+("- Afbeelding 1: …", "- Tekening 1 (Blaas): …") are left out. Every image
+is an inline data URI from the plug's own assets, so WeasyPrint fetches
+nothing.
 """
 
 import re
@@ -45,27 +46,23 @@ def render_narrative_with_drawings(
     except InvalidNoteDrawingsError:
         # Finalizing already refuses this; never print a drawing half-right.
         return render_text(narrative) + _UNAVAILABLE
-    by_number = {drawing["number"]: drawing for drawing in drawings}
-    parts: list[str] = []
-    text: list[str] = []
-
-    def flush() -> None:
-        chunk = "\n".join(text).strip("\n")
-        if chunk.strip():
-            parts.append(render_text(chunk))
-        text.clear()
-
-    for line in narrative.split("\n"):
-        match = _DRAWING_LINE.match(line.strip())
-        drawing = by_number.pop(int(match.group(1)), None) if match else None
-        if drawing is None:
-            text.append(line)
-            continue
-        flush()
-        parts.append(_render_figure(drawing))
-    flush()
-    parts.extend(_render_figure(drawing) for drawing in by_number.values())
-    return "".join(parts)
+    # Lines the first versions wrote for a drawing are shown by the figure.
+    numbers = {drawing["number"] for drawing in drawings}
+    text = "\n".join(
+        line
+        for line in narrative.split("\n")
+        if not (
+            (match := _DRAWING_LINE.match(line.strip()))
+            and int(match.group(1)) in numbers
+        )
+    ).strip("\n")
+    figures = "".join(_render_figure(drawing) for drawing in drawings)
+    return (
+        '<div class="note-with-drawings">'
+        f'<div class="note-drawings-column">{figures}</div>'
+        f"{render_text(text) if text.strip() else ''}"
+        '<div class="note-drawings-end"></div></div>'
+    )
 
 
 def _render_figure(drawing: dict[str, Any]) -> str:
@@ -87,10 +84,12 @@ def _render_figure(drawing: dict[str, Any]) -> str:
         f"<p>{escape(_describe_stamp(stamp, index + 1))}</p>"
         for index, stamp in enumerate(drawing["stamps"])
     )
+    text = drawing.get("text", "").strip()
+    explanation = f'<p class="note-drawing-text">{escape(text)}</p>' if text else ""
     return (
         f'<figure class="note-drawing">{svg}<figcaption>'
         f'<p class="note-drawing-caption">{escape(caption)}</p>{footnotes}'
-        "</figcaption></figure>"
+        f"{explanation}</figcaption></figure>"
     )
 
 

@@ -13,6 +13,7 @@ from care_suriname.reports import note_drawings_catalog as catalog
 _POINTS = re.compile(r"\d{1,4},\d{1,4}( \d{1,4},\d{1,4})+")
 _STAMP_KEYS = {"kind", "mirrored", "note", "rotation", "scale", "size", "x", "y"}
 _DRAWING_KEYS = {"number", "stamps", "strokes", "template"}
+_OPTIONAL_DRAWING_KEYS = {"section", "text"}
 
 
 class InvalidNoteDrawingsError(ValueError):
@@ -41,7 +42,9 @@ def validate_note_drawings(response_dump: Any) -> None:
 
 
 def _check_drawing(drawing: Any) -> None:
-    if not isinstance(drawing, dict) or set(drawing) != _DRAWING_KEYS:
+    if not isinstance(drawing, dict) or not (
+        _DRAWING_KEYS <= set(drawing) <= _DRAWING_KEYS | _OPTIONAL_DRAWING_KEYS
+    ):
         raise InvalidNoteDrawingsError("Tekening: onbekende opbouw")
     number = drawing["number"]
     label = f"Tekening {number}"
@@ -49,6 +52,12 @@ def _check_drawing(drawing: Any) -> None:
         raise InvalidNoteDrawingsError("Tekening: ongeldig nummer")
     if drawing["template"] not in catalog.TEMPLATES:
         msg = f"{label}: onbekend schema"
+        raise InvalidNoteDrawingsError(msg)
+    if not _short_text(drawing.get("section", ""), catalog.MAX_SECTION_CHARS):
+        msg = f"{label}: ongeldige plaats in de notitie"
+        raise InvalidNoteDrawingsError(msg)
+    if not _short_text(drawing.get("text", ""), catalog.MAX_TEXT_CHARS):
+        msg = f"{label}: toelichting te lang"
         raise InvalidNoteDrawingsError(msg)
     stamps, strokes = drawing["stamps"], drawing["strokes"]
     if not isinstance(stamps, list) or len(stamps) > catalog.MAX_STAMPS:

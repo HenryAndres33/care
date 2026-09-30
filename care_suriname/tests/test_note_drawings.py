@@ -61,16 +61,19 @@ def _dump(drawings):
 
 
 class NoteDrawingsPdfTests(SimpleTestCase):
-    def test_figure_takes_its_lines_place_with_a_footnote_legend(self):
-        html = render_clinical_content(_dump([_drawing()]))
-        self.assertIn("Cystoscopie:", html)
-        self.assertNotIn("- Afbeelding 1:", html)  # the figure replaces it
-        self.assertNotIn("Tekeningen", html)
+    def test_pictures_stand_beside_the_note_text_with_legend_and_free_text(self):
+        dump = _dump([_drawing(text="Blaas verder zonder afwijkingen.")])
+        dump["content"]["noteText"] = "Anamnese:\nHematurie.\n\nBeleid:\nTURBT."
+        html = render_clinical_content(dump)
+        self.assertIn('<div class="note-drawings-column"><figure', html)
+        self.assertLess(html.index("<svg"), html.index("Anamnese:"))
         self.assertIn("Afbeelding 1 \N{EN DASH} Cystoscopie", html)
         self.assertIn("<p>1 Tumor 3 x 2 cm, zijwand rechts</p>", html)
+        self.assertIn(
+            '<p class="note-drawing-text">Blaas verder zonder afwijkingen.</p>', html
+        )
         self.assertNotIn("<table", html)
-        self.assertLess(html.index("Cystoscopie:"), html.index("<svg"))
-        self.assertLess(html.index("<svg"), html.index("Verder geen klachten"))
+        self.assertNotIn("Tekeningen", html)
         self.assertIn('<polyline points="10,10 40,60 90,80"', html)
         self.assertIn("#C62828", html)
         self.assertEqual(html.count("data:image/png;base64,"), 2)
@@ -80,21 +83,26 @@ class NoteDrawingsPdfTests(SimpleTestCase):
         self.assertNotIn("<b>trigonum", html)
         self.assertNotIn('href="http', html)
 
-    def test_drawing_without_its_line_still_prints_after_the_text(self):
+    def test_several_drawings_stack_in_the_column(self):
         dump = _dump([_drawing(), _drawing(number=2, template="urology-urinewegen-v1")])
         html = render_clinical_content(dump)
         self.assertEqual(html.count("<svg"), 2)
-        self.assertIn("Afbeelding 2 \N{EN DASH} URS", html)
-        self.assertGreater(
-            html.index("Afbeelding 2"), html.index("Verder geen klachten")
-        )
+        self.assertLess(html.index("Afbeelding 2"), html.index("Verder geen klachten"))
 
-    def test_first_version_line_is_replaced_too(self):
+    def test_first_version_lines_are_left_out(self):
         dump = _dump([_drawing()])
-        dump["content"]["noteText"] = "Tekeningen:\n- Tekening 1 (Blaas): 1 Tumor"
+        dump["content"]["noteText"] = (
+            "Tekeningen:\n- Tekening 1 (Blaas): 1 Tumor\n- Afbeelding 1: 1 Tumor"
+            "\n- Afbeelding 7: other text"
+        )
         html = render_clinical_content(dump)
         self.assertNotIn("- Tekening 1 (Blaas)", html)
-        self.assertEqual(html.count("<svg"), 1)
+        self.assertNotIn("- Afbeelding 1:", html)
+        self.assertIn("- Afbeelding 7: other text", html)  # no such drawing
+
+    def test_test_build_section_is_read_but_not_used(self):
+        html = render_clinical_content(_dump([_drawing(section="Beleid")]))
+        self.assertIn('<div class="note-drawings-column">', html)
 
     def test_urs_stent_is_a_line_along_its_ureter_under_the_stones(self):
         drawing = _drawing(
@@ -136,8 +144,10 @@ class NoteDrawingsPdfTests(SimpleTestCase):
     def test_note_without_drawings_is_unchanged(self):
         dump = _dump([])
         del dump["content"]["clinicalActions"]["drawings"]
-        self.assertNotIn("<svg", render_clinical_content(dump))
-        self.assertIn("- Afbeelding 1", render_clinical_content(dump))
+        html = render_clinical_content(dump)
+        self.assertNotIn("<svg", html)
+        self.assertNotIn("note-drawings-column", html)
+        self.assertIn("- Afbeelding 1", html)
 
     def test_malformed_drawing_is_shown_as_unavailable_not_half_printed(self):
         html = render_clinical_content(_dump([_drawing(template="elders")]))
@@ -148,6 +158,7 @@ class NoteDrawingsPdfTests(SimpleTestCase):
 class NoteDrawingsValidationTests(SimpleTestCase):
     def test_valid_and_absent_drawings_pass(self):
         validate_note_drawings(_dump([_drawing(), _drawing(number=2)]))
+        validate_note_drawings(_dump([_drawing(section="Beleid", text="Rustig.")]))
         validate_note_drawings({"content": {"noteText": "x"}})
         validate_note_drawings({})
 
@@ -168,6 +179,9 @@ class NoteDrawingsValidationTests(SimpleTestCase):
             [_drawing(stamps=[_stamp()] * (catalog.MAX_STAMPS + 1))],
             [_drawing(number=n) for n in range(1, catalog.MAX_DRAWINGS + 2)],
             "geen lijst",
+            [_drawing(section="x" * 61)],
+            [_drawing(text="x" * 501)],
+            [_drawing(section=3)],
         ]
         for drawings in bad:
             with (

@@ -87,10 +87,10 @@ immutable and keep their old title. Tests: two in
 
 ## Note drawings — 29 September 2026
 
-A Medisch Dossier note's `content.clinicalActions.drawings` print inside the
-narrative: each drawing replaces its own note line ("- Afbeelding N: …") with
-an inline SVG of the schematic (numbered stamps, freehand lines) and a
-footnote legend under it; a drawing without a line prints after the text. Images are
+A Medisch Dossier note's `content.clinicalActions.drawings` print in a column
+on the left of the narrative, which flows beside them: per drawing an inline
+SVG of the schematic (numbered stamps, freehand lines), a footnote legend and
+its free text (owner, 30 Sep 2026). Images are
 plug package data inlined as data URIs. `finalize` and `amend` refuse
 malformed drawings with 422 `note_drawings_invalid`. Details, limits and
 rollback: `NOTE_DRAWINGS.md`.
