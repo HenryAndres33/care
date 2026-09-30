@@ -10,7 +10,11 @@ not code, so it does not travel with a push.
 country organization "Suriname" (`metadata.govt_org_type = "country"`), with
 `metadata.govt_org_type = "district"`, through CARE's own `Organization.save`
 (level/parent caches, duplicate-name check). Existing rows are never changed or
-deleted; the command stops if there is not exactly one such country.
+deleted. The dry run first lists the top-level geographic organizations
+(name, type, number of children). If no top-level "Suriname" exists, it stops
+unless `--create-country` is given, which creates it as a country
+(`govt_org_children_type = "district"`). A "Suriname" that is not marked as a
+country, or more than one, is reported and left for a person to resolve.
 
 Run it on the server once (CODING_RULES §7 step 7) after the backend update.
 

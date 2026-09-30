@@ -50,6 +50,28 @@ class SurinameDistrictTests(CareAPITestBase):
         self.assertEqual(wanica.level_cache, 1)
         self.assertEqual(wanica.root_org_id, country.id)
 
-    def test_stops_without_exactly_one_country(self):
+    def test_without_country_it_stops_unless_asked_to_create_it(self):
         with self.assertRaises(CommandError):
             run("--apply")
+        self.assertIn("country 'Suriname' to create", run("--create-country"))
+        self.assertFalse(Organization.objects.filter(name="Suriname").exists())
+        self.assertIn("created country", run("--apply", "--create-country"))
+        country = Organization.objects.get(name="Suriname", parent__isnull=True)
+        self.assertEqual(country.metadata["govt_org_type"], "country")
+        self.assertEqual(self.districts(country).count(), len(DISTRICTS))
+        self.assertIn("nothing to do", run("--apply", "--create-country"))
+
+    def test_existing_unmarked_suriname_is_not_changed(self):
+        unmarked = Organization.objects.create(org_type="govt", name="Suriname")
+        with self.assertRaises(CommandError):
+            run("--apply", "--create-country")
+        unmarked.refresh_from_db()
+        self.assertEqual(unmarked.metadata, {})
+        self.assertFalse(self.districts(unmarked).exists())
+
+    def test_dry_run_lists_the_top_level(self):
+        self.country()
+        Organization.objects.create(org_type="govt", name="Elders")
+        output = run()
+        self.assertIn("'Elders' type=- children=0", output)
+        self.assertIn("'Suriname' type=country children=0", output)
