@@ -71,7 +71,14 @@ to the React bundle, `https://files.DOMAIN` to MinIO (presigned PDF links).
 
 ## Updating
 
-Commit on the laptop and push to GitHub. Then:
+Commit on the laptop and push to GitHub. Then, from the laptop, one command
+does all of it (backup copied home and verified, backend, frontend, health
+checks, BUS line) and stops at the first failure:
+
+    bash care/deploy/deploy-server.sh --check   # plan and health only
+    bash care/deploy/deploy-server.sh
+
+The two scripts it runs, for reference:
 
 - **Backend changed** — on the server (or over ssh):
 
@@ -111,5 +118,7 @@ See [local-test/README.md](local-test/README.md).
 ## Routine updates (agents)
 
 The binding procedure for updating the server, including asking the owner
-first, is `care_fe/CODING_RULES.md` §7.
+first, is `care_fe/CODING_RULES.md` §7; agents use the `deploy-server` skill
+(`care_fe/.claude/skills/deploy-server/SKILL.md`), which runs
+`deploy-server.sh`.
 
