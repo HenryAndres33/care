@@ -88,17 +88,17 @@ def _legacy_summary(extensions):
 
 
 def insurance_display(extensions) -> str | None:
-    """One printable line, e.g. 'SURVAM · PZS-basis · nr. 12345'."""
+    """One printable line, e.g. 'SZF BZV 1234524454': the plan (or the
+    insurer when it has no plan) and the policy number (owner, 1 Oct 2026)."""
     data = (extensions or {}).get(PATIENT_INSURANCE_EXTENSION_NAME)
     group = _group(data.get("insurer")) if isinstance(data, dict) else None
     if group is None:
         return _legacy_summary(extensions)
-    parts = [group.name]
-    if group.plan_field and data.get(group.plan_field):
-        parts.append(str(data[group.plan_field]))
+    plan = group.plan_field and data.get(group.plan_field)
+    parts = [str(plan) if plan else group.name]
     if data.get("policy_number"):
-        parts.append(f"nr. {data['policy_number']}")
-    return " · ".join(parts)
+        parts.append(str(data["policy_number"]))
+    return " ".join(parts)
 
 
 class PatientInsuranceExtension(PlugExtension):

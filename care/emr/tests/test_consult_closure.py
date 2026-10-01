@@ -321,15 +321,41 @@ class ConsultClosureWorkflowTests(
         self.assertEqual(self.booking.status, "fulfilled")
         self.assertEqual(ConsultClosure.objects.count(), 1)
 
-    def test_booked_consult_with_stale_booking_still_blocks(self):
+    def test_checked_in_consult_closes_and_fulfils_booking(self):
+        # Owner, 1 Oct 2026: a consult closes even while the appointment is
+        # still "aangemeld" and the queue token was never called.
+        self.booking.status = "checked_in"
+        self.booking.save(update_fields=["status", "modified_date"])
+        self.token.status = "CREATED"
+        self.token.save(update_fields=["status", "modified_date"])
+
+        candidate = self._ready_candidate()
+        self.assertEqual(candidate["expected_booking_status"], "checked_in")
+        self.assertEqual(candidate["expected_token_status"], "CREATED")
+
+        response, _payload = self._close(candidate)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.booking.refresh_from_db()
+        self.token.refresh_from_db()
+        self.assertEqual(self.booking.status, "fulfilled")
+        self.assertEqual(self.token.status, "FULFILLED")
+
+    def test_booked_consult_with_withdrawn_booking_still_blocks(self):
         self.booking.token = None
-        self.booking.status = "booked"
+        self.booking.status = "cancelled"
         self.booking.save(update_fields=["token", "status", "modified_date"])
         response = self.client.post(
             self.preflight_url, self._preflight_body(), format="json"
         )
         self.assertIn("booking_state_stale", response.data["blocker_codes"])
         self.assertNotIn("token_missing", response.data["blocker_codes"])
+
+    def test_status_changed_after_preflight_blocks_close(self):
+        candidate = self._ready_candidate()
+        self.booking.status = "checked_in"
+        self.booking.save(update_fields=["status", "modified_date"])
+        response, _payload = self._close(candidate)
+        self.assertIn("preflight_stale", response.data["blocker_codes"])
 
     def test_booked_emergency_retains_queue_checks(self):
         self.encounter.encounter_class = "emer"

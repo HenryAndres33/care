@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import (
     UUID4,
@@ -23,6 +23,22 @@ EMERGENCY_CLOSE_POLICY_ID = "care.standard.emergency-close"
 UNSCHEDULED_CONSULT_CLOSE_POLICY_ID = "care.standard.unscheduled-consult-close"
 CONSULT_CLOSE_POLICY_VERSION = 1
 CONSULT_CLOSE_PREFLIGHT_VERSION = 1
+# A consult closes whatever open state the appointment or queue token is in
+# ("aangemeld", booked, called ...); closing makes both fulfilled (owner,
+# 1 Oct 2026). Only a withdrawn or already finished appointment blocks.
+ClosableBookingStatus = Literal[
+    "proposed",
+    "pending",
+    "booked",
+    "arrived",
+    "checked_in",
+    "waitlist",
+    "in_consultation",
+    "noshow",
+]
+CLOSABLE_BOOKING_STATUSES = frozenset(get_args(ClosableBookingStatus))
+ClosableTokenStatus = Literal["CREATED", "IN_PROGRESS", "UNFULFILLED"]
+CLOSABLE_TOKEN_STATUSES = frozenset(get_args(ClosableTokenStatus))
 CONSULT_CLOSE_POLICY_HASH = canonical_sha256(
     {
         "contract": "care-standard-consult-close-policy-v1",
@@ -134,9 +150,9 @@ class ConsultCloseCommandCandidateSpec(BaseModel):
     appointment: UUID4 | None
     expected_encounter_status: Literal["in_progress"]
     expected_encounter_modified_at: datetime
-    expected_token_status: Literal["IN_PROGRESS"] | None
+    expected_token_status: ClosableTokenStatus | None
     expected_token_modified_at: datetime | None
-    expected_booking_status: Literal["in_consultation"] | None
+    expected_booking_status: ClosableBookingStatus | None
     expected_booking_modified_at: datetime | None
     policy_id: Literal[
         CONSULT_CLOSE_POLICY_ID,

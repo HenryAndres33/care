@@ -92,6 +92,18 @@ medication inventory, and correspondence outcome into one immutable evidence
 snapshot. BPH, haematuria, stones, and later custom forms use the same command;
 only the configured required questionnaire changes.
 
+**Open booking states close (owner, 1 Oct 2026).** A booked consult used to
+close only while its appointment was `in_consultation` and its queue token
+`IN_PROGRESS`; a patient left on "aangemeld" (`checked_in`) blocked with
+"De afspraakstatus is gewijzigd". Now any open state closes: booking
+`proposed`, `pending`, `booked`, `arrived`, `checked_in`, `waitlist`,
+`in_consultation`, `noshow`; token `CREATED`, `IN_PROGRESS`, `UNFULFILLED`
+(`ClosableBookingStatus`/`ClosableTokenStatus` in
+`resources/consult_closure.py`). The candidate carries the actual state, so a
+change after preflight is still refused; closing still makes both fulfilled.
+A cancelled, rescheduled, entered-in-error or already fulfilled appointment
+still blocks.
+
 ## API
 
 All responses use `Cache-Control: no-store`.

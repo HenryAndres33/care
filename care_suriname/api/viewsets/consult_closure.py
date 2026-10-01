@@ -72,6 +72,8 @@ from care_suriname.models.correspondence_review import CorrespondenceReview
 from care_suriname.reports.form_submission_artifact import validate_response_dump
 from care_suriname.resources.closure_medications import evaluate_closure_medications
 from care_suriname.resources.consult_closure import (
+    CLOSABLE_BOOKING_STATUSES,
+    CLOSABLE_TOKEN_STATUSES,
     CONSULT_CLOSE_POLICY_ID,
     CONSULT_CLOSE_POLICY_VERSION,
     CONSULT_CLOSE_PREFLIGHT_VERSION,
@@ -512,11 +514,9 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             blockers.add("encounter_terminal")
         elif encounter.status != StatusChoices.in_progress.value:
             blockers.add("encounter_state_stale")
-        if token and token.status != TokenStatusOptions.IN_PROGRESS.value:
+        if token and token.status not in CLOSABLE_TOKEN_STATUSES:
             blockers.add("token_state_stale")
-        if appointment and (
-            appointment.status != BookingStatusChoices.in_consultation.value
-        ):
+        if appointment and appointment.status not in CLOSABLE_BOOKING_STATUSES:
             blockers.add("booking_state_stale")
         if blockers:
             return self._preflight_blocked(blockers)
@@ -552,13 +552,9 @@ class ConsultClosureViewSet(ClinicalNoStoreResponseMixin, EMRBaseViewSet):
             "appointment": self._external_uuid(appointment),
             "expected_encounter_status": StatusChoices.in_progress.value,
             "expected_encounter_modified_at": encounter.modified_date,
-            "expected_token_status": TokenStatusOptions.IN_PROGRESS.value
-            if token
-            else None,
+            "expected_token_status": token.status if token else None,
             "expected_token_modified_at": token.modified_date if token else None,
-            "expected_booking_status": BookingStatusChoices.in_consultation.value
-            if appointment
-            else None,
+            "expected_booking_status": appointment.status if appointment else None,
             "expected_booking_modified_at": appointment.modified_date
             if appointment
             else None,

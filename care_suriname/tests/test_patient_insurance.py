@@ -85,9 +85,7 @@ class PatientInsuranceExtensionTests(SimpleTestCase):
     def test_display_line_and_legacy_fallback(self):
         stored = self.extension.validate(SURVAM)
         extensions = {PATIENT_INSURANCE_EXTENSION_NAME: stored}
-        self.assertEqual(
-            insurance_display(extensions), "SURVAM · PZS-basis · nr. 12345"
-        )
+        self.assertEqual(insurance_display(extensions), "PZS-basis 12345")
         legacy = {"core": {"urology_patient_profile_v1": {"insurance_summary": "SZF"}}}
         self.assertEqual(insurance_display(legacy), "SZF")
         self.assertIsNone(insurance_display({}))
@@ -124,7 +122,7 @@ class PatientInsurancePdfTests(CareAPITestBase):
         )
 
         self.assertIn("Verzekering", html)
-        self.assertIn("SURVAM · PZS-basis · nr. 12345", html)
+        self.assertIn("PZS-basis 12345", html)
 
 
 class PatientInsuranceApiTests(CareAPITestBase):

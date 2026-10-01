@@ -41,7 +41,7 @@ Stored shape (schema version `1`):
   create-only hook for extensions, so a direct API client that omits the key
   entirely is not forced to send it.
 - The note PDF (`reports/form_submission_artifact.py`) prints a row
-  "Verzekering", e.g. `SURVAM · PZS-basis · nr. 12345`
+  "Verzekering", e.g. `PZS-basis 12345` (plan or insurer, then the policy number; owner 1 Oct 2026)
   (`insurance_display`). Patients without it show the older free text
   `core.urology_patient_profile_v1.insurance_summary` if present, otherwise
   "Niet geregistreerd". The urology edit screen removes that free text when a
