@@ -15,9 +15,11 @@ from care_suriname.reports.correspondence_letter_metadata import (
     patient_record_identifier,
 )
 from care_suriname.reports.form_submission_artifact_metadata import (
+    OPERATION_QUESTIONNAIRE_SLUG,
     date_of_birth,
     encounter_date,
     encounter_date_label,
+    operation_header_rows,
     user_name,
 )
 from care_suriname.reports.form_submission_artifact_metadata import (
@@ -128,7 +130,11 @@ def build_form_submission_artifact_html(
         ("Patient", patient.name),
         ("Geboortedatum", date_of_birth(patient)),
         ("Verzekering", insurance_display(patient.extensions) or "Niet geregistreerd"),
-        (encounter_date_label(encounter), encounter_date(encounter.period)),
+        *(
+            operation_header_rows(submission.response_dump)
+            if questionnaire.slug == OPERATION_QUESTIONNAIRE_SLUG
+            else [(encounter_date_label(encounter), encounter_date(encounter.period))]
+        ),
         ("Behandelaar", user_name(finalizer)),
     ]
     patient_details = "".join(

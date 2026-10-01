@@ -65,3 +65,15 @@ bytes, validation, asset manifest).
 their stored JSON (harmless); without this code their PDF simply omits the
 drawings, and the frontend must be rolled back together (it would otherwise
 offer drawings that no longer print).
+
+## Operation reports — 1 October 2026
+
+An operation report (`urology-operaties`) stores its Tekeningen the same way,
+in its own `content.clinicalActions.drawings` (`actions` empty), written with
+the report's Opslaan / Definitief vastleggen / correction (frontend
+`operations/drawings/`). No backend code changed: `finalize` and `amend`
+already run `validate_note_drawings` for every questionnaire, the operation
+validator ignores `clinicalActions`, the finalized snapshot hash covers the
+whole `response_dump`, and the stored-record PDF ("Operatieverslag") prints
+the figures beside the narrative. Tests:
+`care_suriname/tests/test_note_drawings_operation.py`.

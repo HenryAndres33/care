@@ -102,3 +102,15 @@ extension `care_suriname_insurance` (e.g. `SURVAM · PZS-basis · nr. 12345`),
 falling back to the older free text, else "Niet geregistreerd". It reflects
 the patient record when the PDF is rendered; PDFs already stored keep what they
 printed. Details and rollback: `../extensions/PATIENT_INSURANCE.md`.
+
+## Operation report header — 1 October 2026
+
+For questionnaire `urology-operaties` the PDF header shows "Datum ingreep",
+"Ingreep" and "Operateur" from the report's own values
+(`operation.procedureDate`, `operation.procedureLabel`,
+`operation.surgeonDisplay`) instead of the consult date: an operation report
+may hang on an older consult, and the paper file needs the day operated.
+Missing values print as "Niet geregistreerd". Other forms are unchanged.
+Code: `form_submission_artifact_metadata.operation_header_rows`; tests:
+`care_suriname/tests/test_note_drawings_operation.py`. Already generated PDFs
+are immutable and keep their old header.

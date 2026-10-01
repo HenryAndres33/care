@@ -1,3 +1,4 @@
+from datetime import date
 from html import escape
 
 from django.utils import timezone
@@ -11,7 +12,7 @@ _ADMISSION_SLOT_TITLES = {
 
 
 def document_title(submission, questionnaire) -> str:
-    if questionnaire.slug == "urology-operaties":
+    if questionnaire.slug == OPERATION_QUESTIONNAIRE_SLUG:
         return "Operatieverslag"
     slot = _admission_slot(submission)
     kind = slot.split(":", 1)[0] if slot else None
@@ -35,6 +36,40 @@ def _admission_slot(submission) -> str | None:
         .first()
     )
     return reservation.slot if reservation else None
+
+
+OPERATION_QUESTIONNAIRE_SLUG = "urology-operaties"
+_NOT_RECORDED = "Niet geregistreerd"
+
+
+def operation_header_rows(response_dump) -> list[tuple[str, str]]:
+    """Date, procedure and surgeon of an operation report for the PDF header.
+
+    The operation's own date replaces the consult date: an operation report
+    may hang on an older consult, and the paper file needs the day operated.
+    """
+    content = response_dump.get("content") if isinstance(response_dump, dict) else None
+    values = content.get("values") if isinstance(content, dict) else None
+    values = values if isinstance(values, dict) else {}
+
+    def text(key: str) -> str:
+        value = values.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else ""
+
+    return [
+        ("Datum ingreep", _procedure_date(text("operation.procedureDate"))),
+        ("Ingreep", text("operation.procedureLabel") or _NOT_RECORDED),
+        ("Operateur", text("operation.surgeonDisplay") or _NOT_RECORDED),
+    ]
+
+
+def _procedure_date(raw_value: str) -> str:
+    if not raw_value:
+        return _NOT_RECORDED
+    try:
+        return date.fromisoformat(raw_value[:10]).strftime("%d-%m-%Y")
+    except ValueError:
+        return raw_value
 
 
 def encounter_date_label(encounter) -> str:
