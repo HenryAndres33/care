@@ -1,5 +1,11 @@
 # Owner-bound draft recovery keys
 
+Contents: [API and authentication](#api-and-authentication) ·
+[Protected configuration and activation](#protected-configuration-and-activation) ·
+[Rotation, backup and rollback](#rotation-backup-and-rollback) ·
+[Verification](#verification) ·
+[Plugin ownership — 19 September 2026](#plugin-ownership--19-september-2026)
+
 Owner approved 12 September 2026: encrypted local drafts survive crashes; after
 restart the original clinician must reconnect and authenticate to unlock them.
 This module stores wrapped random encryption keys, never clinical draft content.

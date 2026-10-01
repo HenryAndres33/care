@@ -1,5 +1,10 @@
 # Native correspondence delivery ledger
 
+Contents: [Production gate](#production-gate) · [API contract](#api-contract) ·
+[Durable states and certainty](#durable-states-and-certainty) ·
+[Worker and crash recovery](#worker-and-crash-recovery) ·
+[Slice 11 correction delivery boundary](#slice-11-correction-delivery-boundary)
+
 Slice 10 adds a disease-independent delivery boundary for the immutable final
 letter/PDF produced by Slice 09. It does not contain BPH, urology, medication,
 or custom-form field rules. The delivery source is always one exact finalized

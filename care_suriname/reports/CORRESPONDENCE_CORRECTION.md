@@ -1,5 +1,14 @@
 # Native correspondence source-correction ledger
 
+Contents: [Atomic source contract](#atomic-source-contract) ·
+[Canonical lock order](#canonical-lock-order) ·
+[Migration 0086](#migration-0086) ·
+[Durable projector and continuity cases](#durable-projector-and-continuity-cases) ·
+[Replacement correction workflow (Slice 11-C)](#replacement-correction-workflow-slice-11-c) ·
+[Continuity read contract](#continuity-read-contract) ·
+[Migration 0087 and deployment](#migration-0087-and-deployment) ·
+[Operator runbook](#operator-runbook)
+
 Slice 11-A establishes the disease-independent source boundary used by later
 correspondence continuity projection. It does not infer clinical differences,
 mutate an existing PDF, letter, review, or delivery, or claim that a GP has

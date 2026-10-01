@@ -1,5 +1,16 @@
 # Clinical Workflow Production Gate
 
+Contents: [Release decision and non-goals](#release-decision-and-non-goals) ·
+[Additive production module inventory](#additive-production-module-inventory) ·
+[Unavoidable CARE core glue inventory](#unavoidable-care-core-glue-inventory) ·
+[Migration inventory and rollback class](#migration-inventory-and-rollback-class) ·
+[Queryable audit evidence](#queryable-audit-evidence) ·
+[Deployment runbook](#deployment-runbook) ·
+[Monitoring and alert thresholds](#monitoring-and-alert-thresholds) ·
+[Incident and recovery runbook](#incident-and-recovery-runbook) ·
+[CARE upstream update / rebase procedure](#care-upstream-update--rebase-procedure) ·
+[Acceptance evidence](#acceptance-evidence)
+
 Date: 2026-07-20
 Scope: CARE-native form, medication, document, correspondence and consult-close
 workflow delivered by migrations `0078` through `0090`.

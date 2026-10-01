@@ -1,5 +1,13 @@
 # Finalized FormSubmission PDF Artifact
 
+Contents: [Generate](#generate) ·
+[Safety and authorization](#safety-and-authorization) ·
+[Download and failures](#download-and-failures) ·
+[Admission-note titles — 12 September 2026](#admission-note-titles--12-september-2026) ·
+[Note drawings — 29 September 2026](#note-drawings--29-september-2026) ·
+[Insurance row — 30 September 2026](#insurance-row--30-september-2026) ·
+[Operation report header — 1 October 2026](#operation-report-header--1-october-2026)
+
 The FormSubmission artifact contract is generic and questionnaire-independent.
 It stores a server-rendered PDF for one exact immutable finalized
 `FormSubmission` version through CARE's native `ReportUpload` and report-bucket

@@ -1,5 +1,8 @@
 # Deterministic Correspondence Compilation
 
+Contents: [API](#api) ·
+[Integrity and authorization](#integrity-and-authorization)
+
 CARE compiles correspondence from explicit immutable clinical sources. The
 contract is generic: templates and finalized questionnaire responses define the
 clinical content, so no disease, medication, or specialty is hard-coded.

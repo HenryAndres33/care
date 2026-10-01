@@ -2,6 +2,13 @@
 
 `care_suriname` contains backend behavior that belongs to the Suriname deployment rather than native CARE. It is loaded through CARE's plug mechanism and is the backend companion to `care_fe/src/Plugins/urology/`.
 
+Contents: [Current state — 19 September 2026](#current-state--19-september-2026) ·
+[Boundary rules](#boundary-rules) · [Source layout](#source-layout) ·
+[Database and migration rules](#database-and-migration-rules) ·
+[Packaging](#packaging) · [Verification](#verification) ·
+[Historical extraction notes — 19 September 2026](#historical-extraction-notes--19-september-2026) ·
+[26 September 2026 — manual letter recipient requires a letter author](#26-september-2026--manual-letter-recipient-requires-a-letter-author)
+
 ## Current state — 19 September 2026
 
 Final source: `0ed1b6e10ac1a7692f6114cc8647306ce2a43d9d`.

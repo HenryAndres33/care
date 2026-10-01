@@ -1,5 +1,14 @@
 # Consult closure workflow (Slice 12)
 
+Contents: [Prescriptions that keep a consult open — 27 September 2026](#prescriptions-that-keep-a-consult-open--27-september-2026) ·
+[Derived medication and GP-letter outcomes — 27 September 2026](#derived-medication-and-gp-letter-outcomes--27-september-2026) ·
+[Approved unscheduled-emergency extension — 11 September 2026](#approved-unscheduled-emergency-extension--11-september-2026) ·
+[API](#api) · [Required-form policy](#required-form-policy) ·
+[Correspondence outcomes](#correspondence-outcomes) ·
+[Atomic close and lock order](#atomic-close-and-lock-order) ·
+[Recovery and integrity](#recovery-and-integrity) ·
+[Verification and deployment](#verification-and-deployment)
+
 ## Prescriptions that keep a consult open — 27 September 2026
 
 Owner-approved. `resources/closure_medications.py` is the single rule for which

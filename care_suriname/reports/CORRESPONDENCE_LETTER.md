@@ -1,5 +1,13 @@
 # Native correspondence letter workflow
 
+Contents: [API contract](#api-contract) ·
+[Safety properties](#safety-properties) ·
+[Slice 11 historical-read dependency](#slice-11-historical-read-dependency) ·
+[Printout corrections — 12 September 2026](#printout-corrections--12-september-2026) ·
+[AZP PDF letterhead — 13 September 2026](#azp-pdf-letterhead--13-september-2026) ·
+[Legacy native-template normalization — 13 September 2026](#legacy-native-template-normalization--13-september-2026) ·
+[AZP Flow design — 26 September 2026](#azp-flow-design--26-september-2026)
+
 Slice 09 adds a generic CARE-native editable correspondence aggregate. It is
 independent of disease, specialty, medication, and presentation-layer fields.
 The immutable Slice 08 review binding is the only accepted source boundary.

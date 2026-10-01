@@ -1,5 +1,8 @@
 # Verified Correspondence Recipient and Review Binding
 
+Contents: [Verified recipient directory](#verified-recipient-directory) ·
+[Immutable review binding](#immutable-review-binding)
+
 Slice 08 adds an explicit review gate between deterministic correspondence
 compilation and any future final-letter, PDF, attachment, or delivery workflow.
 It is generic and contains no disease, specialty, facility, clinician, or
