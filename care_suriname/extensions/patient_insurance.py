@@ -1,5 +1,9 @@
 """Patient insurance as a native CARE patient extension (see PATIENT_INSURANCE.md)."""
 
+import re
+from datetime import date, datetime
+
+from django.utils import timezone
 from jsonschema import ValidationError as JSONSchemaValidationError
 from jsonschema import validate
 
@@ -10,6 +14,8 @@ from care_suriname.extensions.patient_insurance_catalog import INSURER_GROUPS
 PATIENT_INSURANCE_EXTENSION_NAME = "care_suriname_insurance"
 SCHEMA_VERSION = "1"
 POLICY_NUMBER_MAX_LENGTH = 64
+GUARANTOR_MAX_LENGTH = 128
+_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def _build_write_schema():
@@ -51,6 +57,20 @@ def _build_write_schema():
         "minLength": 1,
         "maxLength": POLICY_NUMBER_MAX_LENGTH,
     }
+    # Optional, for the patient sticker (owner, 2 Oct 2026).
+    properties["valid_until"] = {
+        "type": "string",
+        "title": "Geldig t/m",
+        "format": "date",
+        "default": "",
+    }
+    properties["guarantor"] = {
+        "type": "string",
+        "title": "Garantsteller",
+        "default": "",
+        "minLength": 1,
+        "maxLength": GUARANTOR_MAX_LENGTH,
+    }
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -72,6 +92,23 @@ def normalize_insurance(data):
             continue
         normalized[key] = value
     return normalized
+
+
+def normalize_valid_until(value):
+    """'YYYY-MM-DD' of a real date. CARE's own date picker sends a full ISO
+    datetime (local midnight in UTC); that becomes its date in TIME_ZONE."""
+    if not isinstance(value, str):
+        raise ValueError("Invalid insurance expiry date")
+    try:
+        if _DATE.fullmatch(value):
+            return date.fromisoformat(value).isoformat()
+        if _DATE.match(value) and value[10:11] == "T":
+            moment = datetime.fromisoformat(value)
+            if timezone.is_aware(moment):
+                return timezone.localtime(moment).date().isoformat()
+    except ValueError:
+        pass
+    raise ValueError("Invalid insurance expiry date")
 
 
 def _group(name):
@@ -102,7 +139,7 @@ def insurance_display(extensions) -> str | None:
 
 
 class PatientInsuranceExtension(PlugExtension):
-    """Insurer, plan and insurance number of a patient."""
+    """Insurer, plan, insurance number, expiry and guarantor of a patient."""
 
     resource_type = ExtensionResource.patient
     extension_name = PATIENT_INSURANCE_EXTENSION_NAME
@@ -126,6 +163,8 @@ class PatientInsuranceExtension(PlugExtension):
         # every later edit of those patients.
         if not data:
             return data
+        if "valid_until" in data:
+            data["valid_until"] = normalize_valid_until(data["valid_until"])
         try:
             validate(instance=data, schema=self.write_schema)
         except JSONSchemaValidationError as error:
@@ -136,6 +175,8 @@ class PatientInsuranceExtension(PlugExtension):
                 raise ValueError("Insurance plan does not belong to the insurer")
         if not group.plan_field and "policy_number" in data:
             raise ValueError("Eigen rekening has no insurance number")
+        if not group.plan_field and "valid_until" in data:
+            raise ValueError("Eigen rekening has no insurance expiry date")
         return data
 
     def serialize_extensions(self, data, resource=None):

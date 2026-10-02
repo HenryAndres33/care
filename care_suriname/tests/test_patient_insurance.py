@@ -63,6 +63,33 @@ class PatientInsuranceExtensionTests(SimpleTestCase):
             self.extension.validate(data), {"version": "1", "insurer": "Eigen rekening"}
         )
 
+    def test_sticker_fields_are_optional_and_normalized(self):
+        data = {**SURVAM, "valid_until": "2027-03-31", "guarantor": "  Staatsolie "}
+        cleaned = self.extension.validate(data)
+        self.assertEqual(cleaned["valid_until"], "2027-03-31")
+        self.assertEqual(cleaned["guarantor"], "Staatsolie")
+        blank = self.extension.validate({**SURVAM, "valid_until": "", "guarantor": " "})
+        self.assertNotIn("valid_until", blank)
+        self.assertNotIn("guarantor", blank)
+
+    def test_native_date_picker_value_becomes_the_local_date(self):
+        # CARE's form sends local midnight (Paramaribo, UTC-3) as UTC.
+        picked = {**SURVAM, "valid_until": "2027-03-31T03:00:00.000Z"}
+        self.assertEqual(self.extension.validate(picked)["valid_until"], "2027-03-31")
+
+    def test_eigen_rekening_may_have_a_guarantor(self):
+        data = {"version": "1", "insurer": "Eigen rekening", "guarantor": "Werkgever"}
+        self.assertEqual(self.extension.validate(data), data)
+
+    def test_existing_version_one_values_stay_valid(self):
+        stored = {
+            "version": "1",
+            "insurer": "SZF",
+            "plan_szf": "SZF",
+            "policy_number": "1",
+        }
+        self.assertEqual(self.extension.validate(stored), stored)
+
     def test_empty_object_of_a_legacy_patient_is_accepted(self):
         self.assertEqual(self.extension.validate({}), {})
 
@@ -77,6 +104,14 @@ class PatientInsuranceExtensionTests(SimpleTestCase):
             {"version": "1", "insurer": "Eigen rekening", "policy_number": "9"},
             {**SURVAM, "policy_number": "x" * 65},
             {**SURVAM, "note": "extra"},
+            {**SURVAM, "valid_until": "2027-02-30"},
+            {**SURVAM, "valid_until": "31-03-2027"},
+            {**SURVAM, "valid_until": "20270331"},
+            {**SURVAM, "valid_until": "2027-03-31T00:00:00"},
+            {**SURVAM, "valid_until": 20270331},
+            {**SURVAM, "guarantor": "x" * 129},
+            {**SURVAM, "guarantor": 5},
+            {"version": "1", "insurer": "Eigen rekening", "valid_until": "2027-03-31"},
         ]
         for data in refused:
             with self.subTest(data=data), self.assertRaises(ValueError):
@@ -180,6 +215,19 @@ class PatientInsuranceApiTests(CareAPITestBase):
                 "policy_number": "12345",
             },
         )
+
+        sticker = {**SURVAM, "valid_until": "2027-03-31", "guarantor": " Werkgever "}
+        response = self.client.put(
+            detail,
+            {**data, "extensions": {PATIENT_INSURANCE_EXTENSION_NAME: sticker}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        stored = self.client.get(detail).data["extensions"][
+            PATIENT_INSURANCE_EXTENSION_NAME
+        ]
+        self.assertEqual(stored["valid_until"], "2027-03-31")
+        self.assertEqual(stored["guarantor"], "Werkgever")
 
         own = {"version": "1", "insurer": "Eigen rekening", "plan_survam": ""}
         response = self.client.put(
